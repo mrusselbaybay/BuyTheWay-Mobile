@@ -1,0 +1,432 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../services/api_service.dart';
+import 'auth/driver_login_screen.dart';
+import 'chat/driver_chat_conversation_screen.dart';
+import 'chat/driver_chat_list_screen.dart';
+import 'deliveries/driver_deliveries_screen.dart';
+import 'driver_models.dart';
+import 'driver_theme.dart';
+import 'earnings/driver_earnings_screen.dart';
+import 'history/driver_history_screen.dart';
+import 'home/deliver_order_screen.dart';
+import 'home/delivery_request_details_screen.dart';
+import 'home/driver_home_screen.dart';
+import 'home/pickup_order_screen.dart';
+import 'settings/driver_settings_screen.dart';
+import 'widgets/driver_nav_bar.dart';
+import 'widgets/driver_shared_widgets.dart';
+
+/// Owns every piece of shared state for the driver app (online status,
+/// the in-progress delivery, available requests, history, chat threads,
+/// earnings balance) so it survives tab switches — the same lifted-state
+/// pattern used by [CourierDashboard] (courier_dashboard.dart).
+///
+/// The signed-in [DriverAccount] itself is real, not mock: it's loaded
+/// from `GET /api/driver/profile` on startup using the token
+/// [DriverLoginScreen] saved. Everything else in this shell (deliveries,
+/// history, chat, earnings) is still the module's existing mock data —
+/// only the Settings/account data was in scope to become functional.
+class DriverShell extends StatefulWidget {
+  const DriverShell({super.key});
+
+  @override
+  State<DriverShell> createState() => _DriverShellState();
+}
+
+class _DriverShellState extends State<DriverShell> {
+  final ApiService _api = ApiService();
+
+  int _tabIndex = 0;
+  bool _isOnline = false;
+  DateTime? _shiftStart;
+  ActiveDelivery? _activeDelivery;
+  List<DeliveryRequest> _availableRequests = [];
+
+  // ---- Deliveries tab — real data from GET /api/driver/deliveries, not
+  // hardcoded (see AssignedDelivery.fromApi / DriverDeliveryController).
+  List<AssignedDelivery> _assignedDeliveries = [];
+  bool _loadingDeliveries = true;
+  String? _deliveriesError;
+
+  final List<HistoryEntry> _history = mockHistory();
+  final List<ChatThread> _chatThreads = mockChatThreads();
+  double _availableBalance = 4820;
+  final List<WithdrawalRecord> _withdrawals = mockWithdrawals();
+
+  // Settings preferences — lifted up here (same pattern as the rest of this
+  // shell's state) so they survive switching away from the Account tab and
+  // stay in sync between the Account screen and the Settings screen.
+  bool _notificationsEnabled = true;
+  bool _soundEnabled = true;
+  String _language = 'English';
+
+  // ---- Real account loading state ----
+  String? _accessToken;
+  DriverAccount? _account;
+  bool _loadingAccount = true;
+  String? _accountLoadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccount();
+  }
+
+  Future<void> _loadAccount() async {
+    setState(() {
+      _loadingAccount = true;
+      _accountLoadError = null;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null || token.isEmpty) {
+      setState(() {
+        _loadingAccount = false;
+        _accountLoadError = 'Your session has expired. Please sign in again.';
+      });
+      return;
+    }
+
+    try {
+      final response = await _api.getDriverProfile(accessToken: token);
+      if (!mounted) return;
+      setState(() {
+        _accessToken = token;
+        _account = DriverAccount.fromApi(response);
+        _loadingAccount = false;
+      });
+      // Fire-and-forget — Deliveries has its own loading/error state and
+      // shouldn't hold up the rest of the shell rendering.
+      unawaited(_loadDeliveries());
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingAccount = false;
+        _accountLoadError = e.statusCode == 401
+            ? 'Your session has expired. Please sign in again.'
+            : e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingAccount = false;
+        _accountLoadError = 'Could not reach the server. Check your connection and try again.';
+      });
+    }
+  }
+
+  /// Loads the Deliveries tab from `GET /api/driver/deliveries`. Called
+  /// once the account (and therefore the access token) is available, and
+  /// again on pull-to-refresh from DriverDeliveriesScreen.
+  Future<void> _loadDeliveries() async {
+    final token = _accessToken;
+    if (token == null) return;
+
+    setState(() {
+      _loadingDeliveries = true;
+      _deliveriesError = null;
+    });
+
+    try {
+      final response = await _api.getDriverDeliveries(accessToken: token);
+      final rows = (response['data'] as List? ?? [])
+          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _assignedDeliveries = rows;
+        _loadingDeliveries = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingDeliveries = false;
+        _deliveriesError = e.statusCode == 401
+            ? 'Your session has expired. Please sign in again.'
+            : e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingDeliveries = false;
+        _deliveriesError = 'Could not reach the server. Check your connection and try again.';
+      });
+    }
+  }
+
+  Future<void> _signOutToLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const DriverLoginScreen()), (route) => false);
+  }
+
+  void _goOnline() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isOnline = true;
+      _shiftStart = DateTime.now();
+      _availableRequests = mockAvailableRequests();
+    });
+  }
+
+  void _goOffline() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isOnline = false;
+      _shiftStart = null;
+      _availableRequests = [];
+    });
+  }
+
+  void _toggleOnline() => _isOnline ? _goOffline() : _goOnline();
+
+  Future<void> _refreshRequests() async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted || !_isOnline) return;
+    setState(() => _availableRequests = mockAvailableRequests());
+  }
+
+  Future<void> _openRequestDetails(DeliveryRequest request) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => DeliveryRequestDetailsScreen(request: request)),
+    );
+    if (!mounted) return;
+    if (result == true) {
+      setState(() {
+        _availableRequests.removeWhere((r) => r.id == request.id);
+        _activeDelivery = ActiveDelivery(request: request);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delivery accepted — head to ${request.pickupLabel}.'), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.primaryDark),
+      );
+    } else if (result == false) {
+      setState(() => _availableRequests.removeWhere((r) => r.id == request.id));
+    }
+  }
+
+  void _updateActiveDelivery(void Function(ActiveDelivery) mutate) {
+    final active = _activeDelivery;
+    if (active == null) return;
+    setState(() => mutate(active));
+  }
+
+  void _completeActiveDelivery() {
+    final active = _activeDelivery;
+    if (active == null) return;
+    setState(() {
+      _history.insert(
+        0,
+        HistoryEntry(
+          id: 'h-${DateTime.now().millisecondsSinceEpoch}',
+          customerName: active.request.customerName,
+          pickupLabel: active.request.pickupLabel,
+          dropoffLabel: active.request.dropoffLabel,
+          completedAt: DateTime.now(),
+          earnings: active.request.estimatedFare,
+          status: HistoryStatus.completed,
+          etaMinutes: active.request.etaMinutes,
+          actualMinutes: DateTime.now().difference(active.request.requestedAt).inMinutes,
+        ),
+      );
+      _availableBalance += active.request.estimatedFare;
+      _activeDelivery = null;
+    });
+  }
+
+  Future<void> _openActiveDeliveryFlow() async {
+    final active = _activeDelivery;
+    if (active == null) return;
+
+    if (active.stage == DeliveryStage.headingToPickup || active.stage == DeliveryStage.atPickup) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PickupOrderScreen(
+            delivery: active,
+            onArrived: () => _updateActiveDelivery((d) => d.stage = DeliveryStage.atPickup),
+            onPhotoAttached: () => _updateActiveDelivery((d) => d.pickupPhotoAttached = true),
+            onConfirmPickup: () {
+              _updateActiveDelivery((d) => d.stage = DeliveryStage.headingToDropoff);
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      );
+    } else {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DeliverOrderScreen(
+            delivery: active,
+            onArrived: () => _updateActiveDelivery((d) => d.stage = DeliveryStage.atDropoff),
+            onPhotoAttached: () => _updateActiveDelivery((d) => d.deliveryPhotoAttached = true),
+            onNotesChanged: (text) => _updateActiveDelivery((d) => d.deliveryNotes = text),
+            onMarkDelivered: () {
+              _completeActiveDelivery();
+              Navigator.pop(context);
+              DriverTopNotification.show(context, message: 'Delivery completed!');
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  // History no longer has its own bottom-nav tab — it's reached as a
+  // pushed screen (with Flutter's own back button) from the compact icon
+  // shortcut in the Deliveries app bar, rather than a persistent tab, per
+  // the "compact utility, not a full nav tab" requirement.
+  //
+  // Fed the same real `_assignedDeliveries` list (and its loading/error
+  // state + refresh callback) the Deliveries tab already loads from
+  // `GET /api/driver/deliveries` — History just filters it down to the
+  // delivered rows, rather than pulling from the module's separate mock
+  // `_history` list. `_history`/mockHistory() itself is still used
+  // elsewhere in this shell (Earnings balance, Home tab's today stats,
+  // completing a mock Home-tab delivery) — none of that is backed by a
+  // real earnings API yet, so it stays mock for now; only History's own
+  // screen moved to real data.
+  void _openHistory() {
+    final token = _accessToken;
+    if (token == null) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DriverHistoryScreen(
+        deliveries: _assignedDeliveries,
+        accessToken: token,
+        loading: _loadingDeliveries,
+        error: _deliveriesError,
+        onRefresh: _loadDeliveries,
+      ),
+    ));
+  }
+
+  void _openChatThread(ChatThread thread) {
+    setState(() => thread.unreadCount = 0);
+    // The conversation screen owns sending + the simulated reply itself,
+    // mutating this same shared ChatThread object in place — a shell
+    // setState wouldn't rebuild the already-pushed route anyway.
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => DriverChatConversationScreen(thread: thread)));
+  }
+
+  void _withdraw(double amount, String destination) {
+    setState(() {
+      _availableBalance -= amount;
+      _withdrawals.insert(0, WithdrawalRecord(id: 'w-${DateTime.now().millisecondsSinceEpoch}', amount: amount, requestedAt: DateTime.now(), destination: destination));
+    });
+  }
+
+  int get _unreadChats => _chatThreads.fold(0, (sum, t) => sum + t.unreadCount);
+
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  double get _todayEarnings =>
+      _history.where((h) => h.status == HistoryStatus.completed && _isToday(h.completedAt)).fold(0, (sum, h) => sum + h.earnings);
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loadingAccount) {
+      return const Scaffold(
+        backgroundColor: DriverColors.background,
+        body: Center(
+          child: CircularProgressIndicator(color: DriverColors.primary),
+        ),
+      );
+    }
+
+    final account = _account;
+    final accessToken = _accessToken;
+    if (account == null || accessToken == null) {
+      return Scaffold(
+        backgroundColor: DriverColors.background,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_off_rounded, size: 48, color: DriverColors.textSecondary),
+                  const SizedBox(height: 16),
+                  Text(
+                    _accountLoadError ?? 'Something went wrong loading your account.',
+                    textAlign: TextAlign.center,
+                    style: DriverText.body,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadAccount,
+                    style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
+                    child: const Text('Try again'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(onPressed: _signOutToLogin, child: const Text('Back to sign in')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final pages = [
+      DriverHomeScreen(
+        isOnline: _isOnline,
+        shiftStart: _shiftStart,
+        account: account,
+        activeDelivery: _activeDelivery,
+        availableRequests: _availableRequests,
+        todayEarnings: _todayEarnings,
+        completedToday: _history.where((h) => h.status == HistoryStatus.completed && _isToday(h.completedAt)).length,
+        onGoOnline: _goOnline,
+        onOpenRequest: _openRequestDetails,
+        onContinueActiveDelivery: _openActiveDeliveryFlow,
+        onRefreshRequests: _refreshRequests,
+      ),
+      DriverDeliveriesScreen(
+        deliveries: _assignedDeliveries,
+        accessToken: accessToken,
+        loading: _loadingDeliveries,
+        error: _deliveriesError,
+        onRefresh: _loadDeliveries,
+        onOpenHistory: _openHistory,
+      ),
+      DriverEarningsScreen(todayEarnings: _todayEarnings, availableBalance: _availableBalance, withdrawals: _withdrawals, onWithdraw: _withdraw),
+      DriverChatListScreen(threads: _chatThreads, onOpenThread: _openChatThread),
+      DriverSettingsScreen(
+        account: account,
+        accessToken: accessToken,
+        notificationsEnabled: _notificationsEnabled,
+        onNotificationsChanged: (v) => setState(() => _notificationsEnabled = v),
+        soundEnabled: _soundEnabled,
+        onSoundChanged: (v) => setState(() => _soundEnabled = v),
+        language: _language,
+        onLanguageChanged: (v) => setState(() => _language = v),
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: DriverColors.background,
+      extendBody: true,
+      body: IndexedStack(index: _tabIndex, children: pages),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _toggleOnline,
+        backgroundColor: _isOnline ? DriverColors.error : DriverColors.primary,
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(_isOnline ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded, key: ValueKey(_isOnline)),
+        ),
+        label: Text(_isOnline ? 'Go offline' : 'Go online'),
+      ),
+      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, onTap: (i) => setState(() => _tabIndex = i)),
+    );
+  }
+}

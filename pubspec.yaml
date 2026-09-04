@@ -1,0 +1,48 @@
+name: ecommerce
+description: A Flutter e-commerce application
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Networking
+  http: ^1.1.0
+  
+  # Storage
+  shared_preferences: ^2.2.2
+
+  # File picking
+  file_picker: ^8.0.0+1
+
+  # Camera/gallery capture for the QR-code proof photo (driver pickup/delivery)
+  image_picker: ^1.1.2
+
+  # Live QR/barcode scanning, and decoding a QR code out of an already-picked
+  # still photo — both used by the driver app's parcel confirmation flow
+  mobile_scanner: ^5.2.3
+
+  # Opening external links (e.g. signed resume URLs)
+  url_launcher: ^6.2.5
+
+  # Declarative micro-animations (fade/slide/shimmer/scale) for the work screen
+  flutter_animate: ^4.5.2
+
+  # For icons
+  cupertino_icons: ^1.0.6
+
+  # In-app document preview (e.g. the courier's resignation letter) instead
+  # of handing off to an external browser
+  webview_flutter: ^4.13.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
