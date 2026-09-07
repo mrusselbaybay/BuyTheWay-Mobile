@@ -97,6 +97,60 @@ class ApiService {
     }
   }
 
+  /// Submits a full signup-wizard registration to
+  /// `POST /api/signup/register` (AuthController::registerUser) — the same
+  /// endpoint the web wizard's submitUserRegistration() posts to in
+  /// resources/js/app.js.
+  ///
+  /// This is deliberately NOT [register] (`/auth/register`): that endpoint
+  /// only creates the Supabase auth user from a JSON body. The wizard
+  /// endpoint additionally writes the address row, the role-specific
+  /// details row (courier_details / seller_details / driver_details) and
+  /// every uploaded document, which means it has to be multipart —
+  /// [fields] must use the exact snake_case names the controller
+  /// validates (`contact_no`, `house_no`, `region`, `id_type`, …) and each
+  /// document's [SignupUpload.field] the exact name
+  /// AuthController::fileMapForRole() reads.
+  Future<Map<String, dynamic>> submitSignupRegistration({
+    required Map<String, String> fields,
+    List<SignupUpload> documents = const [],
+    bool logistics = false,
+  }) async {
+    final path = logistics ? '/signup/register-logistics' : '/signup/register';
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
+      ..headers['Accept'] = 'application/json';
+
+    fields.forEach((key, value) {
+      if (value.isNotEmpty) request.fields[key] = value;
+    });
+
+    for (final document in documents) {
+      request.files.add(http.MultipartFile.fromBytes(
+        document.field,
+        document.bytes,
+        filename: document.fileName,
+      ));
+    }
+
+    try {
+      final streamedResponse = await request.send().timeout(
+            const Duration(seconds: 60),
+            onTimeout: () => throw ApiException(
+              message:
+                  'Connection timeout. Please check your internet connection.',
+              statusCode: 408,
+            ),
+          );
+      return _handleResponse(await http.Response.fromStream(streamedResponse));
+    } on SocketException {
+      throw ApiException(
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
+        statusCode: 0,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> getUser(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/auth/user'),
@@ -573,6 +627,27 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Flips the signed-in rider's "Go online" shift flag via
+  /// `PUT /api/driver/availability` — [online] true → 'available'
+  /// (dispatch can assign deliveries), false → 'unavailable'. The new
+  /// value is also echoed back on `GET /api/driver/profile`'s
+  /// `vehicle.delivery_status`.
+  Future<Map<String, dynamic>> updateDriverAvailability({
+    required String accessToken,
+    required bool online,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/driver/availability'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({'delivery_status': online ? 'available' : 'unavailable'}),
+    );
+    return _handleResponse(response);
+  }
+
   /// Saves personal info + address in one request via
   /// `PUT /api/driver/profile`.
   Future<Map<String, dynamic>> updateDriverProfile({
@@ -589,6 +664,49 @@ class ApiService {
       body: jsonEncode(data),
     );
     return _handleResponse(response);
+  }
+
+  /// Uploads the rider's profile picture to
+  /// `POST /api/driver/profile/avatar`, which stores it in the public
+  /// Supabase `avatars` bucket and returns the new `avatar_url`. [bytes]
+  /// is the already-cropped square image (see ImageCropSheet) — the
+  /// server re-derives the media type from the bytes themselves, but the
+  /// [fileName] extension still decides the stored object's extension, so
+  /// it must match the encoding.
+  Future<Map<String, dynamic>> uploadDriverAvatar({
+    required String accessToken,
+    required Uint8List bytes,
+    String fileName = 'avatar.jpg',
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/driver/profile/avatar'),
+    )
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken'
+      ..files.add(http.MultipartFile.fromBytes(
+        'avatar',
+        bytes,
+        filename: fileName,
+      ));
+
+    try {
+      final streamedResponse = await request.send().timeout(
+            const Duration(seconds: 45),
+            onTimeout: () => throw ApiException(
+              message:
+                  'Connection timeout. Please check your internet connection.',
+              statusCode: 408,
+            ),
+          );
+      return _handleResponse(await http.Response.fromStream(streamedResponse));
+    } on SocketException {
+      throw ApiException(
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
+        statusCode: 0,
+      );
+    }
   }
 
   /// Loads the parcels the logistics team has assigned to the signed-in
@@ -760,6 +878,68 @@ class ApiService {
     }
   }
 
+  /// Cross-region-transfer counterpart to [markDeliveryDelivered]: confirms
+  /// this rider reached the target logistics company's hub instead of a
+  /// buyer's doorstep, via `POST /api/driver/deliveries/{id}/confirm-transfer`
+  /// (DriverDeliveryController::confirmTransfer). Same photo-gated shape.
+  Future<Map<String, dynamic>> confirmParcelTransfer({
+    required String parcelAssignmentId,
+    required String accessToken,
+    required String photoFileName,
+    Uint8List? photoBytes,
+    String? photoFilePath,
+    String? confirmationToken,
+  }) async {
+    if (photoBytes == null && photoFilePath == null) {
+      throw ApiException(
+        message: 'Please attach a photo of the parcel before confirming the transfer.',
+        statusCode: 422,
+      );
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/confirm-transfer'),
+    )
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken';
+
+    if (confirmationToken != null && confirmationToken.isNotEmpty) {
+      request.fields['confirmation_token'] = confirmationToken;
+    }
+
+    if (photoBytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'photo',
+        photoBytes,
+        filename: photoFileName,
+      ));
+    } else {
+      request.files.add(await http.MultipartFile.fromPath(
+        'photo',
+        photoFilePath!,
+        filename: photoFileName,
+      ));
+    }
+
+    try {
+      final streamedResponse = await request.send().timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw ApiException(
+              message: 'Connection timeout. Please check your internet connection.',
+              statusCode: 408,
+            ),
+          );
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(
+        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        statusCode: 0,
+      );
+    }
+  }
+
   /// Gets a short-lived signed URL to the delivery photo on file for one of
   /// the signed-in rider's own assignments, via
   /// `GET /api/driver/deliveries/{id}/photo`.
@@ -819,6 +999,24 @@ class ApiService {
       );
     }
   }
+}
+
+/// One document collected by the signup wizard, ready to be attached to
+/// [ApiService.submitSignupRegistration]'s multipart body. [field] is the
+/// exact form field name the Laravel side reads — see
+/// AuthController::fileMapForRole() (`id_file`, `business_permit`,
+/// `orcr_file`, `license_file`) and registerLogistics() (`owner_id_file`,
+/// `business_permit_file`, `mayor_permit_file`, `dti_reg_file`).
+class SignupUpload {
+  final String field;
+  final String fileName;
+  final Uint8List bytes;
+
+  const SignupUpload({
+    required this.field,
+    required this.fileName,
+    required this.bytes,
+  });
 }
 
 class ApiException implements Exception {

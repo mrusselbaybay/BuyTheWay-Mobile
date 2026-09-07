@@ -2,19 +2,40 @@ import 'package:flutter/material.dart';
 
 import '../driver_models.dart';
 import '../driver_theme.dart';
+import '../widgets/driver_shared_widgets.dart';
 import 'widgets/settings_widgets.dart';
 
 /// Read-only vehicle & document details — split out of the old
 /// all-in-one settings screen into its own destination so the hub isn't
 /// carrying a whole card of information the driver can't even edit here
 /// (vehicle/document changes go through support, same as before).
-class DriverVehicleDocumentsScreen extends StatelessWidget {
+class DriverVehicleDocumentsScreen extends StatefulWidget {
   final DriverAccount account;
-  const DriverVehicleDocumentsScreen({super.key, required this.account});
+
+  /// Pull-to-refresh — re-reads the profile (vehicle/plate/license all
+  /// come from `GET /api/driver/profile`'s `vehicle` block), so a support
+  /// update lands here without restarting the app.
+  final Future<void> Function() onRefresh;
+
+  const DriverVehicleDocumentsScreen({
+    super.key,
+    required this.account,
+    required this.onRefresh,
+  });
+
+  @override
+  State<DriverVehicleDocumentsScreen> createState() => _DriverVehicleDocumentsScreenState();
+}
+
+class _DriverVehicleDocumentsScreenState extends State<DriverVehicleDocumentsScreen> {
+  Future<void> _refresh() async {
+    await widget.onRefresh();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    final a = account;
+    final a = widget.account;
     final rows = <Widget>[
       SettingsInfoRow(icon: Icons.two_wheeler_rounded, label: 'Vehicle', value: a.vehicleType),
       SettingsInfoRow(icon: Icons.badge_outlined, label: 'Plate number', value: a.plateNumber),
@@ -38,13 +59,17 @@ class DriverVehicleDocumentsScreen extends StatelessWidget {
         title: const Text('Vehicle & Documents', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-          children: [
-            SettingsGroupCard(children: rows),
-            const SizedBox(height: 14),
-            const SettingsInfoNote('To update vehicle or document details, contact support.'),
-          ],
+        child: DriverRefreshable(
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            children: [
+              SettingsGroupCard(children: rows),
+              const SizedBox(height: 14),
+              const SettingsInfoNote('To update vehicle or document details, contact support.'),
+            ],
+          ),
         ),
       ),
     );

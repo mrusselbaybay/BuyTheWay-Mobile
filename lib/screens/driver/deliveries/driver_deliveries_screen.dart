@@ -64,8 +64,16 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   /// one gets added to the API later.
   static const _atRiskAfter = Duration(hours: 6);
 
+  /// Every status a delivery is "done" at from this rider's perspective —
+  /// nothing left to act on. Includes the cross-region transfer leg's own
+  /// terminal state (transferred) alongside the normal delivered/handedOver.
+  bool _isDone(AssignedDelivery d) =>
+      d.status == AssignedDeliveryStatus.delivered ||
+      d.status == AssignedDeliveryStatus.handedOver ||
+      d.status == AssignedDeliveryStatus.transferred;
+
   bool _isAtRisk(AssignedDelivery d) {
-    if (d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.handedOver) return false;
+    if (_isDone(d)) return false;
     final since = d.assignedAt;
     if (since == null) return false;
     return DateTime.now().difference(since) > _atRiskAfter;
@@ -77,13 +85,15 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
       case _QuickFilter.all:
         return all;
       case _QuickFilter.toPickUp:
-        return all.where((d) => d.status == AssignedDeliveryStatus.assigned).toList();
-      case _QuickFilter.toDeliver:
-        return all.where((d) => d.status == AssignedDeliveryStatus.pickedUp).toList();
-      case _QuickFilter.delivered:
         return all
-            .where((d) => d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.handedOver)
+            .where((d) => d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
             .toList();
+      case _QuickFilter.toDeliver:
+        return all
+            .where((d) => d.status == AssignedDeliveryStatus.pickedUp || d.status == AssignedDeliveryStatus.readyToTransfer)
+            .toList();
+      case _QuickFilter.delivered:
+        return all.where(_isDone).toList();
       case _QuickFilter.delayed:
         return all.where(_isAtRisk).toList();
     }
@@ -99,8 +109,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   /// when nothing qualifies, in which case the banner just doesn't render.
   AssignedDelivery? get _priorityAlert {
     final candidates = widget.deliveries
-        .where((d) =>
-            d.status != AssignedDeliveryStatus.delivered && d.status != AssignedDeliveryStatus.handedOver && d.assignedAt != null)
+        .where((d) => !_isDone(d) && d.assignedAt != null)
         .toList()
       ..sort((a, b) => a.assignedAt!.compareTo(b.assignedAt!));
     return candidates.isEmpty ? null : candidates.first;
@@ -132,11 +141,11 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   Widget build(BuildContext context) {
     final results = _filtered;
     final total = widget.deliveries.length;
-    final inProgress = widget.deliveries.where((d) => d.status == AssignedDeliveryStatus.pickedUp).length;
-    final delayed = widget.deliveries.where(_isAtRisk).length;
-    final completed = widget.deliveries
-        .where((d) => d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.handedOver)
+    final inProgress = widget.deliveries
+        .where((d) => d.status == AssignedDeliveryStatus.pickedUp || d.status == AssignedDeliveryStatus.readyToTransfer)
         .length;
+    final delayed = widget.deliveries.where(_isAtRisk).length;
+    final completed = widget.deliveries.where(_isDone).length;
     final alert = _priorityAlert;
 
     return Scaffold(
@@ -162,6 +171,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
                 child: widget.error != null
                     ? _errorList()
                     : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
                         children: [
                           _LivePulseStrip(
@@ -237,6 +247,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
 
   Widget _errorList() {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
         Container(
@@ -537,6 +548,13 @@ class _MissionCardState extends State<_MissionCard> {
         return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+      // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
+      case AssignedDeliveryStatus.transferAssigned:
+        return ('To transfer', DriverColors.warning, Icons.sync_alt_rounded);
+      case AssignedDeliveryStatus.readyToTransfer:
+        return ('Confirm transfer', DriverColors.info, Icons.compare_arrows_rounded);
+      case AssignedDeliveryStatus.transferred:
+        return ('Transferred', DriverColors.success, Icons.check_circle_rounded);
     }
   }
 
@@ -570,7 +588,7 @@ class _MissionCardState extends State<_MissionCard> {
   Widget build(BuildContext context) {
     final d = widget.delivery;
     final (tagLabel, tagColor, tagIcon) = _actionTag;
-    final completed = d.status == AssignedDeliveryStatus.delivered;
+    final completed = d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.transferred;
     final handedOver = d.status == AssignedDeliveryStatus.handedOver;
     final done = completed || handedOver;
     final barColor = widget.atRisk
@@ -639,7 +657,9 @@ class _MissionCardState extends State<_MissionCard> {
                                 Text(d.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                                 const SizedBox(height: 2),
                                 Text(
-                                  d.status == AssignedDeliveryStatus.assigned ? d.pickupLabel : d.dropoffLabel,
+                                  (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
+                                      ? d.pickupLabel
+                                      : d.dropoffLabel,
                                   style: DriverText.body,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

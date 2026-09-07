@@ -962,7 +962,7 @@ INSERT INTO auth.users (
     gen_random_uuid(),
     'authenticated',
     'authenticated',
-    'admin@nexmart.com',
+    'admin@buytheway.com',
     crypt('Admin@123456', gen_salt('bf')),
     NOW(),
     NOW(),
@@ -986,16 +986,16 @@ SET role = 'admin',
     status = 'approved',
     first_name = 'Super',
     last_name = 'Admin'
-WHERE email = 'admin@nexmart.com';
+WHERE email = 'admin@buytheway.com';
 
 -- 3. Verify the admin was created
 SELECT id, email, role, status, first_name, last_name 
 FROM profiles 
-WHERE email = 'admin@nexmart.com';
+WHERE email = 'admin@buytheway.com';
 
 -- Added status for accounts
 -- ============================================================
--- RECOMMENDED: Account Status System for NEXMART
+-- RECOMMENDED: Account Status System for BuyTheWay
 -- ============================================================
 
 -- 1. Create account status enum
@@ -1149,12 +1149,12 @@ BEGIN;
 
 -- 1. Remove any existing admin profile
 DELETE FROM profiles
-WHERE email = 'admin@nexmart.com';
+WHERE email = 'admin@buytheway.com';
 
 
 -- 2. Remove any existing admin Auth account
 DELETE FROM auth.users
-WHERE email = 'admin@nexmart.com';
+WHERE email = 'admin@buytheway.com';
 
 
 -- 3. Create the Auth account
@@ -1174,7 +1174,7 @@ BEGIN
     )
     VALUES (
         new_id,
-        'admin@nexmart.com',
+        'admin@buytheway.com',
         crypt('Admin123!', gen_salt('bf')),
         NOW(),
         jsonb_build_object(
@@ -1203,7 +1203,7 @@ BEGIN
         'admin',
         'approved',
         'active',
-        'admin@nexmart.com',
+        'admin@buytheway.com',
         'Admin',
         'User',
         NOW(),
@@ -1214,7 +1214,7 @@ BEGIN
         role = 'admin',
         status = 'approved',
         account_status = 'active',
-        email = 'admin@nexmart.com',
+        email = 'admin@buytheway.com',
         first_name = 'Admin',
         last_name = 'User',
         updated_at = NOW();
@@ -1235,7 +1235,7 @@ SELECT
 FROM profiles p
 JOIN auth.users u
     ON p.id = u.id
-WHERE p.email = 'admin@nexmart.com';
+WHERE p.email = 'admin@buytheway.com';
 
 COMMIT;
 

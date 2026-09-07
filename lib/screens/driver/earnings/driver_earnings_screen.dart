@@ -12,12 +12,17 @@ class DriverEarningsScreen extends StatefulWidget {
   final List<WithdrawalRecord> withdrawals;
   final void Function(double amount, String destination) onWithdraw;
 
+  /// Pull-to-refresh — re-pulls the shell's account/deliveries, which the
+  /// balance and today's total are derived from.
+  final Future<void> Function() onRefresh;
+
   const DriverEarningsScreen({
     super.key,
     required this.todayEarnings,
     required this.availableBalance,
     required this.withdrawals,
     required this.onWithdraw,
+    required this.onRefresh,
   });
 
   @override
@@ -40,10 +45,13 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
     return Scaffold(
       backgroundColor: DriverColors.background,
       appBar: AppBar(backgroundColor: Colors.white, elevation: 0, foregroundColor: DriverColors.textPrimary, title: const Text('Earnings', style: TextStyle(fontWeight: FontWeight.w800))),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-        children: [
-          _heroCard(),
+      body: DriverRefreshable(
+        onRefresh: widget.onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+          children: [
+            _heroCard(),
           const SizedBox(height: 20),
           _balanceCard(context),
           const SizedBox(height: 20),
@@ -57,11 +65,12 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
           const SizedBox(height: 20),
           const DriverSectionHeader(title: 'Withdrawal history'),
           const SizedBox(height: 12),
-          if (widget.withdrawals.isEmpty)
-            const DriverEmptyState(icon: Icons.account_balance_wallet_outlined, title: 'No withdrawals yet', subtitle: 'Your withdrawal history will show up here.')
-          else
-            ...widget.withdrawals.map((w) => _withdrawalRow(w)),
-        ],
+            if (widget.withdrawals.isEmpty)
+              const DriverEmptyState(icon: Icons.account_balance_wallet_outlined, title: 'No withdrawals yet', subtitle: 'Your withdrawal history will show up here.')
+            else
+              ...widget.withdrawals.map((w) => _withdrawalRow(w)),
+          ],
+        ),
       ),
     );
   }

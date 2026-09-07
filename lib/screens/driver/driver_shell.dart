@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
@@ -77,6 +76,12 @@ class _DriverShellState extends State<DriverShell> {
     _loadAccount();
   }
 
+  @override
+  void dispose() {
+    _availabilityWrite?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadAccount() async {
     setState(() {
       _loadingAccount = true;
@@ -97,10 +102,19 @@ class _DriverShellState extends State<DriverShell> {
     try {
       final response = await _api.getDriverProfile(accessToken: token);
       if (!mounted) return;
+      final account = DriverAccount.fromApi(response);
       setState(() {
         _accessToken = token;
-        _account = DriverAccount.fromApi(response);
+        _account = account;
         _loadingAccount = false;
+        // Restore the "Go online" state the rider left the app in — it's
+        // persisted server-side (driver_details/courier_details.delivery_status),
+        // toggled from the Settings screen.
+        _isOnline = account.isOnline;
+        if (_isOnline) {
+          _shiftStart ??= DateTime.now();
+          if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+        }
       });
       // Fire-and-forget — Deliveries has its own loading/error state and
       // shouldn't hold up the rest of the shell rendering.
@@ -161,6 +175,42 @@ class _DriverShellState extends State<DriverShell> {
     }
   }
 
+  /// Pull-to-refresh for every tab: re-reads the profile and the
+  /// assigned deliveries together. Unlike [_loadAccount] it deliberately
+  /// doesn't flip `_loadingAccount`, because that would swap the whole
+  /// shell for a spinner underneath the refresh indicator that triggered
+  /// it. A failure leaves the last-known data on screen and surfaces as a
+  /// snackbar — the pull was an update, not a fresh load.
+  Future<void> _refreshAll() async {
+    final token = _accessToken;
+    if (token == null) {
+      await _loadAccount();
+      return;
+    }
+
+    try {
+      final response = await _api.getDriverProfile(accessToken: token);
+      if (!mounted) return;
+      final account = DriverAccount.fromApi(response);
+      setState(() {
+        // Mutated in place: the same DriverAccount instance is handed by
+        // reference to every tab and to already-pushed detail pages.
+        _account?.applyFrom(account);
+        _isOnline = account.isOnline;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : 'Could not reach the server. Check your connection and try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
+      );
+    }
+
+    await _loadDeliveries();
+  }
+
   Future<void> _signOutToLogin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
@@ -168,25 +218,73 @@ class _DriverShellState extends State<DriverShell> {
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const DriverLoginScreen()), (route) => false);
   }
 
-  void _goOnline() {
-    HapticFeedback.mediumImpact();
+  /// Pending debounced availability write (see [_setOnline]).
+  Timer? _availabilityWrite;
+
+  /// Flips the "Go online" shift flag. The Settings switch animates itself
+  /// the instant it's tapped; this only updates the shell-level state the
+  /// Home tab reads (shift clock, request list) and schedules the backend
+  /// write. The write (`PUT /api/driver/availability` →
+  /// driver_details/courier_details.delivery_status) is debounced so a
+  /// flurry of taps costs one request carrying the final value, and rolls
+  /// the UI back if it fails. Invoked from the Settings toggle and the
+  /// Home tab's empty-state prompt.
+  void _setOnline(bool online) {
+    if (online == _isOnline) return;
+
     setState(() {
-      _isOnline = true;
-      _shiftStart = DateTime.now();
-      _availableRequests = mockAvailableRequests();
+      _isOnline = online;
+      if (online) {
+        _shiftStart ??= DateTime.now();
+        if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+      } else {
+        _shiftStart = null;
+        _availableRequests = <DeliveryRequest>[];
+      }
     });
+
+    _availabilityWrite?.cancel();
+    _availabilityWrite = Timer(const Duration(milliseconds: 450), () => _persistAvailability(online));
   }
 
-  void _goOffline() {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _isOnline = false;
-      _shiftStart = null;
-      _availableRequests = [];
-    });
+  Future<void> _persistAvailability(bool online) async {
+    final token = _accessToken;
+    if (token == null) return;
+    // Nothing to do if the server already holds this value (e.g. the rider
+    // toggled off then back on within the debounce window).
+    if ((_account?.isOnline ?? false) == online) return;
+
+    try {
+      await _api.updateDriverAvailability(accessToken: token, online: online);
+      _account?.deliveryStatus = online ? 'available' : 'unavailable';
+    } catch (e) {
+      if (!mounted || _isOnline != online) return; // superseded by a newer toggle
+      setState(() {
+        _isOnline = !online;
+        if (online) {
+          _shiftStart = null;
+          _availableRequests = <DeliveryRequest>[];
+        } else {
+          _shiftStart ??= DateTime.now();
+          if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+        }
+      });
+      final message = e is ApiException ? e.message : 'Could not update your status. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
+      );
+    }
   }
 
-  void _toggleOnline() => _isOnline ? _goOffline() : _goOnline();
+  /// Chat is still the module's mock data (no messaging API yet), so its
+  /// pull-to-refresh re-reads the same in-memory threads rather than
+  /// pretending to hit a server — the gesture stays consistent across
+  /// tabs and starts working for real the moment an endpoint exists.
+  Future<void> _refreshChats() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    setState(() {});
+  }
 
   Future<void> _refreshRequests() async {
     await Future.delayed(const Duration(milliseconds: 600));
@@ -386,7 +484,7 @@ class _DriverShellState extends State<DriverShell> {
         availableRequests: _availableRequests,
         todayEarnings: _todayEarnings,
         completedToday: _history.where((h) => h.status == HistoryStatus.completed && _isToday(h.completedAt)).length,
-        onGoOnline: _goOnline,
+        onGoOnline: () => _setOnline(true),
         onOpenRequest: _openRequestDetails,
         onContinueActiveDelivery: _openActiveDeliveryFlow,
         onRefreshRequests: _refreshRequests,
@@ -399,17 +497,30 @@ class _DriverShellState extends State<DriverShell> {
         onRefresh: _loadDeliveries,
         onOpenHistory: _openHistory,
       ),
-      DriverEarningsScreen(todayEarnings: _todayEarnings, availableBalance: _availableBalance, withdrawals: _withdrawals, onWithdraw: _withdraw),
-      DriverChatListScreen(threads: _chatThreads, onOpenThread: _openChatThread),
+      DriverEarningsScreen(
+        todayEarnings: _todayEarnings,
+        availableBalance: _availableBalance,
+        withdrawals: _withdrawals,
+        onWithdraw: _withdraw,
+        onRefresh: _refreshAll,
+      ),
+      DriverChatListScreen(
+        threads: _chatThreads,
+        onOpenThread: _openChatThread,
+        onRefresh: _refreshChats,
+      ),
       DriverSettingsScreen(
         account: account,
         accessToken: accessToken,
+        deliveryOnline: _isOnline,
+        onDeliveryOnlineChanged: _setOnline,
         notificationsEnabled: _notificationsEnabled,
         onNotificationsChanged: (v) => setState(() => _notificationsEnabled = v),
         soundEnabled: _soundEnabled,
         onSoundChanged: (v) => setState(() => _soundEnabled = v),
         language: _language,
         onLanguageChanged: (v) => setState(() => _language = v),
+        onRefresh: _refreshAll,
       ),
     ];
 
@@ -417,15 +528,6 @@ class _DriverShellState extends State<DriverShell> {
       backgroundColor: DriverColors.background,
       extendBody: true,
       body: IndexedStack(index: _tabIndex, children: pages),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _toggleOnline,
-        backgroundColor: _isOnline ? DriverColors.error : DriverColors.primary,
-        icon: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Icon(_isOnline ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded, key: ValueKey(_isOnline)),
-        ),
-        label: Text(_isOnline ? 'Go offline' : 'Go online'),
-      ),
       bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, onTap: (i) => setState(() => _tabIndex = i)),
     );
   }

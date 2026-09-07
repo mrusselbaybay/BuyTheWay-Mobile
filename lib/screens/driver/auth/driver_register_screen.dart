@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../widgets/common.dart';
+import '../../../widgets/password_strength_meter.dart';
 import '../driver_shell.dart';
 import 'driver_otp_screen.dart';
 
@@ -141,6 +142,11 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
             icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 19, color: AppColors.slate500),
             onPressed: () => setState(() => _obscure = !_obscure),
           ),
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _passwordController,
+          builder: (context, value, _) =>
+              PasswordStrengthMeter(password: value.text),
         ),
         const SizedBox(height: 14),
         LabeledField(label: 'Confirm password', controller: _confirmController, obscure: _obscure, hint: 'Re-enter your password'),

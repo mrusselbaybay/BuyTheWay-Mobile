@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../widgets/password_strength_meter.dart';
 import '../driver_theme.dart';
 import 'widgets/settings_widgets.dart';
 
@@ -223,6 +224,7 @@ Future<void> showChangePasswordSheet(
                     ),
                   ),
                 ),
+                PasswordStrengthMeter(password: newPassword.text),
                 const SizedBox(height: 12),
                 Text('Confirm new password', style: DriverText.label),
                 const SizedBox(height: 6),

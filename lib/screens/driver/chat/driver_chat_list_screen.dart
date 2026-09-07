@@ -8,7 +8,15 @@ class DriverChatListScreen extends StatelessWidget {
   final List<ChatThread> threads;
   final ValueChanged<ChatThread> onOpenThread;
 
-  const DriverChatListScreen({super.key, required this.threads, required this.onOpenThread});
+  /// Pull-to-refresh for the conversation list.
+  final Future<void> Function() onRefresh;
+
+  const DriverChatListScreen({
+    super.key,
+    required this.threads,
+    required this.onOpenThread,
+    required this.onRefresh,
+  });
 
   String _timeLabel(DateTime t) {
     final now = DateTime.now();
@@ -24,12 +32,20 @@ class DriverChatListScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: DriverColors.background,
       appBar: AppBar(backgroundColor: Colors.white, elevation: 0, foregroundColor: DriverColors.textPrimary, title: const Text('Messages', style: TextStyle(fontWeight: FontWeight.w800))),
-      body: threads.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.all(20),
-              child: DriverEmptyState(icon: Icons.chat_bubble_outline_rounded, title: 'No conversations yet', subtitle: 'Messages from customers on active deliveries will show up here.'),
+      body: DriverRefreshable(
+        onRefresh: onRefresh,
+        child: threads.isEmpty
+          // A single-item scroll view rather than a bare Padding: an empty
+          // list still has to be pullable for the refresh to be reachable.
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 110),
+              children: const [
+                DriverEmptyState(icon: Icons.chat_bubble_outline_rounded, title: 'No conversations yet', subtitle: 'Messages from customers on active deliveries will show up here.'),
+              ],
             )
           : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
               itemCount: threads.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -91,6 +107,7 @@ class DriverChatListScreen extends StatelessWidget {
                 );
               },
             ),
+      ),
     );
   }
 }

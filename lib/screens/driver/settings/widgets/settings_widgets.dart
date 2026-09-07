@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -105,6 +107,19 @@ class SettingsAvatar extends StatelessWidget {
   final Color background;
   final Color foreground;
 
+  /// Public URL of the uploaded profile picture (DriverAccount.avatarUrl).
+  /// Null/empty, or a URL that fails to load, falls back to the generic
+  /// person glyph.
+  final String? imageUrl;
+
+  /// Locally cropped bytes shown immediately after an upload, before the
+  /// (cache-busted) network image would have had a chance to refresh —
+  /// takes precedence over [imageUrl] while set.
+  final Uint8List? imageBytes;
+
+  /// Dims the avatar and overlays a spinner while an upload is in flight.
+  final bool busy;
+
   const SettingsAvatar({
     super.key,
     this.size = 56,
@@ -112,23 +127,69 @@ class SettingsAvatar extends StatelessWidget {
     this.onTap,
     this.background = DriverColors.primarySurface,
     this.foreground = DriverColors.primary,
+    this.imageUrl,
+    this.imageBytes,
+    this.busy = false,
   });
+
+  Widget _photo() {
+    if (imageBytes != null) {
+      return Image.memory(imageBytes!, fit: BoxFit.cover, gaplessPlayback: true);
+    }
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) =>
+          Icon(Icons.person_rounded, color: foreground, size: size * 0.52),
+      loadingBuilder: (context, child, progress) => progress == null
+          ? child
+          : Center(
+              child: SizedBox(
+                width: size * 0.3,
+                height: size * 0.3,
+                child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
+              ),
+            ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = imageBytes != null || (imageUrl != null && imageUrl!.isNotEmpty);
     final circle = Container(
       width: size,
       height: size,
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: background,
         border: Border.all(color: foreground.withOpacity(0.3), width: 1.4),
       ),
-      child: Icon(Icons.person_rounded, color: foreground, size: size * 0.52),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasPhoto)
+            _photo()
+          else
+            Icon(Icons.person_rounded, color: foreground, size: size * 0.52),
+          if (busy)
+            Container(
+              color: Colors.black.withOpacity(0.35),
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: size * 0.3,
+                height: size * 0.3,
+                child: const CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
     );
     if (!showCameraBadge) return circle;
     return GestureDetector(
-      onTap: onTap,
+      onTap: busy ? null : onTap,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -167,6 +228,9 @@ class SettingsProfileSummary extends StatelessWidget {
   final DateTime memberSince;
   final VoidCallback onTap;
 
+  /// Profile picture URL — see [SettingsAvatar.imageUrl].
+  final String? avatarUrl;
+
   const SettingsProfileSummary({
     super.key,
     required this.name,
@@ -175,6 +239,7 @@ class SettingsProfileSummary extends StatelessWidget {
     required this.role,
     required this.memberSince,
     required this.onTap,
+    this.avatarUrl,
   });
 
   @override
@@ -196,7 +261,7 @@ class SettingsProfileSummary extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const SettingsAvatar(size: 52),
+              SettingsAvatar(size: 52, imageUrl: avatarUrl),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -419,6 +484,98 @@ class SettingsSwitchTile extends StatelessWidget {
               HapticFeedback.selectionClick();
               onChanged(v);
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Like [SettingsSwitchTile], but the switch flips (and its subtitle
+/// updates) the instant it's tapped — before [onChanged]'s async work
+/// resolves — so the toggle always feels immediate even while a network
+/// write is in flight. If the parent later reports a different [value]
+/// (e.g. a failed write that rolled back), the switch animates to match.
+///
+/// Only the switch itself rebuilds on tap; the parent list is not
+/// disturbed until it chooses to act on [onChanged].
+class SettingsOptimisticSwitchTile extends StatefulWidget {
+  final IconData icon;
+  final String title;
+
+  /// Subtitle for the given on/off state — evaluated against the tile's
+  /// own optimistic state so the caption tracks the thumb exactly.
+  final String Function(bool on)? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color? iconColor;
+
+  const SettingsOptimisticSwitchTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+    this.iconColor,
+  });
+
+  @override
+  State<SettingsOptimisticSwitchTile> createState() => _SettingsOptimisticSwitchTileState();
+}
+
+class _SettingsOptimisticSwitchTileState extends State<SettingsOptimisticSwitchTile> {
+  late bool _on = widget.value;
+
+  @override
+  void didUpdateWidget(SettingsOptimisticSwitchTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reconcile only when the parent's value actually moved and disagrees
+    // with what we're showing (a rollback or an external change) — a
+    // parent rebuild that already matches our optimistic state is a no-op.
+    if (widget.value != oldWidget.value && widget.value != _on) {
+      setState(() => _on = widget.value);
+    }
+  }
+
+  void _handle(bool next) {
+    HapticFeedback.selectionClick();
+    setState(() => _on = next);
+    widget.onChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.iconColor ?? DriverColors.primary;
+    final subtitle = widget.subtitle?.call(_on);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(widget.icon, size: 17, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: DriverText.caption),
+                ],
+              ],
+            ),
+          ),
+          Switch(
+            value: _on,
+            activeThumbColor: DriverColors.primary,
+            onChanged: _handle,
           ),
         ],
       ),

@@ -62,6 +62,14 @@ class _DriverChatConversationScreenState extends State<DriverChatConversationScr
     });
   }
 
+  /// Pull-to-refresh. Messaging is still the module's mock data (no chat
+  /// endpoint yet), so this re-reads the same in-memory thread — the
+  /// gesture stays consistent with the rest of the app.
+  Future<void> _refresh() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,13 +96,17 @@ class _DriverChatConversationScreenState extends State<DriverChatConversationScr
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-              children: [
-                ...widget.thread.messages.map((m) => ChatBubble(message: m)),
-                if (_customerTyping) _typingIndicator(),
-              ],
+            child: DriverRefreshable(
+              onRefresh: _refresh,
+              child: ListView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+                children: [
+                  ...widget.thread.messages.map((m) => ChatBubble(message: m)),
+                  if (_customerTyping) _typingIndicator(),
+                ],
+              ),
             ),
           ),
           _quickReplyRow(),

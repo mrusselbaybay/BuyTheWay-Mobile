@@ -1,5 +1,5 @@
 // ============================================================================
-// NEXMART Design System — Glassmorphism Edition
+// BuyTheWay Design System — Glassmorphism Edition
 // ----------------------------------------------------------------------------
 // A self-contained set of reusable, animated, glass-styled primitives used
 // across the auth flow (and reusable anywhere else in the app). Every
@@ -858,7 +858,7 @@ class UploadTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    uploaded ? (fileName ?? 'Uploaded') : 'Tap to upload (JPG, PNG, PDF)',
+                    uploaded ? (fileName ?? 'Uploaded') : 'Tap to upload · JPG, PNG or PDF · Max 10MB',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

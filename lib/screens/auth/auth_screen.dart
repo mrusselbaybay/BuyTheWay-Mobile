@@ -1,10 +1,12 @@
 // ============================================================================
-// NEXMART Auth Screen — Glassmorphism Redesign
+// BuyTheWay Auth Screen — Solid Redesign
 // ----------------------------------------------------------------------------
-// Visuals: frosted-glass cards over an animated aurora backdrop, spring-y
-// step transitions, press-scale micro-interactions on every tappable
-// surface, and a responsive shell that centers a fixed-width glass card on
-// tablet/desktop while staying full-bleed on phones (mobile-first).
+// A flat, no-gradient login/signup experience built on the `solid_ui.dart`
+// kit: a plain surface, filled inputs, and a single solid accent color.
+// Only buyer and courier are reachable roles on mobile (see
+// _isMobileAllowedRole) — the seller/driver/logistics wizard bodies further
+// below are unreachable from this screen's own role picker and were left
+// exactly as they were.
 //
 // Business logic (validation, API calls, state machine for the multi-step
 // wizards) is unchanged from the original implementation — only the
@@ -12,16 +14,38 @@
 // ============================================================================
 
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/common.dart';
+import '../../widgets/solid_ui.dart';
+import '../../widgets/password_strength_meter.dart';
 import '../../services/api_service.dart';
 
 // Constants
+
+/// Island group the account's address belongs to. Not a PSGC region — the
+/// backend stores this verbatim in `addresses.region_name` and validates
+/// it as `in:Luzon,Visayas,Mindanao` (AuthController::registerUser), which
+/// is exactly the three-option <select> the web wizard renders.
+const List<String> kRegionOptions = ['Luzon', 'Visayas', 'Mindanao'];
+
+/// Accepted values for the "ID Type" dropdown that sits next to every
+/// valid-ID upload. Must stay in sync with AuthController::ID_TYPES and
+/// app.js's ID_TYPES — anything else is rejected by the Rule::in() check.
+const List<String> kIdTypeOptions = [
+  'Passport',
+  "Driver's License",
+  'PRC ID',
+  'UMID',
+  'SSS ID',
+  'National ID',
+  'Student ID',
+  'Philippine Postal ID',
+];
+
 const List<String> kLineOfBusinessOptions = [
   'Pet Supplies',
   'Kids and Baby',
@@ -88,6 +112,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final contactNo = TextEditingController();
 
   // ---------------- Address (shared by personal + driver) ----------------
+  /// Island group — see [kRegionOptions]. Submitted as `region`.
+  String region = '';
   String? provinceCode;
   String? municipalityCode;
   String? barangayCode;
@@ -111,6 +137,15 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _loadingCompanyMunicipalities = false;
   bool _loadingCompanyBarangays = false;
   String _addressError = '';
+
+  // ---------------- Documents ----------------
+  /// Which kind of government ID the primary ID upload actually is. One
+  /// per wizard, matching AuthController::PRIMARY_ID_DOC_TYPE: it labels
+  /// the buyer/seller `valid_id`, the courier `drivers_license`, the
+  /// driver `valid_id`, and the logistics owner's `valid_id`.
+  String idType = '';
+  String driverIdType = '';
+  String ownerIdType = '';
 
   // ---------------- Seller ----------------
   final businessName = TextEditingController();
@@ -194,6 +229,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final driverLicenseNumber = TextEditingController();
 
   // ---------------- Static config ----------------
+  // Mobile app is limited to buyer and courier. Seller, driver and logistics
+  // accounts are web-only — see _isMobileAllowedRole and the login guard.
   final List<Map<String, dynamic>> roles = const [
     {
       'id': 'buyer',
@@ -202,24 +239,21 @@ class _AuthScreenState extends State<AuthScreen> {
       'icon': Icons.shopping_bag_outlined
     },
     {
-      'id': 'seller',
-      'label': 'Seller',
-      'desc': 'Open your store, reach customers',
-      'icon': Icons.storefront_outlined
-    },
-    {
       'id': 'courier',
       'label': 'Courier',
       'desc': 'Deliver & earn on your schedule',
       'icon': Icons.local_shipping_outlined
     },
-    {
-      'id': 'driver',
-      'label': 'Driver',
-      'desc': 'Drive & deliver for logistics companies',
-      'icon': Icons.directions_car_outlined
-    },
   ];
+
+  /// Roles allowed to sign in on the mobile app. Every other account type
+  /// (seller, driver, logistics, admin, …) must use the web browser.
+  static bool _isMobileAllowedRole(String role) =>
+      role == 'buyer' || role == 'courier';
+
+  static const String _webOnlyRoleMessage =
+      'This account type is only accessible through a web browser. '
+      'Only buyer and courier accounts can use the mobile app.';
 
   final List<String> steps = const [
     'Personal',
@@ -384,6 +418,13 @@ class _AuthScreenState extends State<AuthScreen> {
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
     if (file.bytes == null) return;
+    // Mirrors the server rule (`max:10240` KB on every document in
+    // AuthController::registerUser) so an oversized file is rejected here
+    // with a clear message instead of as a 422 after a long upload.
+    if (file.bytes!.lengthInBytes > 10 * 1024 * 1024) {
+      setState(() => errorMsg = 'That file is larger than 10MB. Please upload a smaller one.');
+      return;
+    }
     _uploadSetters[fieldName]?.call(file.name, file.bytes!);
   }
 
@@ -656,9 +697,15 @@ class _AuthScreenState extends State<AuthScreen> {
     return ok;
   }
 
+  /// Mirrors app.js's validateAddressFields() — region included, since the
+  /// backend stores it on the address row alongside the PSGC selections.
+  /// [regionVal] is null for the address forms that don't collect one
+  /// (the logistics company address asks for its region a step earlier).
   bool _validateAddressFields(String? province, String? municipality,
-      String? barangayVal, TextEditingController streetCtrl) {
-    if (province == null ||
+      String? barangayVal, TextEditingController streetCtrl,
+      {String? regionVal}) {
+    if ((regionVal != null && regionVal.isEmpty) ||
+        province == null ||
         municipality == null ||
         barangayVal == null ||
         streetCtrl.text.trim().isEmpty) {
@@ -669,12 +716,13 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   bool _validateDocuments() {
-    if (selectedRole == 'buyer' && !idFileUploaded) {
-      errorMsg = 'Please upload an ID.';
+    if (selectedRole == 'buyer' && (!idFileUploaded || idType.isEmpty)) {
+      errorMsg = 'Please select an ID type and upload an ID.';
       return false;
     }
     if (selectedRole == 'seller') {
       if (!idFileUploaded ||
+          idType.isEmpty ||
           !businessPermitUploaded ||
           businessName.text.trim().isEmpty ||
           lineOfBusiness.isEmpty) {
@@ -686,7 +734,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (vehicle.isEmpty ||
           plateNumber.text.trim().isEmpty ||
           !orcrUploaded ||
-          !licenseUploaded) {
+          !licenseUploaded ||
+          idType.isEmpty) {
         errorMsg = 'Please fill in all courier documents and vehicle info.';
         return false;
       }
@@ -696,7 +745,8 @@ class _AuthScreenState extends State<AuthScreen> {
           driverPlateNumber.text.trim().isEmpty ||
           !driverOrcrUploaded ||
           !driverLicenseUploaded ||
-          !driverIdUploaded) {
+          !driverIdUploaded ||
+          driverIdType.isEmpty) {
         errorMsg = 'Please fill in all driver documents and vehicle info.';
         return false;
       }
@@ -742,6 +792,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool _validateLogisticsDocuments() {
     if (!ownerIdUploaded ||
+        ownerIdType.isEmpty ||
         !businessPermitFileUploaded ||
         !mayorPermitUploaded ||
         !dtiRegUploaded) {
@@ -818,6 +869,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ==================== Authentication Methods ====================
 
+  /// No Google OAuth endpoint exists on the backend yet — this keeps the
+  /// button honest about that instead of pretending to sign the user in.
+  void _handleGoogleAuth() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Google sign-in is coming soon.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> handleLogin() async {
     setState(() {
       errorMsg = '';
@@ -859,6 +921,15 @@ class _AuthScreenState extends State<AuthScreen> {
           return;
         }
 
+        if (!_isMobileAllowedRole(role)) {
+          await _clearToken();
+          setState(() {
+            errorMsg = _webOnlyRoleMessage;
+            isSubmitting = false;
+          });
+          return;
+        }
+
         setState(() {
           loggedInUser = {
             'email': userData['email'] ?? email.text.trim(),
@@ -873,6 +944,15 @@ class _AuthScreenState extends State<AuthScreen> {
       } else if (response.containsKey('token')) {
         await _saveToken(response['token']);
         final String role = response['user']['role'] ?? 'buyer';
+
+        if (!_isMobileAllowedRole(role)) {
+          await _clearToken();
+          setState(() {
+            errorMsg = _webOnlyRoleMessage;
+            isSubmitting = false;
+          });
+          return;
+        }
 
         setState(() {
           loggedInUser = {
@@ -961,8 +1041,11 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     try {
-      final userData = _buildUserRegistrationData();
-      final response = await _api.register(userData);
+      final response = await _api.submitSignupRegistration(
+        fields: _buildUserRegistrationData(),
+        documents: _buildRegistrationDocuments(),
+        logistics: isLogisticsSignup,
+      );
 
       setState(() {
         isSubmitting = false;
@@ -988,115 +1071,178 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Map<String, dynamic> _personalAddressData() => {
-        'first_name': firstName.text.trim(),
-        'last_name': lastName.text.trim(),
-        'middle_initial': middleInitial.text.trim(),
-        'sex': sex,
-        'birthday': birthday?.toIso8601String(),
-        'contact_number': contactNo.text.trim(),
-        'province_code': provinceCode,
-        'municipality_code': municipalityCode,
-        'barangay_code': barangayCode,
-        'barangay': barangay,
-        'street': street.text.trim(),
-        'house_number': houseNo.text.trim(),
-      };
-
-  Map<String, dynamic> _buildUserRegistrationData() {
-    final base = {
-      'email': email.text.trim(),
-      'password': password.text,
-      'password_confirmation': confirmPassword.text,
-      'role': selectedRole,
+  /// The shared personal + address half of a buyer/seller/courier
+  /// registration. Field names are the ones AuthController::registerUser
+  /// validates — `contact_no` not `contact_number`, `house_no` not
+  /// `house_number`, and `province_name`/`municipality_name` alongside the
+  /// codes (the backend writes both onto the address row). The address is
+  /// only sent when the PSGC chain is complete, matching app.js: the
+  /// controller skips the address insert unless code+code+barangay are all
+  /// present.
+  Map<String, String> _personalAddressData() {
+    final data = <String, String>{
+      'first_name': firstName.text.trim(),
+      'last_name': lastName.text.trim(),
+      'middle_initial': middleInitial.text.trim(),
+      'sex': sex,
+      'contact_no': contactNo.text.trim(),
+      'birthday': _isoDate(birthday),
     };
 
-    switch (selectedRole) {
-      case 'buyer':
-        return {
-          ...base,
-          ..._personalAddressData(),
-          'id_uploaded': idFileUploaded,
-        };
-
-      case 'seller':
-        return {
-          ...base,
-          ..._personalAddressData(),
-          'business_name': businessName.text.trim(),
-          'line_of_business': lineOfBusiness,
-          'id_uploaded': idFileUploaded,
-          'business_permit_uploaded': businessPermitUploaded,
-        };
-
-      case 'courier':
-        return {
-          ...base,
-          ..._personalAddressData(),
-          'vehicle': vehicle,
-          'plate_number': plateNumber.text.trim(),
-          'orcr_uploaded': orcrUploaded,
-          'license_uploaded': licenseUploaded,
-        };
-
-      case 'driver':
-        return {
-          'email': driverEmail.text.trim(),
-          'password': driverPassword.text,
-          'password_confirmation': driverConfirmPassword.text,
-          'role': 'driver',
-          'first_name': driverFirstName.text.trim(),
-          'last_name': driverLastName.text.trim(),
-          'middle_initial': driverMiddleInitial.text.trim(),
-          'sex': driverSex,
-          'birthday': driverBirthday?.toIso8601String(),
-          'contact_number': driverContactNo.text.trim(),
-          'province_code': provinceCode,
-          'municipality_code': municipalityCode,
-          'barangay_code': barangayCode,
-          'barangay': barangay,
-          'street': street.text.trim(),
-          'house_number': houseNo.text.trim(),
-          'vehicle': driverVehicle,
-          'plate_number': driverPlateNumber.text.trim(),
-          'license_number': driverLicenseNumber.text.trim(),
-          'id_uploaded': driverIdUploaded,
-          'license_uploaded': driverLicenseUploaded,
-          'orcr_uploaded': driverOrcrUploaded,
-        };
+    if (provinceCode != null && municipalityCode != null && barangay != null) {
+      data.addAll({
+        'region': region,
+        'province_code': provinceCode!,
+        'province_name': _nameForCode(_provinces, provinceCode) ?? '',
+        'municipality_code': municipalityCode!,
+        'municipality_name': municipalityName ?? '',
+        'barangay': barangay!,
+        'street': street.text.trim(),
+        'house_no': houseNo.text.trim(),
+      });
     }
 
+    return data;
+  }
+
+  /// `YYYY-MM-DD` — what Laravel's `date` rule and the Postgres `date`
+  /// column both want. A full ISO-8601 timestamp round-trips fine too, but
+  /// this keeps the stored birthday free of a spurious midnight-local time.
+  String _isoDate(DateTime? value) {
+    if (value == null) return '';
+    return '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Text fields for the multipart registration POST. Mirrors app.js's
+  /// submitUserRegistration()/submitLogisticsRegistration() exactly —
+  /// empty values are dropped by [ApiService.submitSignupRegistration]
+  /// rather than sent as blanks.
+  Map<String, String> _buildUserRegistrationData() {
     if (isLogisticsSignup) {
-      return {
-        'email': companyEmail.text.trim(),
+      final data = <String, String>{
+        'company_email': companyEmail.text.trim().toLowerCase(),
         'password': password.text,
-        'password_confirmation': confirmPassword.text,
-        'role': 'logistics_admin',
         'company_name': companyName.text.trim(),
-        'company_email': companyEmail.text.trim(),
-        'company_contact': companyContactNo.text.trim(),
+        'company_contact_no': companyContactNo.text.trim(),
         'company_tin': companyTIN.text.trim(),
-        'company_sec_reg': companySECReg.text.trim(),
+        'company_sec_registration': companySECReg.text.trim(),
         'company_region': companyRegion,
-        'company_province_code': companyProvinceCode,
-        'company_municipality_code': companyMunicipalityCode,
-        'company_barangay_code': companyBarangayCode,
-        'company_barangay': companyBarangay,
-        'company_street': companyStreet.text.trim(),
-        'company_house_number': companyHouseNo.text.trim(),
         'owner_first_name': ownerFirstName.text.trim(),
         'owner_last_name': ownerLastName.text.trim(),
         'owner_middle_initial': ownerMiddleInitial.text.trim(),
         'owner_sex': ownerSex,
-        'owner_birthday': ownerBirthday?.toIso8601String(),
-        'owner_id_uploaded': ownerIdUploaded,
-        'business_permit_uploaded': businessPermitFileUploaded,
-        'mayor_permit_uploaded': mayorPermitUploaded,
-        'dti_reg_uploaded': dtiRegUploaded,
+        'owner_birthday': _isoDate(ownerBirthday),
+        'owner_id_type': ownerIdType,
       };
+
+      if (companyProvinceCode != null) {
+        data.addAll({
+          'company_province_code': companyProvinceCode!,
+          'company_province_name':
+              _nameForCode(_companyProvinces, companyProvinceCode) ?? '',
+          'company_municipality_code': companyMunicipalityCode ?? '',
+          'company_municipality_name': companyMunicipalityName ?? '',
+          'company_barangay': companyBarangay ?? '',
+          'company_street': companyStreet.text.trim(),
+          'company_house_no': companyHouseNo.text.trim(),
+        });
+      }
+
+      return data;
     }
 
-    return base;
+    if (selectedRole == 'driver') {
+      final data = <String, String>{
+        'email': driverEmail.text.trim().toLowerCase(),
+        'password': driverPassword.text,
+        'role': 'driver',
+        'first_name': driverFirstName.text.trim(),
+        'last_name': driverLastName.text.trim(),
+        'middle_initial': driverMiddleInitial.text.trim(),
+        'sex': driverSex,
+        'contact_no': driverContactNo.text.trim(),
+        'birthday': _isoDate(driverBirthday),
+        'driver_vehicle': driverVehicle,
+        'driver_plate_number': driverPlateNumber.text.trim(),
+        'driver_license_number': driverLicenseNumber.text.trim(),
+        'id_type': driverIdType,
+      };
+
+      if (provinceCode != null &&
+          municipalityCode != null &&
+          barangay != null) {
+        data.addAll({
+          'region': region,
+          'province_code': provinceCode!,
+          'province_name': _nameForCode(_provinces, provinceCode) ?? '',
+          'municipality_code': municipalityCode!,
+          'municipality_name': municipalityName ?? '',
+          'barangay': barangay!,
+          'street': street.text.trim(),
+          'house_no': houseNo.text.trim(),
+        });
+      }
+
+      return data;
+    }
+
+    final data = <String, String>{
+      'email': email.text.trim().toLowerCase(),
+      'password': password.text,
+      'role': selectedRole ?? 'buyer',
+      ..._personalAddressData(),
+      'id_type': idType,
+    };
+
+    if (selectedRole == 'seller') {
+      data['business_name'] = businessName.text.trim();
+      data['line_of_business'] = lineOfBusiness;
+    } else if (selectedRole == 'courier') {
+      data['vehicle'] = vehicle;
+      data['plate_number'] = plateNumber.text.trim();
+    }
+
+    return data;
+  }
+
+  /// The uploaded documents for the current wizard, under the exact
+  /// multipart field names AuthController::fileMapForRole() (or
+  /// registerLogistics()) reads them back out of.
+  List<SignupUpload> _buildRegistrationDocuments() {
+    SignupUpload? upload(String field, String? name, Uint8List? bytes) {
+      if (name == null || bytes == null) return null;
+      return SignupUpload(field: field, fileName: name, bytes: bytes);
+    }
+
+    final List<SignupUpload?> candidates;
+
+    if (isLogisticsSignup) {
+      candidates = [
+        upload('owner_id_file', _ownerIdFileName, _ownerIdBytes),
+        upload('business_permit_file', _businessPermitFileFileName,
+            _businessPermitFileBytes),
+        upload('mayor_permit_file', _mayorPermitFileName, _mayorPermitBytes),
+        upload('dti_reg_file', _dtiRegFileName, _dtiRegBytes),
+      ];
+    } else if (selectedRole == 'driver') {
+      candidates = [
+        upload('id_file', _driverIdFileName, _driverIdBytes),
+        upload('license_file', _driverLicenseFileName, _driverLicenseBytes),
+        upload('orcr_file', _driverOrcrFileName, _driverOrcrBytes),
+      ];
+    } else {
+      candidates = [
+        upload('id_file', _idFileName, _idFileBytes),
+        upload('business_permit', _businessPermitFileName,
+            _businessPermitBytes),
+        upload('orcr_file', _orcrFileName, _orcrBytes),
+        upload('license_file', _licenseFileName, _licenseBytes),
+      ];
+    }
+
+    return candidates.whereType<SignupUpload>().toList();
   }
 
   Future<void> handleSendResetCode() async {
@@ -1286,6 +1432,15 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
+      // Web-only account types (seller, driver, logistics, admin) must not
+      // resume a session on mobile — drop the token and stay on the auth
+      // screen with a warning.
+      if (!_isMobileAllowedRole(role)) {
+        await _clearToken();
+        setState(() => errorMsg = _webOnlyRoleMessage);
+        return;
+      }
+
       setState(() {
         loggedInUser = {
           'email': response['email'] ?? '',
@@ -1305,8 +1460,24 @@ class _AuthScreenState extends State<AuthScreen> {
       if (routedRoles.contains(role)) {
         _handleRoleBasedNavigation(role);
       }
+    } on ApiException catch (e) {
+      // 401/419 = the token itself was rejected (expired/revoked/invalid) —
+      // that's a real "you're logged out". Anything else (5xx, a malformed
+      // response, ...) is the server having a bad moment, not proof the
+      // session is invalid, so the token is kept and login is left in place
+      // for the next attempt (e.g. pull-to-refresh) instead of forcing a
+      // fresh sign-in.
+      if (e.statusCode == 401 || e.statusCode == 419) {
+        await _clearToken();
+      } else {
+        setState(() => errorMsg = e.message);
+      }
     } catch (e) {
-      await _clearToken();
+      // Network/timeout/parse errors — most commonly hit right after
+      // reopening the app with a slow or momentarily-offline connection.
+      // Closing the app must never log the user out, so the saved token is
+      // left alone here; checkAuthStatus() will simply be retried the next
+      // time the auth screen builds.
     }
   }
 
@@ -1431,7 +1602,8 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (step == 'driverSecurity' && signupStep == 'driverAddress') {
         if (!_validateAddressFields(
-            provinceCode, municipalityName, barangay, street)) {
+            provinceCode, municipalityName, barangay, street,
+            regionVal: region)) {
           setState(() {});
           return;
         }
@@ -1484,7 +1656,8 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (step == 'security' && signupStep == 'address') {
         if (!_validateAddressFields(
-            provinceCode, municipalityName, barangay, street)) {
+            provinceCode, municipalityName, barangay, street,
+            regionVal: region)) {
           setState(() {});
           return;
         }
@@ -1616,7 +1789,11 @@ class _AuthScreenState extends State<AuthScreen> {
       vehicle = '';
       driverVehicle = '';
       lineOfBusiness = '';
+      region = '';
       companyRegion = '';
+      idType = '';
+      driverIdType = '';
+      ownerIdType = '';
 
       birthday = null;
       ownerBirthday = null;
@@ -1636,14 +1813,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  void startLogisticsSignup() {
-    setState(() {
-      isLogisticsSignup = true;
-      signupStep = 'company';
-      errorMsg = '';
-      successMsg = '';
-    });
-  }
 
   void selectRole(String role) {
     setState(() {
@@ -1684,43 +1853,19 @@ class _AuthScreenState extends State<AuthScreen> {
 
   PreferredSizeWidget? _buildAppBar() {
     if (!_showAppBarBack) return null;
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(56),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            color: Colors.white.withOpacity(0.08),
-            child: SafeArea(
-              bottom: false,
-              child: SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 18, color: Colors.white),
-                      onPressed: _handleBackNavigation,
-                      tooltip: 'Back',
-                    ),
-                    Expanded(
-                      child: Text(
-                        _appBarTitle(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+    return AppBar(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.slate800),
+        onPressed: _handleBackNavigation,
+        tooltip: 'Back',
       ),
+      title: Text(_appBarTitle(),
+          style: const TextStyle(color: AppColors.slate900, fontSize: 16, fontWeight: FontWeight.w700)),
+      centerTitle: true,
     );
   }
 
@@ -1735,28 +1880,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return SafeArea(
       top: false,
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.25))),
-            ),
-            child: GradientButton(
-              label: isLast
-                  ? (isSubmitting ? 'Submitting...' : 'Submit')
-                  : 'Continue',
-              icon: isLast ? null : Icons.arrow_forward_rounded,
-              onPressed: isSubmitting
-                  ? null
-                  : () =>
-                      isLast ? submitRegistration() : goToStep(keys[idx + 1]),
-              loading: isLast && isSubmitting,
-            ),
-          ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.slate200)),
+        ),
+        child: SolidButton(
+          label: isLast ? (isSubmitting ? 'Submitting...' : 'Submit') : 'Continue',
+          icon: isLast ? null : Icons.arrow_forward_rounded,
+          onPressed: isSubmitting ? null : () => isLast ? submitRegistration() : goToStep(keys[idx + 1]),
+          loading: isLast && isSubmitting,
         ),
       ),
     );
@@ -1770,29 +1904,22 @@ class _AuthScreenState extends State<AuthScreen> {
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.transparent,
-        extendBodyBehindAppBar: true,
-        extendBody: true,
+        backgroundColor: Colors.white,
         resizeToAvoidBottomInset: true,
         appBar: _buildAppBar(),
         bottomNavigationBar: _buildBottomActionBar(),
-        body: AuroraBackground(
-          child: SafeArea(
-            top: !hasAppBar,
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 640;
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isWide ? 440 : double.infinity,
-                    ),
-                    child: _buildScreen(hasAppBar),
-                  ),
-                );
-              },
-            ),
+        body: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 640;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isWide ? 440 : double.infinity),
+                  child: _buildScreen(hasAppBar),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -1800,233 +1927,88 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _buildScreen(bool hasAppBar) {
-  if (hasAppBar) {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        transitionBuilder: (child, anim) => FadeTransition(
-          opacity: anim,
-          child: SlideTransition(
-            position: Tween<Offset>(
-                    begin: const Offset(0.04, 0), end: Offset.zero)
-                .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-            child: child,
+      padding: EdgeInsets.fromLTRB(24, hasAppBar ? 20 : 8, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!hasAppBar) _buildHeader(),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero)
+                    .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+                child: child,
+              ),
+            ),
+            child: KeyedSubtree(
+              key: ValueKey('$mode-$signupStep'),
+              child: _buildRightContent(),
+            ),
           ),
-        ),
-        child: GlassPanel(
-          key: ValueKey('$mode-$signupStep'),
-          padding: const EdgeInsets.all(20),
-          child: _buildRightContent(),
-        ),
+          if (mode == 'login' || (mode == 'signup' && signupStep == 'role'))
+            Padding(
+              padding: const EdgeInsets.only(top: 22, bottom: 12),
+              child: _buildFooterLink(),
+            ),
+        ],
       ),
     );
   }
 
-  // FIXED: Simple SingleChildScrollView with proper spacing
-  return SingleChildScrollView(
-    physics: const BouncingScrollPhysics(),
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHero(),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            child: GlassPanel(
-              key: ValueKey('$mode-$signupStep-root'),
-              padding: const EdgeInsets.all(20),
-              opacity: 0.65,
-              child: _buildRightContent(),
-            ),
-          ),
-        ),
-        if (mode == 'login' || (mode == 'signup' && signupStep == 'role'))
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 24),
-            child: _buildFooterLink(),
-          ),
-        const SizedBox(height: 8),
-      ],
-    ),
-  );
-}
-  Widget _buildHero() {
+  /// Brand mark + page heading. Only shown on the two root screens (login,
+  /// role picker) — wizard steps use the app bar's title instead so the
+  /// heading never fights the step context for attention.
+  Widget _buildHeader() {
     final isLogin = mode == 'login';
     final isSignupRole = mode == 'signup' && signupStep == 'role';
-    final isForgot = mode == 'forgot' || mode == 'reset';
-
-    final title = isLogin
-        ? 'Log in to keep\nshopping smart'
+    final title = isLogin ? 'Welcome back' : 'Create your account';
+    final subtitle = isLogin
+        ? 'Log in to keep shopping smart.'
         : isSignupRole
-            ? 'Create your account\nand start selling'
-            : 'Reset Password';
-
-    final subtitle = isForgot ? "We'll help you get back in" : '';
+            ? 'Choose how you want to use BuyTheWay.'
+            : '';
 
     return Padding(
       key: ValueKey('$mode-$signupStep-hero'),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GlassPanel(
-                borderRadius: 10,
-                padding: const EdgeInsets.all(6),
-                blur: 12,
-                opacity: 0.22,
-                child: const Icon(Icons.storefront_rounded,
-                    color: Colors.white, size: 17),
-              ),
-              const SizedBox(width: 9),
-              const Text(
-                'NEXMART',
+          const Row(children: [
+            BrandMark(size: 40),
+            SizedBox(width: 10),
+            Text('BuyTheWay',
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: 1.4,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: 120,
-            height: 104,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                GlassPanel(
-                  borderRadius: 28,
-                  padding: EdgeInsets.zero,
-                  blur: 14,
-                  opacity: 0.14,
-                  child: const SizedBox(width: 96, height: 96),
-                ),
-                Positioned(
-                  top: 0,
-                  right: 4,
-                  child: Transform.rotate(
-                    angle: 0.35,
-                    child: _iconChip(Icons.sell_rounded, size: 30, iconSize: 14),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 2,
-                  child: Transform.rotate(
-                    angle: -0.25,
-                    child: _iconChip(Icons.inventory_2_rounded,
-                        size: 30, iconSize: 14),
-                  ),
-                ),
-                const Positioned(
-                  top: 2,
-                  right: -8,
-                  child: Icon(Icons.auto_awesome_rounded,
-                      color: Colors.white60, size: 13),
-                ),
-                const Positioned(
-                  bottom: 8,
-                  left: -8,
-                  child: Icon(Icons.auto_awesome_rounded,
-                      color: Colors.white38, size: 11),
-                ),
-                _iconChip(Icons.shopping_bag_rounded,
-                    size: 64, iconSize: 30, primary: true),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.15,
-            ),
-          ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.slate900,
+                    letterSpacing: 0.6)),
+          ]),
+          const SizedBox(height: 28),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 27, fontWeight: FontWeight.w800, color: AppColors.slate900, height: 1.15)),
           if (subtitle.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.8),
-                height: 1.4,
-              ),
-            ),
+            Text(subtitle,
+                style: const TextStyle(fontSize: 14.5, color: AppColors.slate500, height: 1.4)),
           ],
         ],
       ),
     );
   }
 
-  Widget _iconChip(
-    IconData icon, {
-    required double size,
-    required double iconSize,
-    bool primary = false,
-  }) {
-    if (primary) {
-      return Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.teal300, AppColors.teal500],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(size * 0.3),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.teal400.withOpacity(0.5),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Icon(icon, size: iconSize, color: Colors.white),
-      );
-    }
-    return GlassPanel(
-      borderRadius: size * 0.3,
-      padding: EdgeInsets.zero,
-      blur: 10,
-      opacity: 0.2,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Icon(icon, size: iconSize, color: Colors.white),
-      ),
-    );
-  }
-
   Widget _buildFooterLink() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: mode == 'login'
-          ? _linkText(
-              "Don't have an account? ", 'Sign up', () => switchMode('signup'))
-          : _linkText('Already have an account? ', 'Log in',
-              () => switchMode('login')),
-    );
+    return mode == 'login'
+        ? _linkText("Don't have an account? ", 'Sign up', () => switchMode('signup'))
+        : _linkText('Already have an account? ', 'Log in', () => switchMode('login'));
   }
 
   Widget _buildRightContent() {
@@ -2043,73 +2025,17 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  // ---------------- Tabs ----------------
-
-  Widget _buildTabs() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-              child: _tabButton(
-                  'Log In', mode == 'login', () => switchMode('login'))),
-          Expanded(
-              child: _tabButton(
-                  'Sign Up', mode == 'signup', () => switchMode('signup'))),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabButton(String label, bool active, VoidCallback onTap) {
-    return PressableScale(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: active
-              ? const LinearGradient(
-                  colors: [AppColors.teal400, AppColors.teal600])
-              : null,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                      color: AppColors.teal500.withOpacity(0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3))
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: active ? Colors.white : AppColors.slate600)),
-      ),
-    );
-  }
-
   Widget _linkText(String prefix, String linkLabel, VoidCallback onTap) {
     return Center(
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
+          style: const TextStyle(color: AppColors.slate500, fontSize: 13.5),
           children: [
             TextSpan(text: prefix),
             TextSpan(
               text: linkLabel,
-              style: const TextStyle(
-                  color: AppColors.teal300, fontWeight: FontWeight.w800),
+              style: const TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w800),
               recognizer: TapGestureRecognizer()..onTap = onTap,
             ),
           ],
@@ -2124,32 +2050,30 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTabs(),
-        const SizedBox(height: 18),
-        LabeledField(
+        SolidField(
             label: 'Email Address',
             controller: email,
             required: true,
             hint: 'juan@email.com',
-            keyboardType: TextInputType.emailAddress),
+            icon: Icons.mail_outline_rounded,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email]),
         const SizedBox(height: 14),
-        LabeledField(
+        SolidField(
           label: 'Password',
           controller: password,
           required: true,
           hint: 'Enter your password',
+          icon: Icons.lock_outline_rounded,
           obscure: !showPassword,
+          autofillHints: const [AutofillHints.password],
           suffix: IconButton(
-            icon: Icon(
-                showPassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                size: 18,
-                color: AppColors.slate400),
+            icon: Icon(showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 19, color: AppColors.slate400),
             onPressed: () => setState(() => showPassword = !showPassword),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -2163,39 +2087,35 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 22,
                     child: Checkbox(
                       value: rememberMe,
-                      activeColor: AppColors.teal500,
-                      onChanged: (v) =>
-                          setState(() => rememberMe = v ?? false),
+                      activeColor: AppColors.teal600,
+                      onChanged: (v) => setState(() => rememberMe = v ?? false),
                     ),
                   ),
                   const SizedBox(width: 6),
                   const Text('Remember me',
-                      style:
-                          TextStyle(fontSize: 13, color: AppColors.slate600)),
+                      style: TextStyle(fontSize: 13, color: AppColors.slate600)),
                 ],
               ),
             ),
             TextButton(
               onPressed: () => switchMode('forgot'),
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Forgot password?',
-                  style: TextStyle(
-                      color: AppColors.teal700,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13)),
+                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
           ],
         ),
-        MessageBanner(error: errorMsg, success: successMsg),
-        const SizedBox(height: 8),
-        GradientButton(
-          label: isSubmitting ? 'Signing in...' : 'Sign In',
+        SolidBanner(error: errorMsg, success: successMsg),
+        const SizedBox(height: 18),
+        SolidButton(
+          label: isSubmitting ? 'Signing in...' : 'Log In',
           onPressed: isSubmitting ? null : handleLogin,
           loading: isSubmitting,
-          icon: Icons.login_rounded,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 18),
+        const OrDivider(),
+        const SizedBox(height: 18),
+        GoogleButton(onPressed: isSubmitting ? null : _handleGoogleAuth),
       ],
     );
   }
@@ -2203,20 +2123,24 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Forgot / reset password wizard ----------------
 
   Widget _buildResetWizard() {
+    const labels = ['Email', 'Verify code', 'New password'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          resetStep == 1
-              ? 'Enter your email to receive a verification code.'
-              : (resetStep == 2
-                  ? 'Enter the 6-digit code sent to your email.'
-                  : 'Create a new password for your account.'),
-          style: const TextStyle(color: AppColors.slate600, fontSize: 14),
+        SolidProgress(total: 3, currentIndex: resetStep - 1, stepLabel: labels[resetStep - 1]),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 4),
+          child: Text(
+            resetStep == 1
+                ? 'Enter your email to receive a verification code.'
+                : (resetStep == 2
+                    ? 'Enter the 6-digit code sent to your email.'
+                    : 'Create a new password for your account.'),
+            style: const TextStyle(color: AppColors.slate600, fontSize: 14, height: 1.4),
+          ),
         ),
-        const SizedBox(height: 14),
-        StepIndicator(total: 3, currentIndex: resetStep - 1),
-        const SizedBox(height: 18),
+        const SizedBox(height: 10),
         if (resetStep == 1) _resetStep1(),
         if (resetStep == 2) _resetStep2(),
         if (resetStep == 3) _resetStep3(),
@@ -2228,15 +2152,16 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LabeledField(
+        SolidField(
             label: 'Email Address',
             controller: forgotEmail,
             required: true,
             hint: 'juan@email.com',
+            icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress),
-        MessageBanner(error: errorMsg, success: successMsg),
-        const SizedBox(height: 10),
-        GradientButton(
+        SolidBanner(error: errorMsg, success: successMsg),
+        const SizedBox(height: 16),
+        SolidButton(
           label: isSubmitting ? 'Sending...' : 'Send Verification Code',
           onPressed: isSubmitting ? null : handleSendResetCode,
           loading: isSubmitting,
@@ -2249,36 +2174,33 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LabeledField(
+        SolidField(
             label: 'Verification Code',
             controller: resetCode,
             required: true,
             hint: '6-digit code',
+            icon: Icons.pin_outlined,
             keyboardType: TextInputType.number,
             maxLength: 6),
         const SizedBox(height: 4),
         const Text('Check your email for the code. Expires in 15 minutes.',
             style: TextStyle(color: AppColors.slate500, fontSize: 12)),
-        MessageBanner(error: errorMsg, success: successMsg),
-        const SizedBox(height: 10),
-        GradientButton(
+        SolidBanner(error: errorMsg, success: successMsg),
+        const SizedBox(height: 16),
+        SolidButton(
           label: isVerifying ? 'Verifying...' : 'Verify Code',
           onPressed: isVerifying ? null : handleVerifyResetCode,
           loading: isVerifying,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton(
               onPressed: handleResendResetCode,
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Resend code',
-                  style: TextStyle(
-                      color: AppColors.teal700,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13)),
+                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
             TextButton(
               onPressed: () => setState(() {
@@ -2286,13 +2208,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 errorMsg = '';
                 successMsg = '';
               }),
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Change email',
-                  style: TextStyle(
-                      color: AppColors.teal700,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13)),
+                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
           ],
         ),
@@ -2304,32 +2222,34 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LabeledField(
+        SolidField(
           label: 'New Password',
           controller: newPassword,
           required: true,
           hint: 'Min 8 characters',
+          icon: Icons.lock_outline_rounded,
           obscure: !showPassword,
           suffix: IconButton(
-            icon: Icon(
-                showPassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                size: 18,
-                color: AppColors.slate400),
+            icon: Icon(showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 19, color: AppColors.slate400),
             onPressed: () => setState(() => showPassword = !showPassword),
           ),
         ),
-        const SizedBox(height: 10),
-        LabeledField(
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: newPassword,
+          builder: (context, value, _) => PasswordStrengthMeter(password: value.text),
+        ),
+        const SizedBox(height: 12),
+        SolidField(
             label: 'Confirm New Password',
             controller: newConfirmPassword,
             required: true,
             hint: 'Re-enter password',
+            icon: Icons.lock_outline_rounded,
             obscure: !showPassword),
-        MessageBanner(error: errorMsg, success: successMsg),
-        const SizedBox(height: 10),
-        GradientButton(
+        SolidBanner(error: errorMsg, success: successMsg),
+        const SizedBox(height: 16),
+        SolidButton(
           label: isSubmitting ? 'Resetting...' : 'Reset Password',
           onPressed: isSubmitting ? null : handleResetPassword,
           loading: isSubmitting,
@@ -2340,19 +2260,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ---------------- Signup flow ----------------
 
-  Widget _buildSignupFlow() {
-    if (signupStep != 'role' || isLogisticsSignup) {
-      return _buildSignupBody();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTabs(),
-        const SizedBox(height: 18),
-        _buildSignupBody(),
-      ],
-    );
-  }
+  Widget _buildSignupFlow() => _buildSignupBody();
 
   Widget _buildSignupBody() {
     if (signupStep == 'complete') return _buildComplete();
@@ -2368,112 +2276,35 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Select your role to start your registration.',
-            style: TextStyle(color: AppColors.slate600, fontSize: 14)),
-        const SizedBox(height: 14),
         ...roles.map((r) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _roleCard(r),
+              child: SolidChoiceCard(
+                icon: r['icon'] as IconData,
+                label: r['label'] as String,
+                description: r['desc'] as String,
+                selected: selectedRole == r['id'],
+                onTap: () => selectRole(r['id'] as String),
+              ),
             )),
         const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.only(top: 14),
-          decoration: BoxDecoration(
-              border: Border(
-                  top: BorderSide(color: AppColors.slate300.withOpacity(0.6)))),
-          child: _linkText('Have your own logistics company?  ', 'Sign up here',
-              startLogisticsSignup),
+        const Text(
+          'Seller, driver and logistics company accounts are only '
+          'available through a web browser.',
+          style: TextStyle(color: AppColors.slate500, fontSize: 12.5, height: 1.4),
         ),
+        const SizedBox(height: 22),
+        const OrDivider(),
+        const SizedBox(height: 18),
+        GoogleButton(onPressed: _handleGoogleAuth, label: 'Sign up with Google'),
       ],
-    );
-  }
-
-  Widget _roleCard(Map<String, dynamic> r) {
-    final selected = selectedRole == r['id'];
-    return PressableScale(
-      onTap: () => selectRole(r['id'] as String),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        constraints: const BoxConstraints(minHeight: 64),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(colors: [
-                  AppColors.teal500.withOpacity(0.14),
-                  AppColors.teal400.withOpacity(0.08),
-                ])
-              : null,
-          color: selected ? null : Colors.white.withOpacity(0.5),
-          border: Border.all(
-              color: selected
-                  ? AppColors.teal500
-                  : Colors.white.withOpacity(0.6),
-              width: selected ? 1.5 : 1),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                      color: AppColors.teal400.withOpacity(0.25),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6))
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.teal500.withOpacity(0.18)
-                    : AppColors.slate100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(r['icon'] as IconData,
-                  size: 20,
-                  color: selected ? AppColors.teal700 : AppColors.slate400),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(r['label'] as String,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: AppColors.slate800)),
-                  const SizedBox(height: 2),
-                  Text(r['desc'] as String,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.slate500,
-                          height: 1.3)),
-                ],
-              ),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
-              child: selected
-                  ? const Icon(Icons.check_circle_rounded,
-                      key: ValueKey('sel'), size: 20, color: AppColors.teal600)
-                  : const Icon(Icons.chevron_right_rounded,
-                      key: ValueKey('unsel'), size: 20, color: AppColors.slate300),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _wizardHeader({required String kicker}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Text(kicker,
-          style: const TextStyle(color: AppColors.slate500, fontSize: 13)),
+          style: const TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.4)),
     );
   }
 
@@ -2481,12 +2312,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _buildRegularWizard() {
     final idx = currentStepIndex;
+    final safeIdx = idx < 0 ? 0 : idx;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StepIndicator(total: steps.length, currentIndex: idx),
-        const SizedBox(height: 14),
-        _wizardHeader(kicker: 'Register as ${selectedRole ?? ''}'),
+        SolidProgress(total: steps.length, currentIndex: safeIdx, stepLabel: steps[safeIdx]),
+        _wizardHeader(kicker: 'Registering as ${selectedRole ?? ''}'),
         _regularStepBody(),
       ],
     );
@@ -2513,64 +2344,75 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _personalFields() {
     return Column(
       children: [
-        LabeledField(
+        SolidField(
             label: 'Last Name',
             controller: lastName,
             required: true,
             hint: 'Dela Cruz',
+            icon: Icons.badge_outlined,
+            textCapitalization: TextCapitalization.words,
             error: validationErrors['lastName']),
         const SizedBox(height: 12),
-        LabeledField(
+        SolidField(
             label: 'First Name',
             controller: firstName,
             required: true,
             hint: 'Juan',
+            icon: Icons.badge_outlined,
+            textCapitalization: TextCapitalization.words,
             error: validationErrors['firstName']),
         const SizedBox(height: 12),
-        Row(children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             flex: 2,
-            child: LabeledField(
+            child: SolidField(
                 label: 'M.I.',
                 controller: middleInitial,
                 hint: 'B',
                 maxLength: 1,
+                textCapitalization: TextCapitalization.characters,
                 error: validationErrors['middleInitial']),
           ),
           const SizedBox(width: 12),
           Expanded(
             flex: 3,
-            child: LabeledDropdown(
+            child: SolidDropdown(
                 label: 'Sex',
                 required: true,
                 value: sex.isEmpty ? null : sex,
                 items: const ['Male', 'Female'],
+                icon: Icons.wc_rounded,
                 onChanged: (v) => setState(() => sex = v ?? '')),
           ),
         ]),
         const SizedBox(height: 12),
-        LabeledDateField(
+        SolidDateField(
             label: 'Birthday',
             required: true,
             value: birthday,
             onChanged: (d) => setState(() => birthday = d),
             error: validationErrors['birthday']),
-        const SizedBox(height: 12),
-        LabeledField(
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Contact details'),
+        const SizedBox(height: 14),
+        SolidField(
             label: 'Contact No.',
             controller: contactNo,
             required: true,
             hint: '09XXXXXXXXX',
+            icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
             maxLength: 11,
             error: validationErrors['contactNo']),
         const SizedBox(height: 12),
-        LabeledField(
+        SolidField(
             label: 'Email',
             controller: email,
             required: true,
             hint: 'juan@email.com',
+            icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
             error: validationErrors['email']),
       ],
     );
@@ -2580,28 +2422,36 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(TextSpan(
-            style: const TextStyle(color: AppColors.slate600, fontSize: 13),
-            children: [
-              const TextSpan(text: 'We sent a 6-digit code to '),
-              TextSpan(
-                  text: targetEmail.isEmpty ? '—' : targetEmail,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, color: AppColors.slate800)),
-              const TextSpan(text: '.'),
-            ])),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            const Icon(Icons.mark_email_read_outlined, size: 20, color: AppColors.teal600),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(TextSpan(
+                  style: const TextStyle(color: AppColors.slate600, fontSize: 13, height: 1.4),
+                  children: [
+                    const TextSpan(text: 'We sent a 6-digit code to '),
+                    TextSpan(
+                        text: targetEmail.isEmpty ? '—' : targetEmail,
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate800)),
+                    const TextSpan(text: '.'),
+                  ])),
+            ),
+          ]),
+        ),
         if (successMsg.isNotEmpty)
           Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(successMsg,
-                  style: const TextStyle(
-                      color: AppColors.successGreen, fontSize: 12))),
-        const SizedBox(height: 12),
-        LabeledField(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(successMsg, style: const TextStyle(color: AppColors.successGreen, fontSize: 12))),
+        const SizedBox(height: 16),
+        SolidField(
             label: 'Verification Code',
             controller: signupVerifyCode,
             required: true,
             hint: '6-digit code',
+            icon: Icons.pin_outlined,
             keyboardType: TextInputType.number,
             maxLength: 6),
         const SizedBox(height: 4),
@@ -2610,20 +2460,14 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 8),
         TextButton(
           onPressed: isSendingCode ? null : _sendVerificationCodeStub,
-          style: TextButton.styleFrom(
-              padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
           child: const Text('Resend code',
-              style: TextStyle(
-                  color: AppColors.teal700,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13)),
+              style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
         ),
         if (errorMsg.isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
+              child: Text(errorMsg, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -2647,77 +2491,83 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Column(
       children: [
-        LabeledDropdown(
+        // Island group. Asked before the PSGC chain because it's what the
+        // backend files the address under (addresses.region_name) and how
+        // logistics coverage is matched. The company address skips it —
+        // the logistics wizard collects its region on the Company step.
+        if (!isCompany) ...[
+          SolidDropdown(
+            label: 'Region',
+            required: true,
+            value: region.isEmpty ? null : region,
+            items: kRegionOptions,
+            hint: 'Select Region',
+            icon: Icons.public_rounded,
+            onChanged: (v) => setState(() => region = v ?? ''),
+          ),
+          const SizedBox(height: 12),
+        ],
+        SolidDropdown(
           label: 'Province',
           required: true,
           value: pCode,
           items: provinces.map((p) => p['code']?.toString() ?? '').toList(),
-          displayItems:
-              provinces.map((p) => p['name']?.toString() ?? '').toList(),
+          displayItems: provinces.map((p) => p['name']?.toString() ?? '').toList(),
           hint: loadingProvinces ? 'Loading provinces...' : 'Select province',
           enabled: !loadingProvinces,
-          onChanged: (v) =>
-              isCompany ? onCompanyProvinceChanged(v) : onProvinceChanged(v),
+          icon: Icons.location_on_outlined,
+          onChanged: (v) => isCompany ? onCompanyProvinceChanged(v) : onProvinceChanged(v),
         ),
         const SizedBox(height: 12),
-        LabeledDropdown(
+        SolidDropdown(
           label: 'Municipality / City',
           required: true,
           value: mCode,
-          items:
-              municipalities.map((m) => m['code']?.toString() ?? '').toList(),
-          displayItems:
-              municipalities.map((m) => m['name']?.toString() ?? '').toList(),
+          items: municipalities.map((m) => m['code']?.toString() ?? '').toList(),
+          displayItems: municipalities.map((m) => m['name']?.toString() ?? '').toList(),
           hint: loadingMunicipalities
               ? 'Loading...'
-              : (pCode != null
-                  ? 'Select municipality/city'
-                  : 'Select a province first'),
+              : (pCode != null ? 'Select municipality/city' : 'Select a province first'),
           enabled: pCode != null && !loadingMunicipalities,
-          onChanged: (v) => isCompany
-              ? onCompanyMunicipalityChanged(v)
-              : onMunicipalityChanged(v),
+          onChanged: (v) =>
+              isCompany ? onCompanyMunicipalityChanged(v) : onMunicipalityChanged(v),
         ),
         const SizedBox(height: 12),
-        LabeledDropdown(
+        SolidDropdown(
           label: 'Barangay',
           required: true,
           value: bCode,
           items: barangays.map((b) => b['code']?.toString() ?? '').toList(),
-          displayItems:
-              barangays.map((b) => b['name']?.toString() ?? '').toList(),
+          displayItems: barangays.map((b) => b['name']?.toString() ?? '').toList(),
           hint: loadingBarangays
               ? 'Loading...'
-              : (mCode != null
-                  ? 'Select barangay'
-                  : 'Select a municipality/city first'),
+              : (mCode != null ? 'Select barangay' : 'Select a municipality/city first'),
           enabled: mCode != null && !loadingBarangays,
-          onChanged: (v) =>
-              isCompany ? onCompanyBarangayChanged(v) : onBarangayChanged(v),
+          onChanged: (v) => isCompany ? onCompanyBarangayChanged(v) : onBarangayChanged(v),
         ),
-        const SizedBox(height: 12),
-        LabeledField(
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Street address'),
+        const SizedBox(height: 14),
+        SolidField(
             label: 'Street',
             controller: streetCtrl,
             required: true,
-            hint: 'Street name'),
+            hint: 'Street name',
+            icon: Icons.signpost_outlined),
         const SizedBox(height: 12),
-        LabeledField(
+        SolidField(
             label: 'House / Unit #',
             controller: houseCtrl,
-            hint: '123, Unit B'),
+            hint: '123, Unit B',
+            icon: Icons.home_outlined),
         if (_addressError.isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_addressError,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
+              child: Text(_addressError, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
         if (errorMsg.isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
+              child: Text(errorMsg, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -2726,32 +2576,38 @@ class _AuthScreenState extends State<AuthScreen> {
       String keyPw, String keyCpw) {
     return Column(
       children: [
-        LabeledField(
+        SolidField(
           label: 'Password',
           controller: pw,
           required: true,
           hint: 'Min 8 characters',
+          icon: Icons.lock_outline_rounded,
           obscure: !showPassword,
           error: validationErrors[keyPw],
           suffix: IconButton(
-            icon: Icon(
-                showPassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                size: 18,
-                color: AppColors.slate400),
+            icon: Icon(showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 19, color: AppColors.slate400),
             onPressed: () => setState(() => showPassword = !showPassword),
           ),
         ),
+        // Advisory only — the blocking rule is still "at least 8
+        // characters", the same one app.js and Laravel enforce. Rebuilds
+        // off the controller directly so typing doesn't setState the
+        // whole wizard on every keystroke.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: pw,
+          builder: (context, value, _) => PasswordStrengthMeter(password: value.text),
+        ),
         const SizedBox(height: 12),
-        LabeledField(
+        SolidField(
             label: 'Confirm Password',
             controller: cpw,
             required: true,
             hint: 'Re-enter password',
+            icon: Icons.lock_outline_rounded,
             obscure: !showPassword,
             error: validationErrors[keyCpw]),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         InkWell(
           onTap: () => setState(() => showPassword = !showPassword),
           borderRadius: BorderRadius.circular(6),
@@ -2761,52 +2617,75 @@ class _AuthScreenState extends State<AuthScreen> {
               height: 22,
               child: Checkbox(
                   value: showPassword,
-                  activeColor: AppColors.teal500,
+                  activeColor: AppColors.teal600,
                   onChanged: (v) => setState(() => showPassword = v ?? false)),
             ),
             const SizedBox(width: 6),
-            const Text('Show passwords',
-                style: TextStyle(fontSize: 13, color: AppColors.slate600)),
+            const Text('Show passwords', style: TextStyle(fontSize: 13, color: AppColors.slate600)),
           ]),
         ),
       ],
     );
   }
 
+  /// The "ID Type" dropdown that pairs with a valid-ID upload. Every
+  /// wizard shows exactly one (see [idType]).
+  Widget _idTypeDropdown(String value, ValueChanged<String> onChanged) {
+    return SolidDropdown(
+      label: 'ID Type',
+      required: true,
+      value: value.isEmpty ? null : value,
+      items: kIdTypeOptions,
+      hint: 'Select the ID you are uploading',
+      icon: Icons.badge_outlined,
+      onChanged: (v) => onChanged(v ?? ''),
+    );
+  }
+
   Widget _documentsFields() {
     final children = <Widget>[];
     if (selectedRole == 'buyer') {
-      children.add(UploadTile(
-          label: 'Upload ID',
-          required: true,
-          uploaded: idFileUploaded,
-          fileName: _idFileName,
-          onTap: () => _pickFile('idFile')));
-    } else if (selectedRole == 'seller') {
       children.addAll([
-        LabeledField(
-            label: 'Business Name',
-            controller: businessName,
-            required: true,
-            hint: 'My Store'),
+        _idTypeDropdown(idType, (v) => setState(() => idType = v)),
         const SizedBox(height: 12),
-        LabeledDropdown(
-          label: 'Line of Business',
-          required: true,
-          value: lineOfBusiness.isEmpty ? null : lineOfBusiness,
-          items: kLineOfBusinessOptions,
-          hint: 'Select Line of Business',
-          onChanged: (v) => setState(() => lineOfBusiness = v ?? ''),
-        ),
-        const SizedBox(height: 12),
-        UploadTile(
+        SolidUploadRow(
             label: 'Upload ID',
             required: true,
             uploaded: idFileUploaded,
             fileName: _idFileName,
             onTap: () => _pickFile('idFile')),
+      ]);
+    } else if (selectedRole == 'seller') {
+      children.addAll([
+        SolidField(
+            label: 'Business Name',
+            controller: businessName,
+            required: true,
+            hint: 'My Store',
+            icon: Icons.storefront_outlined),
         const SizedBox(height: 12),
-        UploadTile(
+        SolidDropdown(
+          label: 'Line of Business',
+          required: true,
+          value: lineOfBusiness.isEmpty ? null : lineOfBusiness,
+          items: kLineOfBusinessOptions,
+          hint: 'Select Line of Business',
+          icon: Icons.category_outlined,
+          onChanged: (v) => setState(() => lineOfBusiness = v ?? ''),
+        ),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Verification documents'),
+        const SizedBox(height: 14),
+        _idTypeDropdown(idType, (v) => setState(() => idType = v)),
+        const SizedBox(height: 12),
+        SolidUploadRow(
+            label: 'Upload ID',
+            required: true,
+            uploaded: idFileUploaded,
+            fileName: _idFileName,
+            onTap: () => _pickFile('idFile')),
+        const SizedBox(height: 10),
+        SolidUploadRow(
             label: 'Upload Business Permit',
             required: true,
             uploaded: businessPermitUploaded,
@@ -2815,28 +2694,38 @@ class _AuthScreenState extends State<AuthScreen> {
       ]);
     } else if (selectedRole == 'courier') {
       children.addAll([
-        LabeledDropdown(
+        SolidDropdown(
           label: 'Vehicle',
           required: true,
           value: vehicle.isEmpty ? null : vehicle,
           items: const ['Motorcycle', 'Car', 'Van', 'Bicycle'],
+          icon: Icons.two_wheeler_outlined,
           onChanged: (v) => setState(() => vehicle = v ?? ''),
         ),
         const SizedBox(height: 12),
-        LabeledField(
+        SolidField(
             label: 'Plate Number',
             controller: plateNumber,
             required: true,
-            hint: 'ABC-1234'),
-        const SizedBox(height: 12),
-        UploadTile(
+            hint: 'ABC-1234',
+            icon: Icons.pin_outlined,
+            textCapitalization: TextCapitalization.characters),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Verification documents'),
+        const SizedBox(height: 14),
+        SolidUploadRow(
             label: 'Upload OR/CR',
             required: true,
             uploaded: orcrUploaded,
             fileName: _orcrFileName,
             onTap: () => _pickFile('orcrFile')),
+        const SizedBox(height: 10),
+        // For a courier the ID-type dropdown describes the license upload
+        // below it rather than a separate valid ID — that's the
+        // `drivers_license` doc_type in AuthController::PRIMARY_ID_DOC_TYPE.
+        _idTypeDropdown(idType, (v) => setState(() => idType = v)),
         const SizedBox(height: 12),
-        UploadTile(
+        SolidUploadRow(
             label: "Upload ID / Driver's License",
             required: true,
             uploaded: licenseUploaded,
@@ -2849,18 +2738,7 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...children,
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
-        if (successMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(successMsg,
-                  style: const TextStyle(
-                      color: AppColors.successGreen, fontSize: 12))),
+        SolidBanner(error: errorMsg, success: successMsg),
       ],
     );
   }
@@ -2986,6 +2864,8 @@ class _AuthScreenState extends State<AuthScreen> {
             label: 'License Number',
             controller: driverLicenseNumber,
             hint: "Driver's License #"),
+        const SizedBox(height: 12),
+        _idTypeDropdown(driverIdType, (v) => setState(() => driverIdType = v)),
         const SizedBox(height: 12),
         UploadTile(
             label: 'Upload Valid ID',
@@ -3161,6 +3041,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _idTypeDropdown(ownerIdType, (v) => setState(() => ownerIdType = v)),
+        const SizedBox(height: 12),
         UploadTile(
             label: "Owner's Valid ID",
             required: true,
@@ -3211,36 +3093,23 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         const SizedBox(height: 10),
         Container(
-          width: 76,
-          height: 76,
+          width: 72,
+          height: 72,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [AppColors.successGreen, Color(0xFF059669)]),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                  color: AppColors.successGreen.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8)),
-            ],
-          ),
-          child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
+          decoration: const BoxDecoration(color: AppColors.successGreen, shape: BoxShape.circle),
+          child: const Icon(Icons.check_rounded, color: Colors.white, size: 38),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         const Text('Registration submitted!',
-            style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                color: AppColors.slate900)),
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: AppColors.slate900)),
         const SizedBox(height: 8),
         const Text(
           "Please wait for the administrator's approval, which will be sent to your email.",
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.slate500, fontSize: 13),
+          style: TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.4),
         ),
-        const SizedBox(height: 22),
-        GradientButton(label: 'Go to Login', onPressed: () => switchMode('login')),
+        const SizedBox(height: 26),
+        SolidButton(label: 'Go to Login', onPressed: () => switchMode('login')),
       ],
     );
   }
@@ -3250,17 +3119,13 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         const SizedBox(height: 16),
         const Text("You're in!",
-            style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: AppColors.slate900)),
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.slate900)),
         const SizedBox(height: 8),
-        Text(
-            'Logged in as ${loggedInUser?['email'] ?? ''} (${loggedInUser?['role'] ?? ''})',
+        Text('Logged in as ${loggedInUser?['email'] ?? ''} (${loggedInUser?['role'] ?? ''})',
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.slate500, fontSize: 14)),
         const SizedBox(height: 22),
-        OutlineActionButton(label: 'Log out', onPressed: logout),
+        SolidOutlineButton(label: 'Log out', onPressed: logout),
       ],
     );
   }

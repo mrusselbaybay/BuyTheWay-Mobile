@@ -10,6 +10,7 @@ import 'driver_change_password_sheet.dart';
 import 'driver_deactivate_account_dialog.dart';
 import 'driver_profile_info_screen.dart';
 import 'driver_vehicle_documents_screen.dart';
+import '../widgets/driver_shared_widgets.dart';
 import 'widgets/settings_widgets.dart';
 
 /// Settings hub — reached from the Account tab's gear icon. Redesigned
@@ -27,6 +28,14 @@ import 'widgets/settings_widgets.dart';
 class DriverSettingsScreen extends StatefulWidget {
   final DriverAccount account;
   final String accessToken;
+
+  /// "Go online" shift toggle — whether the rider is currently available
+  /// for delivery assignments. Owned by DriverShell (persisted via
+  /// `PUT /api/driver/availability`), same lifted-state pattern as the
+  /// preferences below.
+  final bool deliveryOnline;
+  final ValueChanged<bool> onDeliveryOnlineChanged;
+
   final bool notificationsEnabled;
   final ValueChanged<bool> onNotificationsChanged;
   final bool soundEnabled;
@@ -34,16 +43,24 @@ class DriverSettingsScreen extends StatefulWidget {
   final String language;
   final ValueChanged<String> onLanguageChanged;
 
+  /// Pull-to-refresh — re-reads `GET /api/driver/profile` through the
+  /// shell so the summary card, address row and vehicle row reflect
+  /// changes made elsewhere (e.g. an admin edit).
+  final Future<void> Function() onRefresh;
+
   const DriverSettingsScreen({
     super.key,
     required this.account,
     required this.accessToken,
+    required this.deliveryOnline,
+    required this.onDeliveryOnlineChanged,
     required this.notificationsEnabled,
     required this.onNotificationsChanged,
     required this.soundEnabled,
     required this.onSoundChanged,
     required this.language,
     required this.onLanguageChanged,
+    required this.onRefresh,
   });
 
   @override
@@ -67,7 +84,14 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
   }
 
   void _openVehicleDocuments() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => DriverVehicleDocumentsScreen(account: widget.account)));
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => DriverVehicleDocumentsScreen(
+            account: widget.account,
+            onRefresh: widget.onRefresh,
+          ),
+        ))
+        .then((_) => setState(() {}));
   }
 
   /// Browsing logistics companies + applications is a courier-specific
@@ -144,7 +168,10 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
         title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: SafeArea(
-        child: ListView(
+        child: DriverRefreshable(
+          onRefresh: widget.onRefresh,
+          child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
           children: [
             SettingsProfileSummary(
@@ -153,6 +180,7 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
               status: a.accountStatus,
               role: SettingsFormat.roleLabel(a.role),
               memberSince: a.memberSince,
+              avatarUrl: a.avatarUrl.isEmpty ? null : a.avatarUrl,
               onTap: () => _openProfileInfo(),
             ),
             const SizedBox(height: 26),
@@ -196,6 +224,15 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                 title: 'Change Password',
                 subtitle: 'Update your account password',
                 onTap: _openChangePassword,
+              ),
+              SettingsOptimisticSwitchTile(
+                icon: Icons.delivery_dining_rounded,
+                title: 'Go online',
+                subtitle: (on) => on
+                    ? 'Available for delivery assignments'
+                    : 'Offline — not receiving assignments',
+                value: widget.deliveryOnline,
+                onChanged: widget.onDeliveryOnlineChanged,
               ),
             ]),
             const SizedBox(height: 22),
@@ -264,6 +301,7 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

@@ -152,7 +152,7 @@ final driverProfile = DriverProfile(
   plateNumber: 'NBC 2245',
   hub: 'J&T Express · Manila Hub',
   phone: '+63 917 123 4567',
-  email: 'juan.delacruz@nexmart.ph',
+  email: 'juan.delacruz@buytheway.ph',
   completedDeliveries: 1284,
   onTimeRate: 0.97,
   acceptanceRate: 0.94,
@@ -675,6 +675,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: _teal,
           onRefresh: widget.onRefresh,
           child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: _buildHeader(context)),
               SliverPadding(
@@ -761,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // DriverWorkScreen — since courier and driver share that UI.
               // This spacer keeps the title centered.
               const SizedBox(width: 36, height: 36),
-              const Text('NEXMART Courier', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.4)),
+              const Text('BuyTheWay Courier', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.4)),
               _headerIconButton(
                 icon: Icons.person_rounded,
                 tooltip: 'Profile',
@@ -968,6 +969,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
         color: _teal,
         onRefresh: _refresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
             _heroCard(),
@@ -1330,6 +1332,7 @@ class _PickupsScreenState extends State<PickupsScreen> {
         color: _teal,
         onRefresh: widget.onRefresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
             if (_routeStops.isNotEmpty) ...[
@@ -1488,8 +1491,23 @@ class _PickupsScreenState extends State<PickupsScreen> {
 // PROFILE SCREEN (reached via header/appbar icon, not the nav bar)
 // ============================================================
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  /// Profile data here is still this module's mock `driverProfile` (no
+  /// endpoint behind it yet), so the pull re-reads it in place — the
+  /// gesture is consistent with the rest of the app and becomes a real
+  /// fetch the moment one exists.
+  Future<void> _refresh() async {
+    HapticFeedback.lightImpact();
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) setState(() {});
+  }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -1520,7 +1538,11 @@ class ProfileScreen extends StatelessWidget {
     final years = DateTime.now().difference(driverProfile.joinedAt).inDays ~/ 365;
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        color: _teal,
+        onRefresh: _refresh,
+        child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverAppBar(
             pinned: true,
@@ -1601,6 +1623,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

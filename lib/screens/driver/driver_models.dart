@@ -61,7 +61,22 @@ class ActiveDelivery {
   });
 }
 
-enum AssignedDeliveryStatus { assigned, pickedUp, delivered, handedOver }
+enum AssignedDeliveryStatus {
+  assigned,
+  pickedUp,
+  delivered,
+  handedOver,
+  // Cross-region transfer leg states (see DriverDeliveryController's
+  // docblock and App\Models\ParcelAssignment::STATUS_TO_TRANSFER) — a
+  // transfer parcel never reaches pickedUp/delivered. transferAssigned is
+  // "dispatched, staff hasn't handed it to me yet" (like `assigned` but
+  // with no self-serve pickup action); readyToTransfer is "I have it,
+  // confirm arrival at the target company's hub instead of delivering to
+  // a buyer"; transferred is terminal.
+  transferAssigned,
+  readyToTransfer,
+  transferred,
+}
 
 AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
   switch (value) {
@@ -74,6 +89,12 @@ AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
     // no scan/attach/deliver action left for them to take on it.
     case 'handed_over':
       return AssignedDeliveryStatus.handedOver;
+    case 'transfer_assigned':
+      return AssignedDeliveryStatus.transferAssigned;
+    case 'ready_to_transfer':
+      return AssignedDeliveryStatus.readyToTransfer;
+    case 'transferred':
+      return AssignedDeliveryStatus.transferred;
     case 'assigned':
     default:
       return AssignedDeliveryStatus.assigned;
@@ -171,9 +192,16 @@ class AssignedDelivery {
   final DateTime? assignedAt;
   DateTime? handedOffAt;
   DateTime? deliveredAt;
+  DateTime? transferredAt;
   bool hasPickupPhoto;
   bool hasDeliveryPhoto;
   AssignedDeliveryStatus status;
+
+  /// True for a cross-region transfer leg (seller/buyer island-group
+  /// mismatch) — this parcel is being ferried to another logistics
+  /// company's hub, not delivered to the buyer. See
+  /// DriverDeliveryController::present's `is_transfer`.
+  final bool isTransfer;
 
   /// The bare parcel confirmation token (see
   /// DriverDeliveryController::present's docblock) — the rider is already
@@ -205,11 +233,13 @@ class AssignedDelivery {
     this.assignedAt,
     this.handedOffAt,
     this.deliveredAt,
+    this.transferredAt,
     this.hasPickupPhoto = false,
     this.hasDeliveryPhoto = false,
     this.confirmationToken,
     this.hasConfirmationQr = false,
     required this.status,
+    this.isTransfer = false,
   });
 
   /// The logistics company name lifted out of [pickupLabel] (formatted by
@@ -254,11 +284,13 @@ class AssignedDelivery {
       assignedAt: parseDate(json['assigned_at']),
       handedOffAt: parseDate(json['handed_off_at']),
       deliveredAt: parseDate(json['delivered_at']),
+      transferredAt: parseDate(json['transferred_at']),
       hasPickupPhoto: json['has_pickup_photo'] == true,
       hasDeliveryPhoto: json['has_delivery_photo'] == true,
       confirmationToken: str(json['confirmation_token']).isEmpty ? null : str(json['confirmation_token']),
       hasConfirmationQr: json['has_confirmation_qr'] == true,
       status: _parseAssignedDeliveryStatus(json['status']),
+      isTransfer: json['is_transfer'] == true,
     );
   }
 
@@ -270,6 +302,7 @@ class AssignedDelivery {
     status = other.status;
     handedOffAt = other.handedOffAt;
     deliveredAt = other.deliveredAt;
+    transferredAt = other.transferredAt;
     hasPickupPhoto = other.hasPickupPhoto;
     hasDeliveryPhoto = other.hasDeliveryPhoto;
     confirmationToken = other.confirmationToken;
@@ -371,6 +404,10 @@ class DriverAccount {
 
   // ---- Home address (Settings screen — mirrors the buyer account
   // page's "Home Address" section) ----
+  /// Island group the address sits in ('Luzon' / 'Visayas' / 'Mindanao') —
+  /// `addresses.region_name`. Collected at signup and editable here, same
+  /// as the web wizard's Region dropdown.
+  String regionName;
   String provinceCode;
   String provinceName;
   String municipalityCode;
@@ -383,13 +420,23 @@ class DriverAccount {
   String licenseNumber;
   String? logisticsCompanyName;
 
+  /// Shift availability behind the Settings screen's "Go online" toggle —
+  /// 'available' or 'unavailable'. Persisted on driver_details/
+  /// courier_details.delivery_status; flipped via
+  /// `ApiService.updateDriverAvailability`.
+  String deliveryStatus;
+
   // ---- Account status / bookkeeping ----
   String accountStatus;
   DateTime updatedAt;
 
-  /// No image picker/upload is wired up yet — the Settings screen shows a
-  /// generic placeholder avatar until real photo upload exists.
-  bool hasProfilePhoto;
+  /// Public URL of the uploaded profile picture in Supabase's `avatars`
+  /// bucket, or empty when the rider hasn't set one — the Settings screens
+  /// fall back to the generic placeholder avatar in that case. Written by
+  /// `POST /api/driver/profile/avatar`.
+  String avatarUrl;
+
+  bool get hasProfilePhoto => avatarUrl.isNotEmpty;
 
   DriverAccount({
     this.id = '',
@@ -408,6 +455,7 @@ class DriverAccount {
     this.middleInitial = '',
     required this.sex,
     required this.birthday,
+    this.regionName = '',
     this.provinceCode = '',
     required this.provinceName,
     this.municipalityCode = '',
@@ -417,9 +465,10 @@ class DriverAccount {
     this.houseNo = '',
     required this.licenseNumber,
     this.logisticsCompanyName,
+    this.deliveryStatus = 'unavailable',
     this.accountStatus = 'Active',
     required this.updatedAt,
-    this.hasProfilePhoto = false,
+    this.avatarUrl = '',
   });
 
   /// Builds a [DriverAccount] from `GET /api/driver/profile`'s
@@ -467,6 +516,7 @@ class DriverAccount {
       birthday: profile['birthday'] != null && str(profile['birthday']).isNotEmpty
           ? DateTime.tryParse(str(profile['birthday'])) ?? DateTime.utc(2000, 1, 1)
           : DateTime.utc(2000, 1, 1),
+      regionName: str(address?['region_name']),
       provinceCode: str(address?['province_code']),
       provinceName: str(address?['province_name']),
       municipalityCode: str(address?['municipality_code']),
@@ -476,9 +526,10 @@ class DriverAccount {
       houseNo: str(address?['house_no']),
       licenseNumber: str(vehicle['license_number']),
       logisticsCompanyName: str(vehicle['logistics_company_name']).isEmpty ? null : str(vehicle['logistics_company_name']),
+      deliveryStatus: str(vehicle['delivery_status']) == 'available' ? 'available' : 'unavailable',
       accountStatus: str(profile['account_status']).isEmpty ? 'active' : str(profile['account_status']),
       updatedAt: parseDate(profile['updated_at']),
-      hasProfilePhoto: false,
+      avatarUrl: str(profile['avatar_url']),
     );
   }
 
@@ -503,6 +554,7 @@ class DriverAccount {
     middleInitial = other.middleInitial;
     sex = other.sex;
     birthday = other.birthday;
+    regionName = other.regionName;
     provinceCode = other.provinceCode;
     provinceName = other.provinceName;
     municipalityCode = other.municipalityCode;
@@ -512,9 +564,14 @@ class DriverAccount {
     houseNo = other.houseNo;
     licenseNumber = other.licenseNumber;
     logisticsCompanyName = other.logisticsCompanyName;
+    deliveryStatus = other.deliveryStatus;
     accountStatus = other.accountStatus;
     updatedAt = other.updatedAt;
+    avatarUrl = other.avatarUrl;
   }
+
+  /// Whether the rider is currently on shift ("Go online" toggle is on).
+  bool get isOnline => deliveryStatus == 'available';
 
   String get fullAddress => [
         if (houseNo.trim().isNotEmpty) houseNo.trim(),
@@ -522,6 +579,7 @@ class DriverAccount {
         barangay,
         municipalityName,
         provinceName,
+        regionName,
       ].where((part) => part.trim().isNotEmpty).join(', ');
 
   int get age {
@@ -688,7 +746,7 @@ List<ChatThread> mockChatThreads() => [
 
 DriverAccount mockDriverAccount() => DriverAccount(
       name: 'Marco Rivera',
-      email: 'marco.rivera@nexmart.ph',
+      email: 'marco.rivera@buytheway.ph',
       phone: '+63 917 456 7890',
       vehicleType: 'Motorcycle · Honda Click 125i',
       plateNumber: 'NBC 2245',
@@ -701,6 +759,7 @@ DriverAccount mockDriverAccount() => DriverAccount(
       middleInitial: 'D',
       sex: 'Male',
       birthday: DateTime.utc(1996, 4, 12),
+      regionName: 'Luzon',
       provinceName: 'Metro Manila',
       municipalityName: 'Quezon City',
       barangay: 'Barangay Pinyahan',
@@ -709,7 +768,6 @@ DriverAccount mockDriverAccount() => DriverAccount(
       licenseNumber: 'N01-23-456789',
       accountStatus: 'Active',
       updatedAt: DateTime.now().subtract(const Duration(days: 6)),
-      hasProfilePhoto: false,
     );
 
 const List<EarningsBreakdownLine> todayBreakdown = [

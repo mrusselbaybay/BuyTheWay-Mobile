@@ -2327,6 +2327,18 @@ class _DriverWorkScreenState extends State<DriverWorkScreen> {
     super.dispose();
   }
 
+  /// Pull-to-refresh for the Find Work page — re-reads all three of the
+  /// things this screen shows (browsable companies, this rider's
+  /// applications, current employment) in parallel rather than in series,
+  /// since none of them depends on another.
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      _loadCompanies(),
+      _loadApplications(),
+      _loadEmploymentStatus(),
+    ]);
+  }
+
   Future<void> _loadCompanies() async {
     final requestNumber = ++_requestNumber;
     setState(() {
@@ -2691,7 +2703,11 @@ class _DriverWorkScreenState extends State<DriverWorkScreen> {
     final crossAxisCount = width >= 1200 ? 3 : (width >= 760 ? 2 : 1);
     final horizontalPadding = isDesktop ? 40.0 : 20.0;
 
-    return CustomScrollView(
+    return RefreshIndicator(
+      color: WorkAppColors.primary,
+      onRefresh: _refreshAll,
+      child: CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverAppBar(
           pinned: true,
@@ -2919,6 +2935,7 @@ class _DriverWorkScreenState extends State<DriverWorkScreen> {
             ),
           ),
       ],
+      ),
     );
   }
 }
@@ -3123,6 +3140,8 @@ class __ApplyPageState extends State<_ApplyPage> {
     final matches = widget.userProfile.applications.where((a) => a.company.id == widget.company.id);
     final application = matches.isEmpty ? null : matches.first;
 
+    if (!mounted) return;
+
     setState(() {
       _existingApplication = application;
       _applicationStatus = application?.status;
@@ -3195,7 +3214,11 @@ class __ApplyPageState extends State<_ApplyPage> {
           : LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
-                return CustomScrollView(
+                return RefreshIndicator(
+                  color: WorkAppColors.primary,
+                  onRefresh: _checkIfApplied,
+                  child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverAppBar(
                       pinned: true,
@@ -3213,6 +3236,7 @@ class __ApplyPageState extends State<_ApplyPage> {
                       sliver: SliverToBoxAdapter(child: isWide ? _wideLayout(company) : _narrowLayout(company)),
                     ),
                   ],
+                  ),
                 );
               },
             ),

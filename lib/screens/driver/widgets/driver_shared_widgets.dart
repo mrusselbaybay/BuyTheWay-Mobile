@@ -5,6 +5,29 @@ import 'package:flutter/material.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
 
+/// Wraps a scrollable page body in this app's pull-to-refresh gesture.
+///
+/// Every screen in the driver app is refreshable, so the indicator colour
+/// and the "a short page must still be pullable" detail live here once
+/// rather than in each screen: [child] should be a scrollable given
+/// `physics: const AlwaysScrollableScrollPhysics()`, which keeps the pull
+/// available even when the content doesn't overflow the viewport.
+class DriverRefreshable extends StatelessWidget {
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  const DriverRefreshable({super.key, required this.onRefresh, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      color: DriverColors.primary,
+      onRefresh: onRefresh,
+      child: child,
+    );
+  }
+}
+
 /// Title + optional trailing text-button action, used above every list.
 class DriverSectionHeader extends StatelessWidget {
   final String title;

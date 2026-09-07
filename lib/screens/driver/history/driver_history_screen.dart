@@ -274,6 +274,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       onRefresh: widget.onRefresh,
       child: results.isEmpty
           ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(20),
               children: [
                 DriverEmptyState(
@@ -284,6 +285,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
               ],
             )
           : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemCount: results.length,
               itemBuilder: (context, i) => _HistoryCard(entry: results[i], accessToken: widget.accessToken, durationMinutes: _durationMinutes(results[i])),

@@ -127,10 +127,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     }
 
     final isPickup = widget.delivery.status == AssignedDeliveryStatus.assigned;
+    final isTransfer = widget.delivery.status == AssignedDeliveryStatus.readyToTransfer;
+    final scanTitle = isPickup
+        ? 'Scan to confirm pickup'
+        : (isTransfer ? 'Scan to confirm transfer' : 'Scan to confirm delivery');
     final result = await Navigator.of(context).push<QrScanResult>(
       MaterialPageRoute(
         builder: (_) => QrScanScreen(
-          title: isPickup ? 'Scan to confirm pickup' : 'Scan to confirm delivery',
+          title: scanTitle,
           expectedToken: expectedToken,
         ),
       ),
@@ -355,6 +359,44 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     }
   }
 
+  /// The cross-region-transfer counterpart to [_markDelivered]: confirms
+  /// this rider has reached the target company's hub instead of a
+  /// buyer's doorstep. Same photo-gated flow, posts to
+  /// `/driver/deliveries/{id}/confirm-transfer` instead.
+  Future<void> _confirmTransfer() async {
+    setState(() => _submitting = true);
+    try {
+      final response = await _api.confirmParcelTransfer(
+        parcelAssignmentId: widget.delivery.id,
+        accessToken: widget.accessToken,
+        photoFileName: _photoFileName!,
+        photoBytes: _photoBytes,
+        photoFilePath: _photoFilePath,
+        confirmationToken: _scannedToken,
+      );
+      final data = response['data'];
+      if (data is! Map) {
+        throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+      }
+
+      if (!mounted) return;
+      widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+      setState(() => _submitting = false);
+      DriverTopNotification.show(context, message: 'Transfer confirmed!');
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not confirm this transfer. Please try again.'), behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
   Future<void> _viewDeliveryPhoto() async {
     setState(() => _openingPhoto = true);
     try {
@@ -406,6 +448,13 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+      // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
+      case AssignedDeliveryStatus.transferAssigned:
+        return ('To transfer', DriverColors.warning, Icons.sync_alt_rounded);
+      case AssignedDeliveryStatus.readyToTransfer:
+        return ('Confirm transfer', DriverColors.info, Icons.compare_arrows_rounded);
+      case AssignedDeliveryStatus.transferred:
+        return ('Transferred', DriverColors.success, Icons.check_circle_rounded);
     }
   }
 
@@ -434,8 +483,35 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     );
   }
 
+  /// Pull-to-refresh: re-reads this rider's deliveries and folds the
+  /// matching row back into the shared [AssignedDelivery] instance, so a
+  /// status change made elsewhere (dispatch reassigning, the parcel being
+  /// handed over) shows up here and on the Deliveries list at once.
+  Future<void> _refresh() async {
+    try {
+      final response = await _api.getDriverDeliveries(accessToken: widget.accessToken);
+      final rows = (response['data'] as List? ?? [])
+          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)));
+      final match = rows.where((row) => row.id == widget.delivery.id).firstOrNull;
+      if (!mounted || match == null) return;
+      setState(() => widget.delivery.applyFrom(match));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not refresh this delivery. Check your connection.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: DriverColors.error,
+        ),
+      );
+    }
+  }
+
   Widget _buildBody(BuildContext context, AssignedDelivery d) {
-    return SingleChildScrollView(
+    return DriverRefreshable(
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,6 +627,48 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 ],
               ),
             ),
+          ] else if (d.status == AssignedDeliveryStatus.transferAssigned) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
+              child: const Row(
+                children: [
+                  Icon(Icons.sync_alt_rounded, size: 18, color: DriverColors.primaryDark),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "This parcel is being routed to another logistics company — dispatch will hand it to you shortly for the transfer run.",
+                      style: DriverText.caption,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (d.status == AssignedDeliveryStatus.readyToTransfer) ...[
+            _sectionCard(
+              icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
+              title: 'Proof of transfer',
+              child: d.hasConfirmationQr
+                  ? _qrProofSection("Scan the parcel's QR code, or attach a picture of it, to confirm it reached ${d.dropoffLabel} (required)")
+                  : _legacyPhotoAttachTile('Attach a photo of the parcel at ${d.dropoffLabel} (required)'),
+            ),
+          ] else if (d.status == AssignedDeliveryStatus.transferred) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: DriverColors.successSurface, borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 18, color: DriverColors.success),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Transferred ${_formatDate(d.transferredAt)}',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ] else ...[
             Container(
               padding: const EdgeInsets.all(14),
@@ -582,6 +700,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             ],
           ],
         ],
+      ),
       ),
     );
   }
@@ -750,11 +869,18 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// delivery is already marked delivered, since there's no further action
   /// to take.
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
-    // Nothing to do from here once it's delivered, or once this rider has
-    // handed it back to logistics (a different rider delivers it).
-    if (d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.handedOver) {
+    // Nothing to do from here once it's delivered/transferred, once this
+    // rider has handed it back to logistics (a different rider delivers
+    // it), or while a transfer-assigned parcel is still waiting on
+    // dispatch's own handoff — there's no self-serve pickup step for a
+    // transfer leg (see DriverDeliveryController's docblock).
+    if (d.status == AssignedDeliveryStatus.delivered ||
+        d.status == AssignedDeliveryStatus.handedOver ||
+        d.status == AssignedDeliveryStatus.transferAssigned ||
+        d.status == AssignedDeliveryStatus.transferred) {
       return const SizedBox.shrink();
     }
+    final isTransfer = d.status == AssignedDeliveryStatus.readyToTransfer;
     final isPickup = d.status == AssignedDeliveryStatus.assigned;
 
     return SafeArea(
@@ -787,11 +913,15 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: (_hasPhoto && !_submitting) ? (isPickup ? _confirmPickup : _markDelivered) : null,
+                onPressed: (_hasPhoto && !_submitting)
+                    ? (isPickup ? _confirmPickup : (isTransfer ? _confirmTransfer : _markDelivered))
+                    : null,
                 icon: _submitting
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
                     : const Icon(Icons.task_alt_rounded),
-                label: Text(_submitting ? 'Submitting…' : (isPickup ? 'Mark as picked up' : 'Mark as delivered')),
+                label: Text(_submitting
+                    ? 'Submitting…'
+                    : (isPickup ? 'Mark as picked up' : (isTransfer ? 'Confirm transfer' : 'Mark as delivered'))),
                 style: DriverButtonStyle.primary(isPickup ? DriverColors.primary : DriverColors.success),
               ),
             ),

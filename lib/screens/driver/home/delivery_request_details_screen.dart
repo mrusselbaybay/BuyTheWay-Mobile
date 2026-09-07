@@ -55,6 +55,15 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
     Navigator.of(context).pop(false);
   }
 
+  /// Pull-to-refresh. This screen's data is the module's in-memory
+  /// delivery object (no per-delivery endpoint behind it yet), so the pull
+  /// re-reads it in place — the gesture stays consistent with the rest of
+  /// the app and becomes a real fetch the moment an endpoint exists.
+  Future<void> _refresh() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final request = widget.request;
@@ -67,7 +76,10 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
         title: const Text('Delivery request', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [Padding(padding: const EdgeInsets.only(right: 14), child: Center(child: CountdownRing(progress: _secondsLeft / _totalSeconds, secondsLeft: _secondsLeft)))],
       ),
-      body: SingleChildScrollView(
+      body: DriverRefreshable(
+        onRefresh: _refresh,
+        child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,6 +149,7 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
               ),
             ),
           ],
+        ),
         ),
       ),
       bottomNavigationBar: SafeArea(

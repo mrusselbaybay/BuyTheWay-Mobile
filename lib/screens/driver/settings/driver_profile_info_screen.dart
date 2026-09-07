@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../services/api_service.dart';
+import '../../../widgets/image_crop_sheet.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
+import '../widgets/driver_shared_widgets.dart';
 import 'widgets/settings_widgets.dart';
 
 /// Personal Information & Home Address — reached from the Settings hub's
@@ -59,7 +63,18 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
   String _sex = '';
   DateTime? _birthday;
 
-  // ---- PSGC address selection (province/municipality/barangay) ----
+  // ---- Profile picture ----
+  /// The just-cropped bytes, shown immediately after a successful upload
+  /// so the new photo appears without waiting on Supabase's CDN to serve
+  /// the replaced object at the (unchanged) avatar URL.
+  Uint8List? _pendingAvatar;
+  bool _uploadingAvatar = false;
+
+  // ---- Address selection (region + PSGC province/municipality/barangay) ----
+  /// Island group — 'Luzon' / 'Visayas' / 'Mindanao'. Not part of the PSGC
+  /// chain: it's a free-standing choice the backend validates against
+  /// those three values and stores on `addresses.region_name`.
+  String _region = '';
   String _provinceCode = '';
   String _provinceName = '';
   String _municipalityCode = '';
@@ -85,6 +100,7 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
     _houseNo = TextEditingController(text: a.houseNo);
     _sex = a.sex;
     _birthday = a.birthday.year <= 1901 ? null : a.birthday;
+    _region = a.regionName;
     _provinceCode = a.provinceCode;
     _provinceName = a.provinceName;
     _municipalityCode = a.municipalityCode;
@@ -300,6 +316,7 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
       _houseNo.text = a.houseNo;
       _sex = a.sex;
       _birthday = a.birthday.year <= 1901 ? null : a.birthday;
+      _region = a.regionName;
       _provinceCode = a.provinceCode;
       _provinceName = a.provinceName;
       _municipalityCode = a.municipalityCode;
@@ -345,6 +362,7 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
       errors['contact'] = 'Use format 09XXXXXXXXX.';
     }
 
+    if (_region.isEmpty) errors['region'] = 'Please select a region.';
     if (_provinceCode.isEmpty) errors['province'] = 'Please select a province.';
     if (_municipalityCode.isEmpty) errors['municipality'] = 'Please select a municipality/city.';
     if (_barangayName.isEmpty) errors['barangay'] = 'Please select a barangay.';
@@ -366,6 +384,7 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
       'last_name': 'lastName',
       'middle_initial': 'middleInitial',
       'contact_no': 'contact',
+      'region_name': 'region',
       'province_code': 'province',
       'municipality_code': 'municipality',
     };
@@ -387,6 +406,7 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
       'sex': _sex,
       'birthday': SettingsFormat.isoDate(_birthday!),
       'contact_no': _contact.text.replaceAll(RegExp(r'[\s-]'), ''),
+      'region_name': _region,
       'province_code': _provinceCode,
       'province_name': _provinceName,
       'municipality_code': _municipalityCode,
@@ -427,6 +447,30 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
     }
   }
 
+  /// Pull-to-refresh: re-reads `GET /api/driver/profile` and re-seeds the
+  /// form from it. Skipped mid-edit — silently overwriting fields someone
+  /// is typing into is worse than a refresh that politely declines.
+  Future<void> _refresh() async {
+    if (_isEditing) {
+      SettingsToast.info(context, 'Finish or cancel your edits first.');
+      return;
+    }
+
+    try {
+      final response = await _api.getDriverProfile(accessToken: widget.accessToken);
+      if (!mounted) return;
+      widget.account.applyFrom(DriverAccount.fromApi(response));
+      _pendingAvatar = null;
+      _cancelEditing();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      SettingsToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      SettingsToast.error(context, 'Could not refresh. Check your connection.');
+    }
+  }
+
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -444,8 +488,50 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
     }
   }
 
-  void _onPickPhoto() {
-    SettingsToast.info(context, 'Photo upload is coming soon.');
+  /// Pick → crop/zoom → upload, mirroring the web account pages: the
+  /// cropper (widgets/image_crop_sheet.dart) hands back an already-square
+  /// image, so the server only ever stores what the rider framed.
+  Future<void> _onPickPhoto() async {
+    if (_uploadingAvatar) return;
+
+    final cropped = await pickAndCropImage(context);
+    if (cropped == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      final response = await _api.uploadDriverAvatar(
+        accessToken: widget.accessToken,
+        bytes: cropped,
+        fileName: 'avatar.png',
+      );
+      if (!mounted) return;
+      final url = (response['avatar_url'] as String?) ?? widget.account.avatarUrl;
+      // The avatar always lives at the same URL (one fixed path per
+      // profile, overwritten in place), so Flutter's image cache would
+      // keep serving the previous photo everywhere else in the app.
+      if (url.isNotEmpty) {
+        await NetworkImage(url).evict();
+      }
+      if (!mounted) return;
+      setState(() {
+        widget.account.avatarUrl = url;
+        _pendingAvatar = cropped;
+        _uploadingAvatar = false;
+      });
+      SettingsToast.success(
+        context,
+        (response['message'] as String?) ?? 'Profile picture updated.',
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingAvatar = false);
+      SettingsToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _uploadingAvatar = false);
+      SettingsToast.error(
+          context, 'Could not upload your photo. Check your connection.');
+    }
   }
 
   // ==================== Build ====================
@@ -478,19 +564,23 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
         ),
         body: SafeArea(
           bottom: !_isEditing,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-            children: [
-              _headerRow(a),
-              const SizedBox(height: 22),
-              const SettingsSectionLabel('Personal Details'),
-              const SizedBox(height: 8),
-              _personalDetailsCard(a),
-              const SizedBox(height: 22),
-              SettingsSectionLabel('Home Address', key: _addressSectionKey),
-              const SizedBox(height: 8),
-              _addressCard(),
-            ],
+          child: DriverRefreshable(
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+              children: [
+                _headerRow(a),
+                const SizedBox(height: 22),
+                const SettingsSectionLabel('Personal Details'),
+                const SizedBox(height: 8),
+                _personalDetailsCard(a),
+                const SizedBox(height: 22),
+                SettingsSectionLabel('Home Address', key: _addressSectionKey),
+                const SizedBox(height: 8),
+                _addressCard(),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: _isEditing
@@ -503,7 +593,14 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
   Widget _headerRow(DriverAccount a) {
     return Row(
       children: [
-        SettingsAvatar(size: 56, showCameraBadge: true, onTap: _onPickPhoto),
+        SettingsAvatar(
+          size: 56,
+          showCameraBadge: true,
+          onTap: _onPickPhoto,
+          imageUrl: a.avatarUrl.isEmpty ? null : a.avatarUrl,
+          imageBytes: _pendingAvatar,
+          busy: _uploadingAvatar,
+        ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -633,16 +730,37 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
           ],
         ),
         const SizedBox(height: 14),
-        SettingsDropdownField(
-          label: 'Barangay *',
-          value: _barangayName.isEmpty ? null : _barangayName,
-          error: _errors['barangay'],
-          loading: _loadingBarangays,
-          enabled: _isEditing && _municipalityCode.isNotEmpty,
-          hint: _loadingBarangays ? 'Loading…' : 'Select barangay',
-          items: _barangays,
-          valueField: 'name',
-          onChanged: _onBarangayChanged,
+        Row(
+          children: [
+            Expanded(
+              child: SettingsDropdownField(
+                label: 'Barangay *',
+                value: _barangayName.isEmpty ? null : _barangayName,
+                error: _errors['barangay'],
+                loading: _loadingBarangays,
+                enabled: _isEditing && _municipalityCode.isNotEmpty,
+                hint: _loadingBarangays ? 'Loading…' : 'Select barangay',
+                items: _barangays,
+                valueField: 'name',
+                onChanged: _onBarangayChanged,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SettingsChoiceField(
+                label: 'Region *',
+                value: _region.isEmpty ? null : _region,
+                options: const ['Luzon', 'Visayas', 'Mindanao'],
+                enabled: _isEditing && !_saving,
+                error: _errors['region'],
+                onChanged: (v) => setState(() {
+                  _region = v ?? '';
+                  _errors.remove('region');
+                  _dirty = true;
+                }),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
         Row(

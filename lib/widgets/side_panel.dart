@@ -70,7 +70,7 @@ class SidePanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 const Text(
-                  'NEXMART',
+                  'BuyTheWay',
                   style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w900,
@@ -117,7 +117,7 @@ class SidePanel extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '© 2024 NEXMART. All rights reserved.',
+                  '© 2024 BuyTheWay. All rights reserved.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withOpacity(0.35),

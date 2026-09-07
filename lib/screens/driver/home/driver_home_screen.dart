@@ -88,6 +88,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           color: DriverColors.primary,
           onRefresh: widget.onRefreshRequests,
           child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: _header(context)),
               SliverPadding(

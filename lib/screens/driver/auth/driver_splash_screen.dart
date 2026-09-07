@@ -95,7 +95,7 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> with SingleTick
                   child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 42),
                 ),
                 const SizedBox(height: 18),
-                const Text('NEXMART', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 1.2)),
+                const Text('BuyTheWay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 1.2)),
                 const SizedBox(height: 4),
                 Text('DRIVER', style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 4)),
               ],
