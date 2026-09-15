@@ -173,10 +173,17 @@ class _DriverNavItem extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 3),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(fontSize: 10.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? _teal : _inactive),
-              child: Text(label),
+            // FittedBox keeps this to one line and shrinks it rather than
+            // wrapping — under a squeeze narrow enough to wrap "Deliveries"
+            // or "Settings" onto two lines, the Column's height would blow
+            // past its 60px cap and trip a RenderFlex overflow.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(fontSize: 10.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? _teal : _inactive),
+                child: Text(label, maxLines: 1),
+              ),
             ),
           ],
         ),

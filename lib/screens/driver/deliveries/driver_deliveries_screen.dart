@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../chat/driver_chat_controller.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
@@ -32,6 +33,7 @@ class DriverDeliveriesScreen extends StatefulWidget {
   final String? error;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenHistory;
+  final DriverChatController controller;
 
   const DriverDeliveriesScreen({
     super.key,
@@ -41,6 +43,7 @@ class DriverDeliveriesScreen extends StatefulWidget {
     required this.error,
     required this.onRefresh,
     required this.onOpenHistory,
+    required this.controller,
   });
 
   @override
@@ -132,7 +135,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   Future<void> _openDetail(AssignedDelivery delivery) async {
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AssignedDeliveryDetailScreen(delivery: delivery, accessToken: widget.accessToken)),
+      MaterialPageRoute(builder: (_) => AssignedDeliveryDetailScreen(delivery: delivery, accessToken: widget.accessToken, controller: widget.controller)),
     );
     if (mounted) setState(() {});
   }

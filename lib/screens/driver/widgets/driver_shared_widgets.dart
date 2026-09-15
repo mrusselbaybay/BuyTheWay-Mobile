@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../chat/chat_models.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
 
@@ -216,6 +219,33 @@ class DriverCallFab extends StatelessWidget {
   }
 }
 
+/// A small circular outlined button — the secondary counterpart to
+/// [DriverCallFab] (that one's solid teal gradient stays the primary
+/// action) wherever a contact card also offers a one-tap "message this
+/// person" quick action.
+class DriverMessageFab extends StatelessWidget {
+  final VoidCallback onTap;
+  final double size;
+  const DriverMessageFab({super.key, required this.onTap, this.size = 40});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: DriverColors.primarySurface,
+          border: Border.all(color: DriverColors.primary.withOpacity(0.3)),
+        ),
+        child: Icon(Icons.chat_bubble_outline_rounded, color: DriverColors.primary, size: size * 0.42),
+      ),
+    );
+  }
+}
+
 /// Skeleton block with a slow sweeping shimmer, used while any list is in
 /// its (simulated) loading state.
 class DriverShimmerBox extends StatefulWidget {
@@ -281,6 +311,76 @@ class DriverCardSkeleton extends StatelessWidget {
           DriverShimmerBox(height: 22, width: double.infinity),
         ],
       ),
+    );
+  }
+}
+
+/// Shimmering placeholder message bubbles, shaped like a real thread
+/// (alternating sides, varied widths) — shown the instant a conversation
+/// screen opens while its real messages are still in flight, instead of a
+/// bare spinner. Used both by [DriverChatConversationScreen] (opening any
+/// thread that has nothing cached yet) and by the "Message" button's
+/// create-then-open flow on the delivery-detail screen.
+class DriverChatSkeleton extends StatelessWidget {
+  const DriverChatSkeleton({super.key});
+
+  static const _bubbles = [
+    (mine: false, width: 0.55),
+    (mine: false, width: 0.38),
+    (mine: true, width: 0.5),
+    (mine: false, width: 0.62),
+    (mine: true, width: 0.34),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        for (final b in _bubbles) ...[
+          Align(
+            alignment: b.mine ? Alignment.centerRight : Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: b.width,
+              alignment: b.mine ? Alignment.centerRight : Alignment.centerLeft,
+              child: const DriverShimmerBox(height: 38, radius: 16),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+/// Matches [DriverChatConversationScreen]'s real app bar layout (avatar +
+/// two text lines) so the transition from "resolving the conversation" to
+/// "conversation loaded" doesn't jump — used only while the conversation
+/// itself doesn't exist yet client-side (the very first "Message" tap for
+/// a delivery contact), never for a normal inbox open, which already has a
+/// real conversation (and usually cached messages) to show immediately.
+class DriverChatHeaderSkeleton extends StatelessWidget {
+  const DriverChatHeaderSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        DriverShimmerBox(height: 34, width: 34, radius: 17),
+        SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DriverShimmerBox(height: 13, width: 110),
+              SizedBox(height: 6),
+              DriverShimmerBox(height: 10, width: 60),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -465,10 +565,79 @@ class DeliveryStageStepper extends StatelessWidget {
   }
 }
 
-/// Sent/received chat message bubble.
+/// Employer avatar used by both the inbox row and the conversation header —
+/// a real photo (`ChatConversation.employerAvatarUrl`, the logistics
+/// company owner's uploaded avatar) when one exists, falling back to the
+/// same gradient-circle + business icon/initial placeholder used before
+/// avatars were fetched at all.
+class ChatAvatar extends StatelessWidget {
+  final String? avatarUrl;
+  final double size;
+  final bool online;
+  final bool priority;
+  final String fallbackText;
+
+  const ChatAvatar({
+    super.key,
+    required this.avatarUrl,
+    required this.size,
+    this.online = false,
+    this.priority = false,
+    this.fallbackText = '?',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUrl = avatarUrl?.isNotEmpty == true;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipOval(
+          child: hasUrl
+              ? Image.network(
+                  avatarUrl!,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) => progress == null ? child : _fallback(),
+                  errorBuilder: (context, error, stack) => _fallback(),
+                )
+              : _fallback(),
+        ),
+        if (online)
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              width: size * 0.28,
+              height: size * 0.28,
+              decoration: BoxDecoration(color: DriverColors.success, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(gradient: LinearGradient(colors: DriverColors.primaryGradient), shape: BoxShape.circle),
+      child: priority
+          ? Icon(Icons.business_rounded, color: Colors.white, size: size * 0.46)
+          : Text(fallbackText, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.36)),
+    );
+  }
+}
+
+/// Sent/received chat message bubble. [onRetry] is only used when
+/// [message] is [MessageStatus.failed] — shows a "Failed · Retry" row
+/// instead of the timestamp.
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
-  const ChatBubble({super.key, required this.message});
+  final VoidCallback? onRetry;
+  const ChatBubble({super.key, required this.message, this.onRetry});
 
   String _time(DateTime t) {
     final local = t.toLocal();
@@ -481,31 +650,372 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = message.fromDriver;
+    final sending = message.status == MessageStatus.sending;
+    final failed = message.status == MessageStatus.failed;
+    final hasAttachments = message.attachments.isNotEmpty;
+    final hasText = message.text.isNotEmpty;
+    final hasContext = message.orderContext != null || message.productContext != null;
+
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         constraints: const BoxConstraints(maxWidth: 260),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: mine ? const LinearGradient(colors: DriverColors.primaryGradient) : null,
-          color: mine ? null : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(mine ? 16 : 4),
-            bottomRight: Radius.circular(mine ? 4 : 16),
-          ),
-          border: mine ? null : Border.all(color: DriverColors.border),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(message.text, style: TextStyle(fontSize: 13.5, color: mine ? Colors.white : DriverColors.textPrimary, height: 1.3)),
+            // A pure "Inquire about a certain parcel" card — the whole
+            // message IS the card, no text bubble alongside it (mirrors
+            // Chat.vue's identical inline-inquiry-card treatment).
+            if (message.isInquiry) ...[
+              _InquiryCard(message: message),
+              const SizedBox(height: 3),
+            ]
+            // Otherwise, if this text/attachment message still points at a
+            // specific order/product (the picker was used before typing),
+            // show a small "Regarding" chip above the normal bubble instead
+            // of the full-size card.
+            else if (hasContext) ...[
+              _RegardingChip(message: message),
+              const SizedBox(height: 4),
+            ],
+            // Attachments render bare (no bubble chrome), fixed-size cards
+            // laid out horizontally — mirrors the web inbox's Messenger-style
+            // `.msg-attachments` grid instead of stretching to fit inside a
+            // text bubble.
+            if (hasAttachments) ...[
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 6,
+                runSpacing: 6,
+                children: message.attachments.map((a) => _AttachmentCard(attachment: a)).toList(),
+              ),
+              if (hasText) const SizedBox(height: 4),
+            ],
+            if (hasText)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: mine && !failed ? const LinearGradient(colors: DriverColors.primaryGradient) : null,
+                  color: failed ? DriverColors.errorSurface : (mine ? null : Colors.white),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(mine ? 16 : 4),
+                    bottomRight: Radius.circular(mine ? 4 : 16),
+                  ),
+                  border: (mine && !failed) ? null : Border.all(color: failed ? DriverColors.error.withOpacity(0.3) : DriverColors.border),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+                ),
+                child: Text(
+                  message.text,
+                  style: TextStyle(fontSize: 13.5, color: failed ? DriverColors.error : (mine ? Colors.white : DriverColors.textPrimary), height: 1.3),
+                ),
+              ),
             const SizedBox(height: 3),
-            Text(_time(message.sentAt), style: TextStyle(fontSize: 9.5, color: mine ? Colors.white70 : DriverColors.textSecondary)),
+            if (sending)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(width: 9, height: 9, child: CircularProgressIndicator(strokeWidth: 1.5, valueColor: AlwaysStoppedAnimation(DriverColors.textSecondary.withOpacity(0.6)))),
+                  const SizedBox(width: 5),
+                  const Text('Sending…', style: TextStyle(fontSize: 9.5, color: DriverColors.textSecondary)),
+                ],
+              )
+            else if (failed)
+              GestureDetector(
+                onTap: onRetry,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 12, color: DriverColors.error),
+                    const SizedBox(width: 4),
+                    const Text('Failed to send', style: TextStyle(fontSize: 10, color: DriverColors.error, fontWeight: FontWeight.w600)),
+                    if (onRetry != null) ...[
+                      const SizedBox(width: 6),
+                      const Text('Retry', style: TextStyle(fontSize: 10, color: DriverColors.error, fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+                    ],
+                  ],
+                ),
+              )
+            else
+              Text(_time(message.sentAt), style: const TextStyle(fontSize: 9.5, color: DriverColors.textSecondary)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The full-size "Inquiring About" card for a pure inquiry message (no
+/// typed text) — mirrors Chat.vue's inline inquiry card: a thumbnail, the
+/// product name (or order number if no specific product was picked),
+/// qty/price, and the tracking number when known.
+class _InquiryCard extends StatelessWidget {
+  final ChatMessage message;
+  const _InquiryCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final product = message.productContext;
+    final order = message.orderContext;
+    final image = product?.image ?? order?.previewImage;
+    final title = product?.name ?? (order != null ? 'Order #${order.orderNumber}' : 'Order');
+    final trackingNumber = product?.trackingNumber;
+
+    return Container(
+      width: 240,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DriverColors.border),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InquiryThumbnail(url: image, size: 56),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('INQUIRING ABOUT', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: DriverColors.primary)),
+                const SizedBox(height: 2),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+                if (product != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('Qty: ${product.quantity ?? 1} · ₱${product.price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, color: DriverColors.textSecondary)),
+                  )
+                else if (order != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '${order.itemCount} item${order.itemCount == 1 ? '' : 's'} · ₱${order.total.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 11.5, color: DriverColors.textSecondary),
+                    ),
+                  ),
+                if (trackingNumber != null && trackingNumber.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('TN: $trackingNumber', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: DriverColors.textSecondary)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact chip shown above a normal text/attachment bubble when that
+/// message is still tagged with a specific order/product — the smaller
+/// counterpart to [_InquiryCard], used when the buyer typed a message
+/// alongside picking an order.
+class _RegardingChip extends StatelessWidget {
+  final ChatMessage message;
+  const _RegardingChip({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final product = message.productContext;
+    final order = message.orderContext;
+    final image = product?.image ?? order?.previewImage;
+    final title = product?.name ?? (order != null ? 'Order #${order.orderNumber}' : 'Order');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.border)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _InquiryThumbnail(url: image, size: 36),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('REGARDING', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.3, color: DriverColors.textSecondary)),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InquiryThumbnail extends StatelessWidget {
+  final String? url;
+  final double size;
+  const _InquiryThumbnail({required this.url, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    if (url == null || url!.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(12)),
+        child: Icon(Icons.inventory_2_outlined, color: DriverColors.primary, size: size * 0.4),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        url!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) => progress == null
+            ? child
+            : Container(width: size, height: size, color: Colors.black12, alignment: Alignment.center, child: const CircularProgressIndicator(strokeWidth: 2)),
+        errorBuilder: (context, error, stack) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(12)),
+          child: Icon(Icons.inventory_2_outlined, color: DriverColors.primary, size: size * 0.4),
+        ),
+      ),
+    );
+  }
+}
+
+/// A single sent/received attachment — a fixed-size square thumbnail for
+/// images and videos (never stretched, never stacked: several attachments
+/// on one message wrap horizontally via [ChatBubble]'s [Wrap]), or a
+/// compact file chip for anything else. Tapping an image opens it full
+/// screen; tapping a video hands off to the device's own player, since
+/// this project doesn't bundle an in-app video player.
+class _AttachmentCard extends StatelessWidget {
+  final ChatAttachment attachment;
+  static const _size = 104.0;
+
+  const _AttachmentCard({required this.attachment});
+
+  Future<void> _open(BuildContext context) async {
+    if (attachment.url.isEmpty) return; // still uploading — nothing to open yet
+    if (attachment.isImage) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => _AttachmentImageViewer(url: attachment.url, heroTag: attachment.id),
+        fullscreenDialog: true,
+      ));
+    } else if (attachment.isVideo) {
+      final uri = Uri.tryParse(attachment.url);
+      if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.isImage || attachment.isVideo) {
+      return GestureDetector(
+        onTap: () => _open(context),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            width: _size,
+            height: _size,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (attachment.isImage) _imageContent() else _videoPlaceholder(),
+                if (attachment.isVideo)
+                  Container(
+                    color: Colors.black.withOpacity(0.22),
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+                if (attachment.url.isEmpty)
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: _size * 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: DriverColors.border)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.insert_drive_file_rounded, size: 16, color: DriverColors.primaryDark),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              attachment.fileName ?? 'Attachment',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: DriverColors.primaryDark),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _imageContent() {
+    if (attachment.localBytes != null) {
+      return Image.memory(attachment.localBytes!, fit: BoxFit.cover);
+    }
+    return Image.network(
+      attachment.url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : Container(color: Colors.black12, alignment: Alignment.center, child: const CircularProgressIndicator(strokeWidth: 2)),
+      errorBuilder: (context, error, stack) =>
+          Container(color: Colors.black12, alignment: Alignment.center, child: const Icon(Icons.broken_image_outlined, color: DriverColors.textSecondary)),
+    );
+  }
+
+  /// Videos never get a decoded frame preview (no video-thumbnail package in
+  /// this project) — a neutral dark card with the play badge above is the
+  /// whole treatment, for both a freshly-picked local file and one already
+  /// hosted on the server.
+  Widget _videoPlaceholder() => Container(color: DriverColors.textPrimary.withOpacity(0.85));
+}
+
+class _AttachmentImageViewer extends StatelessWidget {
+  final String url;
+  final String heroTag;
+  const _AttachmentImageViewer({required this.url, required this.heroTag});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, iconTheme: const IconThemeData(color: Colors.white)),
+      body: Center(
+        child: Hero(
+          tag: heroTag,
+          child: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 4,
+            child: Image.network(url, errorBuilder: (context, error, stack) => const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
+          ),
         ),
       ),
     );
@@ -678,5 +1188,119 @@ class _DriverTopNotificationCardState extends State<_DriverTopNotificationCard> 
         ),
       ),
     );
+  }
+}
+
+/// Centered "are you sure" confirmation — leads with an icon and gives the
+/// confirming action its own filled button instead of two same-looking
+/// [TextButton]s, the same upgrade [ResignationCancelConfirmDialog]
+/// (driver_work_screen.dart) already made over a plain [AlertDialog].
+/// Reusable across the driver app wherever a lightweight yes/no confirm is
+/// needed (archive/unarchive a conversation, etc).
+class DriverConfirmDialog extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String message;
+  final String cancelLabel;
+  final String confirmLabel;
+  final IconData confirmIcon;
+
+  const DriverConfirmDialog({
+    super.key,
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.confirmIcon,
+    this.cancelLabel = 'Cancel',
+  });
+
+  static Future<bool?> show(
+    BuildContext context, {
+    required IconData icon,
+    required Color accent,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required IconData confirmIcon,
+    String cancelLabel = 'Cancel',
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => DriverConfirmDialog(
+        icon: icon,
+        accent: accent,
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        confirmIcon: confirmIcon,
+        cancelLabel: cancelLabel,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 32, offset: const Offset(0, 12))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: accent.withOpacity(0.14), shape: BoxShape.circle),
+              child: Icon(icon, color: accent, size: 30),
+            ),
+            const SizedBox(height: 18),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: DriverColors.textSecondary, height: 1.45)),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: DriverColors.textPrimary,
+                      side: const BorderSide(color: DriverColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text(cancelLabel, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: Icon(confirmIcon, size: 16),
+                    label: Text(confirmLabel),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 220.ms).scale(begin: const Offset(0.92, 0.92), end: const Offset(1, 1), curve: Curves.easeOutBack, duration: 260.ms);
   }
 }

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
 import 'auth/driver_login_screen.dart';
-import 'chat/driver_chat_conversation_screen.dart';
+import 'chat/driver_chat_controller.dart';
 import 'chat/driver_chat_list_screen.dart';
 import 'deliveries/driver_deliveries_screen.dart';
 import 'driver_models.dart';
@@ -53,7 +53,7 @@ class _DriverShellState extends State<DriverShell> {
   String? _deliveriesError;
 
   final List<HistoryEntry> _history = mockHistory();
-  final List<ChatThread> _chatThreads = mockChatThreads();
+  DriverChatController? _chatController;
   double _availableBalance = 4820;
   final List<WithdrawalRecord> _withdrawals = mockWithdrawals();
 
@@ -76,9 +76,15 @@ class _DriverShellState extends State<DriverShell> {
     _loadAccount();
   }
 
+  void _onChatControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _availabilityWrite?.cancel();
+    _chatController?.removeListener(_onChatControllerChanged);
+    _chatController?.dispose();
     super.dispose();
   }
 
@@ -106,6 +112,7 @@ class _DriverShellState extends State<DriverShell> {
       setState(() {
         _accessToken = token;
         _account = account;
+        _chatController ??= DriverChatController(api: _api, accessToken: token)..addListener(_onChatControllerChanged);
         _loadingAccount = false;
         // Restore the "Go online" state the rider left the app in — it's
         // persisted server-side (driver_details/courier_details.delivery_status),
@@ -276,16 +283,6 @@ class _DriverShellState extends State<DriverShell> {
     }
   }
 
-  /// Chat is still the module's mock data (no messaging API yet), so its
-  /// pull-to-refresh re-reads the same in-memory threads rather than
-  /// pretending to hit a server — the gesture stays consistent across
-  /// tabs and starts working for real the moment an endpoint exists.
-  Future<void> _refreshChats() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-    setState(() {});
-  }
-
   Future<void> _refreshRequests() async {
     await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted || !_isOnline) return;
@@ -404,14 +401,6 @@ class _DriverShellState extends State<DriverShell> {
     ));
   }
 
-  void _openChatThread(ChatThread thread) {
-    setState(() => thread.unreadCount = 0);
-    // The conversation screen owns sending + the simulated reply itself,
-    // mutating this same shared ChatThread object in place — a shell
-    // setState wouldn't rebuild the already-pushed route anyway.
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => DriverChatConversationScreen(thread: thread)));
-  }
-
   void _withdraw(double amount, String destination) {
     setState(() {
       _availableBalance -= amount;
@@ -419,7 +408,7 @@ class _DriverShellState extends State<DriverShell> {
     });
   }
 
-  int get _unreadChats => _chatThreads.fold(0, (sum, t) => sum + t.unreadCount);
+  int get _unreadChats => _chatController?.unreadTotal ?? 0;
 
   bool _isToday(DateTime d) {
     final now = DateTime.now();
@@ -496,6 +485,7 @@ class _DriverShellState extends State<DriverShell> {
         error: _deliveriesError,
         onRefresh: _loadDeliveries,
         onOpenHistory: _openHistory,
+        controller: _chatController!,
       ),
       DriverEarningsScreen(
         todayEarnings: _todayEarnings,
@@ -505,9 +495,8 @@ class _DriverShellState extends State<DriverShell> {
         onRefresh: _refreshAll,
       ),
       DriverChatListScreen(
-        threads: _chatThreads,
-        onOpenThread: _openChatThread,
-        onRefresh: _refreshChats,
+        controller: _chatController!,
+        isActive: _tabIndex == 3,
       ),
       DriverSettingsScreen(
         account: account,

@@ -980,6 +980,183 @@ class ApiService {
   }
 
   // ============================================================
+  // DRIVER / COURIER MESSAGING ENDPOINTS
+  // ============================================================
+
+  /// Paginated inbox — GET `/driver/messages/conversations`. [status] is
+  /// one of all|unread|needs_response|resolved|archived (omit/empty for
+  /// all-non-archived); [search] matches employer name or message preview.
+  Future<Map<String, dynamic>> getChatConversations({
+    required String accessToken,
+    String? search,
+    String? status,
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final queryParameters = <String, String>{
+      'page': '$page',
+      'per_page': '$perPage',
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      if (status != null && status.isNotEmpty && status != 'all') 'status': status,
+    };
+    final uri = Uri.parse('$baseUrl/driver/messages/conversations').replace(queryParameters: queryParameters);
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    });
+    return _handleResponse(response);
+  }
+
+  /// Single conversation — also marks the employer's messages read
+  /// server-side, same as opening a thread in the web inbox.
+  Future<Map<String, dynamic>> getChatConversation({
+    required String id,
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(id)}'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+    );
+    return _handleResponse(response);
+  }
+
+  /// Cursor-paginated messages — GET `/driver/messages/conversations/{id}/messages`.
+  /// No cursor = latest [limit] messages (oldest→newest). [before] loads
+  /// older history; [after] is the poll path, pulling only new messages.
+  Future<Map<String, dynamic>> getChatMessages({
+    required String conversationId,
+    required String accessToken,
+    String? before,
+    String? after,
+    int limit = 20,
+  }) async {
+    final queryParameters = <String, String>{
+      'limit': '$limit',
+      if (before != null && before.isNotEmpty) 'before': before,
+      if (after != null && after.isNotEmpty) 'after': after,
+    };
+    final uri = Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages')
+        .replace(queryParameters: queryParameters);
+    final response = await http.get(uri, headers: {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    });
+    return _handleResponse(response);
+  }
+
+  /// The "Message" button next to the call icon on a delivery's Buyer/
+  /// Seller contact row (assigned_delivery_detail_screen.dart) — finds or
+  /// creates this rider's direct thread with that contact and returns it
+  /// in the same shape [getChatConversations]/[getChatConversation] do.
+  /// [contact] is 'buyer' or 'seller'.
+  Future<Map<String, dynamic>> startDeliveryConversation({
+    required String accessToken,
+    required String parcelAssignmentId,
+    required String contact,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/driver/messages/delivery-conversations'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({
+        'parcel_assignment_id': parcelAssignmentId,
+        'contact': contact,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Sends a text and/or attachment message. [attachmentIds] must already
+  /// be staged via [uploadChatAttachment].
+  Future<Map<String, dynamic>> sendChatMessage({
+    required String conversationId,
+    required String accessToken,
+    String? body,
+    List<String> attachmentIds = const [],
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({
+        if (body != null && body.trim().isNotEmpty) 'body': body.trim(),
+        if (attachmentIds.isNotEmpty) 'attachment_ids': attachmentIds,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Stages one file (image/video/pdf) for a message that hasn't been sent
+  /// yet — exactly one of [bytes]/[filePath] must be supplied. Returns the
+  /// attachment id to pass to [sendChatMessage].
+  Future<Map<String, dynamic>> uploadChatAttachment({
+    required String accessToken,
+    required String fileName,
+    Uint8List? bytes,
+    String? filePath,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/driver/messages/attachments'))
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken';
+
+    if (bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    } else {
+      request.files.add(await http.MultipartFile.fromPath('file', filePath!, filename: fileName));
+    }
+
+    try {
+      final streamedResponse = await request.send().timeout(
+            const Duration(seconds: 45),
+            onTimeout: () => throw ApiException(
+              message: 'Connection timeout. Please check your internet connection.',
+              statusCode: 408,
+            ),
+          );
+      return _handleResponse(await http.Response.fromStream(streamedResponse));
+    } on SocketException {
+      throw ApiException(
+        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        statusCode: 0,
+      );
+    }
+  }
+
+  /// Archive / unarchive / resolve / reopen — [status] is one of
+  /// open|resolved|archived (Conversation::STATUS_REQUEST_VALUES).
+  Future<Map<String, dynamic>> setChatConversationStatus({
+    required String conversationId,
+    required String accessToken,
+    required String status,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/status'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({'status': status}),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Lightweight badge count — GET `/driver/messages/unread-count`.
+  Future<Map<String, dynamic>> getChatUnreadCount({required String accessToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/driver/messages/unread-count'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+    );
+    return _handleResponse(response);
+  }
+
+  // ============================================================
   // RESPONSE HANDLER
   // ============================================================
 

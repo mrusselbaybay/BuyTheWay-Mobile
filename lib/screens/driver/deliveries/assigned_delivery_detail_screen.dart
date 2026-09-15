@@ -8,6 +8,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../chat/driver_chat_controller.dart';
+import '../chat/driver_delivery_message_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
@@ -52,8 +54,9 @@ import 'qr_scan_screen.dart';
 class AssignedDeliveryDetailScreen extends StatefulWidget {
   final AssignedDelivery delivery;
   final String accessToken;
+  final DriverChatController controller;
 
-  const AssignedDeliveryDetailScreen({super.key, required this.delivery, required this.accessToken});
+  const AssignedDeliveryDetailScreen({super.key, required this.delivery, required this.accessToken, required this.controller});
 
   @override
   State<AssignedDeliveryDetailScreen> createState() => _AssignedDeliveryDetailScreenState();
@@ -428,6 +431,36 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     }
   }
 
+  bool _navigatingToMessage = false;
+
+  /// The "Message" button on a Buyer/Seller contact row — opens straight
+  /// into this rider's direct thread with that contact (a new conversation
+  /// type the courier's own inbox now also carries alongside their
+  /// employer's 'roster' thread). [contact] is 'buyer' or 'seller'.
+  ///
+  /// Navigates immediately, before the conversation is even resolved —
+  /// [DriverDeliveryMessageScreen] does the actual find-or-create call and
+  /// shows a skeleton while it's in flight, rather than this screen
+  /// blocking the tap on a network round trip before the user sees
+  /// anything happen. `_navigatingToMessage` only guards against a rapid
+  /// double-tap pushing the route twice; it's cleared as soon as that
+  /// screen is popped, not tied to the network call's own completion.
+  void _messageContact(String contact) {
+    if (_navigatingToMessage) return;
+    setState(() => _navigatingToMessage = true);
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => DriverDeliveryMessageScreen(
+            controller: widget.controller,
+            parcelAssignmentId: widget.delivery.id,
+            contact: contact,
+          ),
+        ))
+        .whenComplete(() {
+      if (mounted) setState(() => _navigatingToMessage = false);
+    });
+  }
+
   String _formatDate(DateTime? d) {
     if (d == null) return 'Unknown time';
     final local = d.toLocal();
@@ -524,9 +557,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _contactRow(role: 'Buyer', name: d.customerName, phone: d.customerContactNo),
+                _contactRow(role: 'Buyer', contact: 'buyer', name: d.customerName, phone: d.customerContactNo),
                 const Divider(height: 24),
-                _contactRow(role: 'Seller', name: d.sellerName ?? 'Not on file', phone: d.sellerContactNo),
+                _contactRow(role: 'Seller', contact: 'seller', name: d.sellerName ?? 'Not on file', phone: d.sellerContactNo),
               ],
             ),
           ),
@@ -932,11 +965,13 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   }
 
   /// One row of the "Contacts" card — a role label ("Buyer"/"Seller"),
-  /// name, and phone number, with a call button when a number is on file.
-  /// [name] is a plain string rather than nullable so a missing seller
-  /// (an order predating some data migration, say) reads as "Not on
-  /// file" instead of silently rendering nothing.
-  Widget _contactRow({required String role, required String name, String? phone}) {
+  /// name, and phone number, with a Message button (left) and a call
+  /// button (right, when a number is on file). [name] is a plain string
+  /// rather than nullable so a missing seller (an order predating some
+  /// data migration, say) reads as "Not on file" instead of silently
+  /// rendering nothing. [contact] is 'buyer'/'seller' — passed straight
+  /// through to [DriverChatController.startDeliveryConversation].
+  Widget _contactRow({required String role, required String contact, required String name, String? phone}) {
     return Row(
       children: [
         Expanded(
@@ -953,6 +988,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             ],
           ),
         ),
+        const SizedBox(width: 10),
+        DriverMessageFab(onTap: () => _messageContact(contact), size: 36),
         if (phone != null) ...[
           const SizedBox(width: 10),
           DriverCallFab(onTap: () => _call(phone), size: 36),

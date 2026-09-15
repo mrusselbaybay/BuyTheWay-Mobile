@@ -3,7 +3,8 @@
 ## Project Location
 
 * When I say **"web"**, I mean the laravel project located at:
-  `C:\Users\Russel\OneDrive\Desktop\BACKUPS\ecomm-project`
+  C:\Users\Russel\OneDrive\Documents\BUYTHEWAY FOLDERS\BuyTheWay - Web
+  
 * Treat this as the default mobile project directory unless I specify otherwise.
 
 ## Code Quality & Performance

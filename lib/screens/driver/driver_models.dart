@@ -352,32 +352,9 @@ class HistoryEntry {
   }
 }
 
-class ChatMessage {
-  final String id;
-  final String text;
-  final bool fromDriver;
-  final DateTime sentAt;
-
-  const ChatMessage({required this.id, required this.text, required this.fromDriver, required this.sentAt});
-}
-
-class ChatThread {
-  final String id;
-  final String customerName;
-  final String avatarInitial;
-  final List<ChatMessage> messages;
-  int unreadCount;
-
-  ChatThread({
-    required this.id,
-    required this.customerName,
-    required this.avatarInitial,
-    required this.messages,
-    this.unreadCount = 0,
-  });
-
-  ChatMessage get lastMessage => messages.last;
-}
+// Real chat models (ChatConversation, ChatMessage, ChatAttachment) now live
+// in chat/chat_models.dart, backed by GET/POST /api/driver/messages/* —
+// see DriverChatController.
 
 class DriverAccount {
   /// The signed-in profile's UUID (public.profiles.id) — empty until the
@@ -720,27 +697,6 @@ List<HistoryEntry> mockHistory() => [
         status: HistoryStatus.completed,
         etaMinutes: 20,
         actualMinutes: 19,
-      ),
-    ];
-
-List<ChatThread> mockChatThreads() => [
-      ChatThread(
-        id: 'c-1',
-        customerName: 'Maria Santos',
-        avatarInitial: 'M',
-        unreadCount: 1,
-        messages: [
-          ChatMessage(id: 'm1', text: "Hi! I'm at the guardhouse, no rush.", fromDriver: false, sentAt: DateTime.now().subtract(const Duration(minutes: 6))),
-        ],
-      ),
-      ChatThread(
-        id: 'c-2',
-        customerName: 'Ken Uy',
-        avatarInitial: 'K',
-        messages: [
-          ChatMessage(id: 'm2', text: 'On my way to pick up your package.', fromDriver: true, sentAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 10))),
-          ChatMessage(id: 'm3', text: 'Great, thank you!', fromDriver: false, sentAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 8))),
-        ],
       ),
     ];
 
