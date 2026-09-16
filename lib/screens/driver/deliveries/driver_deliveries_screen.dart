@@ -552,12 +552,20 @@ class _MissionCardState extends State<_MissionCard> {
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
+      // Only reached when dispatch had to hand this leg to a courier who
+      // didn't already have the parcel (no one to reuse from the pickup
+      // leg) — same "To pick up" framing as a local pickup for that
+      // reason. The common case — the same courier who collected it
+      // carries it straight on — skips this status entirely and starts
+      // at readyToTransfer instead (see Api\Logistics\
+      // ParcelAssignmentController::acceptTransferRequest on the web
+      // side).
       case AssignedDeliveryStatus.transferAssigned:
-        return ('To transfer', DriverColors.warning, Icons.sync_alt_rounded);
+        return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.readyToTransfer:
-        return ('Confirm transfer', DriverColors.info, Icons.compare_arrows_rounded);
+        return ('To deliver', DriverColors.info, Icons.compare_arrows_rounded);
       case AssignedDeliveryStatus.transferred:
-        return ('Transferred', DriverColors.success, Icons.check_circle_rounded);
+        return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
     }
   }
 

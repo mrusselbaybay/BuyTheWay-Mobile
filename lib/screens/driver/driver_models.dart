@@ -69,8 +69,9 @@ enum AssignedDeliveryStatus {
   // Cross-region transfer leg states (see DriverDeliveryController's
   // docblock and App\Models\ParcelAssignment::STATUS_TO_TRANSFER) — a
   // transfer parcel never reaches pickedUp/delivered. transferAssigned is
-  // "dispatched, staff hasn't handed it to me yet" (like `assigned` but
-  // with no self-serve pickup action); readyToTransfer is "I have it,
+  // "dispatched, I don't have it in hand yet" — same self-serve
+  // scan-QR-to-confirm-pickup action as `assigned`, just moving on to
+  // readyToTransfer instead of pickedUp; readyToTransfer is "I have it,
   // confirm arrival at the target company's hub instead of delivering to
   // a buyer"; transferred is terminal.
   transferAssigned,

@@ -129,7 +129,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       return;
     }
 
-    final isPickup = widget.delivery.status == AssignedDeliveryStatus.assigned;
+    final isPickup = widget.delivery.status == AssignedDeliveryStatus.assigned ||
+        widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
     final isTransfer = widget.delivery.status == AssignedDeliveryStatus.readyToTransfer;
     final scanTitle = isPickup
         ? 'Scan to confirm pickup'
@@ -285,10 +286,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     });
   }
 
-  /// Confirms pickup for an 'assigned' delivery — the button that calls
+  /// Confirms pickup for an 'assigned' delivery, or the equivalent
+  /// "I have it" step for a 'transferAssigned' transfer leg — same
+  /// endpoint, same photo/QR proof, just a different resulting status (see
+  /// DriverDeliveryController::pickup's docblock). The button that calls
   /// this is disabled until [_hasPhoto] is true (see [_buildActionBar]),
   /// so by the time this runs a photo is already attached.
   Future<void> _confirmPickup() async {
+    final wasTransfer = widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
     setState(() => _submitting = true);
     try {
       final response = await _api.markDeliveryPickedUp(
@@ -309,7 +314,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       setState(() => _submitting = false);
       DriverTopNotification.show(
         context,
-        message: 'Pickup confirmed — parcel handed back to logistics for delivery.',
+        message: wasTransfer
+            ? 'Pickup confirmed — head to ${widget.delivery.dropoffLabel} to complete the transfer.'
+            : 'Pickup confirmed — parcel handed back to logistics for delivery.',
       );
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
@@ -482,12 +489,17 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
+      // Only reached when dispatch had to hand this leg to a courier who
+      // didn't already have the parcel — same "To pick up" framing as a
+      // local pickup for that reason. The common case — the same courier
+      // who collected it carries it straight on — skips this status
+      // entirely and starts at readyToTransfer instead.
       case AssignedDeliveryStatus.transferAssigned:
-        return ('To transfer', DriverColors.warning, Icons.sync_alt_rounded);
+        return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.readyToTransfer:
-        return ('Confirm transfer', DriverColors.info, Icons.compare_arrows_rounded);
+        return ('To deliver', DriverColors.info, Icons.compare_arrows_rounded);
       case AssignedDeliveryStatus.transferred:
-        return ('Transferred', DriverColors.success, Icons.check_circle_rounded);
+        return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
     }
   }
 
@@ -612,7 +624,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             ),
           ),
           const SizedBox(height: 20),
-          if (d.status == AssignedDeliveryStatus.assigned) ...[
+          if (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned) ...[
             _sectionCard(
               icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
               title: 'Proof of pickup',
@@ -621,8 +633,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                   : _legacyPhotoAttachTile('Attach a photo of the parcel at pickup (required)'),
             ),
             const SizedBox(height: 8),
-            const Text(
-              "Waiting to be handed to you at the sorting hub? Scan or attach the parcel's QR code once you have it in hand to confirm pickup yourself.",
+            Text(
+              d.status == AssignedDeliveryStatus.transferAssigned
+                  ? "Scan or attach the parcel's QR code once you have it in hand to confirm pickup and start the transfer run to ${d.dropoffLabel}."
+                  : "Waiting to be handed to you at the sorting hub? Scan or attach the parcel's QR code once you have it in hand to confirm pickup yourself.",
               style: DriverText.caption,
             ),
           ] else if (d.status == AssignedDeliveryStatus.pickedUp) ...[
@@ -660,23 +674,6 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 ],
               ),
             ),
-          ] else if (d.status == AssignedDeliveryStatus.transferAssigned) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
-              child: const Row(
-                children: [
-                  Icon(Icons.sync_alt_rounded, size: 18, color: DriverColors.primaryDark),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "This parcel is being routed to another logistics company — dispatch will hand it to you shortly for the transfer run.",
-                      style: DriverText.caption,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ] else if (d.status == AssignedDeliveryStatus.readyToTransfer) ...[
             _sectionCard(
               icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
@@ -695,7 +692,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Transferred ${_formatDate(d.transferredAt)}',
+                      'Delivered ${_formatDate(d.transferredAt)}',
                       style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
                     ),
                   ),
@@ -902,19 +899,16 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// delivery is already marked delivered, since there's no further action
   /// to take.
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
-    // Nothing to do from here once it's delivered/transferred, once this
+    // Nothing to do from here once it's delivered/transferred, or once this
     // rider has handed it back to logistics (a different rider delivers
-    // it), or while a transfer-assigned parcel is still waiting on
-    // dispatch's own handoff — there's no self-serve pickup step for a
-    // transfer leg (see DriverDeliveryController's docblock).
+    // it) — every other status has a rider-facing action.
     if (d.status == AssignedDeliveryStatus.delivered ||
         d.status == AssignedDeliveryStatus.handedOver ||
-        d.status == AssignedDeliveryStatus.transferAssigned ||
         d.status == AssignedDeliveryStatus.transferred) {
       return const SizedBox.shrink();
     }
     final isTransfer = d.status == AssignedDeliveryStatus.readyToTransfer;
-    final isPickup = d.status == AssignedDeliveryStatus.assigned;
+    final isPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned;
 
     return SafeArea(
       top: false,
