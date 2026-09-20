@@ -57,11 +57,15 @@ enum _ScanFeedback { none, wrongParcel, unreadable }
 ///    upload size limit (see DriverDeliveryController::pickup/deliver).
 ///    1080p decodes just as reliably but produces a noticeably larger
 ///    PNG for the same reason.
-/// 2. [MobileScannerController.detectionSpeed] stays
-///    [DetectionSpeed.noDuplicates] — every frame is analyzed
-///    (continuous scanning, not a single captured frame), with re-firing
-///    for an already-seen value suppressed so holding a code steady
-///    doesn't spam this screen's detection handling.
+/// 2. [MobileScannerController.detectionSpeed] is [DetectionSpeed.normal],
+///    which throttles analysis to one frame roughly every
+///    [MobileScannerController.detectionTimeoutMs] instead of every single
+///    camera frame. [DetectionSpeed.noDuplicates] disables that throttle
+///    entirely (it forces the timeout to 0), which — combined with
+///    [returnImage] PNG-encoding each analyzed frame — pegged the camera
+///    pipeline and made the preview visibly lag. 250ms between analyses is
+///    still fast enough that scanning feels instant, but leaves the UI
+///    thread room to breathe.
 /// 3. No `scanWindow` is set on [MobileScanner] below, so ML Kit gets the
 ///    full camera frame to search, not a cropped region — the visual
 ///    guide frame in [build] is just that, a visual guide; it doesn't
@@ -98,7 +102,8 @@ class QrScanScreen extends StatefulWidget {
 class _QrScanScreenState extends State<QrScanScreen> {
   final MobileScannerController _controller = MobileScannerController(
     formats: const [BarcodeFormat.qrCode],
-    detectionSpeed: DetectionSpeed.noDuplicates,
+    detectionSpeed: DetectionSpeed.normal,
+    detectionTimeoutMs: 250,
     cameraResolution: const Size(1280, 720),
     returnImage: true,
   );

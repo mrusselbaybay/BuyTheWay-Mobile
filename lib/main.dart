@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/driver/auth/driver_splash_screen.dart';
 import 'screens/driver/driver_shell.dart';
+import 'screens/logistics/logistics_shell.dart';
 import 'screens/pickup_courier/courier_dashboard.dart';
 
 
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/courier_dashboard': (context) => const CourierDashboard(),
         '/driver': (context) => const DriverSplashScreen(),
         '/driver_dashboard': (context) => const DriverShell(),
+        '/logistics_dashboard': (context) => const LogisticsShell(),
       },
     );
   }

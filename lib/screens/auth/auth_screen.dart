@@ -246,14 +246,21 @@ class _AuthScreenState extends State<AuthScreen> {
     },
   ];
 
-  /// Roles allowed to sign in on the mobile app. Every other account type
-  /// (seller, driver, logistics, admin, …) must use the web browser.
+  /// Roles allowed to sign in on the mobile app. `logistics` (company
+  /// owner) and `logistics_admin` (staff account managing the company)
+  /// both reach the Logistics mobile app (Dashboard/Inventory/Settings
+  /// only — see LogisticsShell), not the signup wizard above, which still
+  /// only offers buyer/courier. Every other account type (seller, driver,
+  /// admin, …) must use the web browser.
   static bool _isMobileAllowedRole(String role) =>
-      role == 'buyer' || role == 'courier';
+      role == 'buyer' ||
+      role == 'courier' ||
+      role == 'logistics' ||
+      role == 'logistics_admin';
 
   static const String _webOnlyRoleMessage =
       'This account type is only accessible through a web browser. '
-      'Only buyer and courier accounts can use the mobile app.';
+      'Only buyer, courier and logistics accounts can use the mobile app.';
 
   final List<String> steps = const [
     'Personal',
@@ -986,7 +993,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _handleRoleBasedNavigation(String role) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (role == 'logistics' || role == 'logistics_admin') {
-        Navigator.pushReplacementNamed(context, '/courier_dashboard');
+        Navigator.pushReplacementNamed(context, '/logistics_dashboard');
       } else if (role == 'driver' || role == 'courier') {
         // Courier and driver share the driver app's UI (DriverShell) — see
         // driver_shell.dart. DriverShell itself loads the real profile via

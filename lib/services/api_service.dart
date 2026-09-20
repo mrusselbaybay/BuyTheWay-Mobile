@@ -609,6 +609,70 @@ class ApiService {
   }
 
   // ============================================================
+  // LOGISTICS INVENTORY ENDPOINTS
+  // ============================================================
+  // Backs the Logistics mobile app's Inventory tab — see
+  // Api\Logistics\ParcelInventoryController on the Laravel side.
+
+  /// Tab 1 — "Inventory": every parcel this company has ever scanned in,
+  /// via `GET /api/logistics/inventory`.
+  Future<Map<String, dynamic>> getInventory({
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/inventory'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+    );
+    return _handleResponse(response);
+  }
+
+  /// Tab 2 — "For Inventory": parcels awaiting a scan, via
+  /// `GET /api/logistics/inventory/pending`.
+  Future<Map<String, dynamic>> getPendingInventory({
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/inventory/pending'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+    );
+    return _handleResponse(response);
+  }
+
+  /// Full detail for one parcel, via
+  /// `GET /api/logistics/inventory/{id}`.
+  Future<Map<String, dynamic>> getInventoryDetail({
+    required String parcelAssignmentId,
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/inventory/$parcelAssignmentId'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+    );
+    return _handleResponse(response);
+  }
+
+  /// Scans a parcel's QR code to move it from "For Inventory" into
+  /// "Inventory", via `PUT /api/logistics/inventory/{id}/scan`. The
+  /// backend rejects a code that doesn't match this exact parcel with a
+  /// 422 — see [ApiException.message] for that case.
+  Future<Map<String, dynamic>> scanInventory({
+    required String parcelAssignmentId,
+    required String accessToken,
+    required String confirmationToken,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/logistics/inventory/$parcelAssignmentId/scan'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({'confirmation_token': confirmationToken}),
+    );
+    return _handleResponse(response);
+  }
+
+  // ============================================================
   // DRIVER / COURIER SETTINGS ENDPOINTS
   // ============================================================
 
