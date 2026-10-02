@@ -73,6 +73,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   bool _isDone(AssignedDelivery d) =>
       d.status == AssignedDeliveryStatus.delivered ||
       d.status == AssignedDeliveryStatus.handedOver ||
+      d.status == AssignedDeliveryStatus.awaitingInventory ||
       d.status == AssignedDeliveryStatus.transferred;
 
   bool _isAtRisk(AssignedDelivery d) {
@@ -501,7 +502,15 @@ class _PriorityAlertBanner extends StatelessWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                DriverDispatchChip(label: delivery.dispatchedByLabel),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    DriverDispatchChip(label: delivery.dispatchedByLabel),
+                                    if (delivery.isReturn)
+                                      DriverReturnChip(returned: delivery.isReturned),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -551,6 +560,8 @@ class _MissionCardState extends State<_MissionCard> {
         return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+      case AssignedDeliveryStatus.awaitingInventory:
+        return ('Picked up', DriverColors.success, Icons.check_circle_rounded);
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
       // Only reached when dispatch had to hand this leg to a courier who
       // didn't already have the parcel (no one to reuse from the pickup
@@ -600,7 +611,7 @@ class _MissionCardState extends State<_MissionCard> {
     final d = widget.delivery;
     final (tagLabel, tagColor, tagIcon) = _actionTag;
     final completed = d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.transferred;
-    final handedOver = d.status == AssignedDeliveryStatus.handedOver;
+    final handedOver = d.status == AssignedDeliveryStatus.handedOver || d.status == AssignedDeliveryStatus.awaitingInventory;
     final done = completed || handedOver;
     final barColor = widget.atRisk
         ? DriverColors.warning
@@ -680,7 +691,18 @@ class _MissionCardState extends State<_MissionCard> {
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
-                                    DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+                                    // Status and return tag stack vertically.
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+                                        if (d.isReturn) ...[
+                                          const SizedBox(height: 4),
+                                          DriverReturnChip(returned: d.isReturned),
+                                        ],
+                                      ],
+                                    ),
                                     const SizedBox(width: 8),
                                     const Icon(Icons.inventory_2_outlined, size: 13, color: DriverColors.textSecondary),
                                     const SizedBox(width: 4),

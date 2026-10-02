@@ -31,8 +31,8 @@ class ApiService {
       // Fallback for other platforms
       return 'http://localhost:8000/api';
     }
-    // Production
-    return 'https://yourdomain.com/api';
+    // Production (Cloudflare tunnel to the Laravel app)
+    return 'https://buythewaymarket.shop/api';
   }
 
   // ============================================================
@@ -46,6 +46,38 @@ class ApiService {
             Uri.parse('$baseUrl/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw ApiException(
+              message:
+                  'Connection timeout. Please check your internet connection.',
+              statusCode: 408,
+            ),
+          );
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.\n'
+            'Run: php artisan serve',
+        statusCode: 0,
+      );
+    } catch (e) {
+      throw ApiException(
+        message: 'Connection error: ${e.toString()}',
+        statusCode: 0,
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle(String idToken) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/google/token'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'id_token': idToken}),
           )
           .timeout(
             const Duration(seconds: 30),

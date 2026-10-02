@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
-import '../../../widgets/common.dart';
+import '../../../widgets/common.dart' show MessageBanner;
 import '../driver_shell.dart';
+import '../driver_theme.dart';
 import 'driver_forgot_password_screen.dart';
 import 'driver_register_screen.dart';
 
@@ -113,112 +114,209 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AuroraBackground(
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.3))),
-                  child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 28),
+      backgroundColor: DriverColors.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(color: DriverColors.primarySurface, shape: BoxShape.circle),
+                child: const Icon(Icons.local_shipping_rounded, color: DriverColors.primary, size: 28),
+              ),
+              const SizedBox(height: 20),
+              const Text('Sign in', style: TextStyle(color: DriverColors.textPrimary, fontSize: 26, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('Sign in to start your shift', style: TextStyle(color: DriverColors.textSecondary, fontSize: 13.5)),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: DriverColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: DriverColors.border),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
                 ),
-                const SizedBox(height: 20),
-                const Text('Welcome back', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text('Sign in to start your shift', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13.5)),
-                const SizedBox(height: 28),
-                GlassPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DriverAuthField(label: 'Email or phone', controller: _identifierController, hint: 'you@example.com', keyboardType: TextInputType.emailAddress),
+                    const SizedBox(height: 16),
+                    _DriverAuthField(
+                      label: 'Password',
+                      controller: _passwordController,
+                      obscure: _obscure,
+                      hint: 'Enter your password',
+                      suffix: IconButton(
+                        icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 19, color: DriverColors.textSecondary),
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        InkWell(
+                          onTap: () => setState(() => _rememberMe = !_rememberMe),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_rememberMe ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 18, color: DriverColors.primary),
+                              const SizedBox(width: 6),
+                              const Text('Remember me', style: TextStyle(fontSize: 12.5, color: DriverColors.textSecondary, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverForgotPasswordScreen())),
+                          style: TextButton.styleFrom(foregroundColor: DriverColors.primary, padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                          child: const Text('Forgot password?', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                    MessageBanner(error: _error),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : _login,
+                        style: DriverButtonStyle.primary(DriverColors.primary),
+                        child: _loading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('Log in', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 18),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: DriverColors.border)),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or', style: TextStyle(color: DriverColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600))),
+                        Expanded(child: Divider(color: DriverColors.border)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _biometricStub,
+                        icon: const Icon(Icons.fingerprint_rounded, size: 18),
+                        label: const Text('Use biometric login'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: DriverColors.primaryDark,
+                          side: const BorderSide(color: DriverColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(color: DriverColors.textSecondary, fontSize: 13),
                     children: [
-                      LabeledField(label: 'Email or phone', controller: _identifierController, hint: 'you@example.com', keyboardType: TextInputType.emailAddress),
-                      const SizedBox(height: 16),
-                      LabeledField(
-                        label: 'Password',
-                        controller: _passwordController,
-                        obscure: _obscure,
-                        hint: 'Enter your password',
-                        suffix: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 19, color: AppColors.slate500),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          InkWell(
-                            onTap: () => setState(() => _rememberMe = !_rememberMe),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_rememberMe ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 18, color: AppColors.teal600),
-                                const SizedBox(width: 6),
-                                const Text('Remember me', style: TextStyle(fontSize: 12.5, color: AppColors.slate600, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverForgotPasswordScreen())),
-                            style: TextButton.styleFrom(foregroundColor: AppColors.teal700, padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                            child: const Text('Forgot password?', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ),
-                      MessageBanner(error: _error),
-                      const SizedBox(height: 18),
-                      GradientButton(label: 'Log in', icon: Icons.arrow_forward_rounded, loading: _loading, onPressed: _loading ? null : _login),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(child: Divider(color: AppColors.slate300)),
-                          Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or', style: TextStyle(color: AppColors.slate500, fontSize: 11.5, fontWeight: FontWeight.w600))),
-                          Expanded(child: Divider(color: AppColors.slate300)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _biometricStub,
-                          icon: const Icon(Icons.fingerprint_rounded, size: 18),
-                          label: const Text('Use biometric login'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.teal700,
-                            side: BorderSide(color: AppColors.teal600.withOpacity(0.4)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                      const TextSpan(text: 'New driver? '),
+                      TextSpan(
+                        text: 'Create an account',
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: DriverColors.primary, decoration: TextDecoration.underline),
+                        recognizer: TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverRegisterScreen())),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                Center(
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
-                      children: [
-                        const TextSpan(text: 'New driver? '),
-                        TextSpan(
-                          text: 'Create an account',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, decoration: TextDecoration.underline),
-                          recognizer: TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverRegisterScreen())),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Flat, light-theme text field matching [DriverColors] — used in place of
+/// [common.dart]'s glass-styled `LabeledField`, which is designed to sit on
+/// top of a translucent/dark background and disappears on this screen's
+/// plain white one.
+class _DriverAuthField extends StatefulWidget {
+  const _DriverAuthField({
+    required this.label,
+    required this.controller,
+    this.hint,
+    this.obscure = false,
+    this.keyboardType,
+    this.suffix,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? hint;
+  final bool obscure;
+  final TextInputType? keyboardType;
+  final Widget? suffix;
+
+  @override
+  State<_DriverAuthField> createState() => _DriverAuthFieldState();
+}
+
+class _DriverAuthFieldState extends State<_DriverAuthField> {
+  final FocusNode _focus = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label, style: DriverText.label),
+        const SizedBox(height: 6),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: DriverColors.background,
+            border: Border.all(color: _focused ? DriverColors.primary : DriverColors.border, width: _focused ? 1.6 : 1),
+          ),
+          child: TextField(
+            controller: widget.controller,
+            focusNode: _focus,
+            obscureText: widget.obscure,
+            keyboardType: widget.keyboardType,
+            style: DriverText.body,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: const TextStyle(color: DriverColors.textSecondary, fontSize: 13),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              border: InputBorder.none,
+              suffixIcon: widget.suffix,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

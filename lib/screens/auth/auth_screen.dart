@@ -17,6 +17,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/common.dart';
@@ -876,15 +877,127 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ==================== Authentication Methods ====================
 
-  /// No Google OAuth endpoint exists on the backend yet — this keeps the
-  /// button honest about that instead of pretending to sign the user in.
-  void _handleGoogleAuth() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google sign-in is coming soon.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  /// Web OAuth client ID from BuyTheWay - Web's .env (GOOGLE_CLIENT_ID) —
+  /// this is the same client Supabase's Google provider already trusts, so
+  /// it doubles as the `serverClientId` the native SDK needs to mint an
+  /// id_token Supabase can verify.
+  static const String _googleServerClientId =
+      '968790382765-ueq74oaa6njkt297sqvgfn831g2vmnbs.apps.googleusercontent.com';
+
+  static final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  static bool _googleSignInInitialized = false;
+
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (_googleSignInInitialized) return;
+    await _googleSignIn.initialize(serverClientId: _googleServerClientId);
+    _googleSignInInitialized = true;
+  }
+
+  Future<void> _handleGoogleAuth() async {
+    setState(() {
+      errorMsg = '';
+      successMsg = '';
+      isSubmitting = true;
+    });
+
+    try {
+      await _ensureGoogleSignInInitialized();
+      final googleUser = await _googleSignIn.authenticate();
+      final idToken = googleUser.authentication.idToken;
+
+      if (idToken == null) {
+        setState(() {
+          errorMsg = 'Google sign-in failed. Please try again.';
+          isSubmitting = false;
+        });
+        return;
+      }
+
+      final response = await _api.loginWithGoogle(idToken);
+
+      if (!response.containsKey('access_token')) {
+        setState(() {
+          errorMsg = response['message'] ?? 'Google sign-in failed.';
+          isSubmitting = false;
+        });
+        return;
+      }
+
+      final token = response['access_token'];
+      await _saveToken(token);
+
+      final userData = response['user'] ?? {};
+      final userMetadata = userData['user_metadata'] ?? {};
+      final String? role = userMetadata['role'] ?? userData['role'];
+      final String status = userMetadata['status'] ?? 'pending';
+
+      if (role == null) {
+        // First-time Google sign-in: Supabase created the auth account but
+        // there's no profile/role yet (mobile doesn't have the web app's
+        // role-selection onboarding wizard), so send them there instead of
+        // dropping them into the app with a made-up role.
+        await _clearToken();
+        setState(() {
+          errorMsg =
+              'Please finish creating your account on the BuyTheWay website, then sign in with Google here.';
+          isSubmitting = false;
+        });
+        return;
+      }
+
+      if (status == 'rejected') {
+        setState(() {
+          errorMsg =
+              'Your account registration was rejected. Please contact support.';
+          isSubmitting = false;
+        });
+        return;
+      }
+
+      if (!_isMobileAllowedRole(role)) {
+        await _clearToken();
+        setState(() {
+          errorMsg = _webOnlyRoleMessage;
+          isSubmitting = false;
+        });
+        return;
+      }
+
+      final String firstName = userMetadata['first_name'] ?? '';
+      final String lastName = userMetadata['last_name'] ?? '';
+      final String name = '$firstName $lastName'.trim();
+
+      setState(() {
+        loggedInUser = {
+          'email': userData['email'] ?? '',
+          'role': role,
+          'name': name,
+          'status': status,
+        };
+        isSubmitting = false;
+      });
+
+      _handleRoleBasedNavigation(role);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        setState(() => isSubmitting = false);
+        return;
+      }
+      setState(() {
+        errorMsg = 'Google sign-in failed. Please try again.';
+        isSubmitting = false;
+      });
+    } on ApiException catch (e) {
+      setState(() {
+        errorMsg = e.errors != null ? e.errors!.values.join('\n') : e.message;
+        isSubmitting = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMsg = e.toString().replaceAll('Exception: ', '');
+        isSubmitting = false;
+      });
+    }
   }
 
   Future<void> handleLogin() async {

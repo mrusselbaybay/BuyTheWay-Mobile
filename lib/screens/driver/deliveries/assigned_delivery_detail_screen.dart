@@ -488,6 +488,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
       case AssignedDeliveryStatus.handedOver:
         return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+      case AssignedDeliveryStatus.awaitingInventory:
+        return ('Picked up', DriverColors.success, Icons.check_circle_rounded);
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
       // Only reached when dispatch had to hand this leg to a courier who
       // didn't already have the parcel — same "To pick up" framing as a
@@ -518,7 +520,17 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
               title: d.customerName,
               subtitle: '#${d.orderNumber}${d.trackingNumber != null ? ' · Tracking ${d.trackingNumber}' : ''}',
               onBack: () => Navigator.of(context).pop(),
-              trailing: DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+              trailing: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+                  if (d.isReturn) ...[
+                    const SizedBox(height: 4),
+                    DriverReturnChip(returned: d.isReturned),
+                  ],
+                ],
+              ),
             ),
             Expanded(child: _buildBody(context, d)),
             _buildActionBar(context, d),
@@ -563,6 +575,37 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         children: [
           DriverDispatchChip(label: d.dispatchedByLabel),
           const SizedBox(height: 16),
+          if (d.isReturn) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: DriverColors.warningSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.assignment_return_outlined, size: 18, color: DriverColors.warning),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Return to seller', style: TextStyle(fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Reason: ${d.returnReason ?? 'Not specified'}',
+                          style: DriverText.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           _sectionCard(
             icon: Icons.contacts_rounded,
             title: 'Contacts',
@@ -585,7 +628,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 Row(children: [
                   const Icon(Icons.storefront_rounded, size: 15, color: DriverColors.textSecondary),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(d.pickupLabel, style: DriverText.body)),
+                  Expanded(child: Text(d.returnPickupAddress ?? d.pickupLabel, style: DriverText.body)),
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -646,6 +689,30 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
               child: d.hasConfirmationQr
                   ? _qrProofSection("Scan the parcel's QR code, or attach a picture of it, to confirm delivery (required)")
                   : _legacyPhotoAttachTile('Attach a photo of the parcel (required)'),
+            ),
+          ] else if (d.status == AssignedDeliveryStatus.awaitingInventory) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 18, color: DriverColors.primaryDark),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Picked up ${_formatDate(d.handedOffAt)}',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Awaiting logistics inventory scan.', style: DriverText.caption),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ] else if (d.status == AssignedDeliveryStatus.handedOver) ...[
             Container(
@@ -906,6 +973,28 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         d.status == AssignedDeliveryStatus.handedOver ||
         d.status == AssignedDeliveryStatus.transferred) {
       return const SizedBox.shrink();
+    }
+    // Already picked up — show the action locked so it can't be resubmitted.
+    if (d.status == AssignedDeliveryStatus.awaitingInventory) {
+      return SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, -4))],
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.lock_rounded),
+              label: const Text('Picked up'),
+              style: DriverButtonStyle.primary(DriverColors.success),
+            ),
+          ),
+        ),
+      );
     }
     final isTransfer = d.status == AssignedDeliveryStatus.readyToTransfer;
     final isPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned;

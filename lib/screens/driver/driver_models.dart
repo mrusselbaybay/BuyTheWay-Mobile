@@ -66,6 +66,9 @@ enum AssignedDeliveryStatus {
   pickedUp,
   delivered,
   handedOver,
+  // This rider picked the parcel up; it's waiting on Logistics' inventory
+  // scan. Read-only — the pickup can't be submitted again.
+  awaitingInventory,
   // Cross-region transfer leg states (see DriverDeliveryController's
   // docblock and App\Models\ParcelAssignment::STATUS_TO_TRANSFER) — a
   // transfer parcel never reaches pickedUp/delivered. transferAssigned is
@@ -90,6 +93,8 @@ AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
     // no scan/attach/deliver action left for them to take on it.
     case 'handed_over':
       return AssignedDeliveryStatus.handedOver;
+    case 'for_inventory':
+      return AssignedDeliveryStatus.awaitingInventory;
     case 'transfer_assigned':
       return AssignedDeliveryStatus.transferAssigned;
     case 'ready_to_transfer':
@@ -204,6 +209,21 @@ class AssignedDelivery {
   /// DriverDeliveryController::present's `is_transfer`.
   final bool isTransfer;
 
+  /// True for a leg of an approved Return + Refund — the item travels back
+  /// from the buyer to the seller (DriverDeliveryController::present's
+  /// `is_return`). Its final drop-off ([dropoffLabel]) is the seller.
+  final bool isReturn;
+
+  /// The buyer's reason for returning the item, shown on return legs.
+  final String? returnReason;
+
+  /// This rider's return leg is finished (handed to the seller or the next hub).
+  bool get isReturned =>
+      isReturn && (status == AssignedDeliveryStatus.delivered || status == AssignedDeliveryStatus.transferred);
+
+  /// Buyer's address to collect from — only on a return's first leg.
+  final String? returnPickupAddress;
+
   /// The bare parcel confirmation token (see
   /// DriverDeliveryController::present's docblock) — the rider is already
   /// authorised for this parcel, so the backend echoes it so the app can
@@ -241,6 +261,9 @@ class AssignedDelivery {
     this.hasConfirmationQr = false,
     required this.status,
     this.isTransfer = false,
+    this.isReturn = false,
+    this.returnReason,
+    this.returnPickupAddress,
   });
 
   /// The logistics company name lifted out of [pickupLabel] (formatted by
@@ -292,6 +315,9 @@ class AssignedDelivery {
       hasConfirmationQr: json['has_confirmation_qr'] == true,
       status: _parseAssignedDeliveryStatus(json['status']),
       isTransfer: json['is_transfer'] == true,
+      isReturn: json['is_return'] == true,
+      returnReason: str(json['return_reason']).isEmpty ? null : str(json['return_reason']),
+      returnPickupAddress: str(json['return_pickup_address']).isEmpty ? null : str(json['return_pickup_address']),
     );
   }
 

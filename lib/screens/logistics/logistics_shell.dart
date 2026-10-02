@@ -210,6 +210,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
         account: account,
         accessToken: accessToken,
         onSignOut: _signOutToLogin,
+        onRefresh: _refreshAll,
       ),
     ];
 

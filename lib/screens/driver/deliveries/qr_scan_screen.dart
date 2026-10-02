@@ -115,6 +115,12 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
   _ScanFeedback _feedback = _ScanFeedback.none;
   bool _success = false;
+
+  /// True the instant the right code decodes but its camera frame hasn't
+  /// arrived yet (see the `image == null` branch below) — without this the
+  /// screen shows nothing at all for that stretch, which reads as a freeze
+  /// rather than "still working on it".
+  bool _verifying = false;
   Timer? _feedbackTimer;
 
   @override
@@ -158,7 +164,9 @@ class _QrScanScreenState extends State<QrScanScreen> {
       // The right code decoded but this particular frame carried no
       // photo (shouldn't normally happen with returnImage on) — wait for
       // the next matching detection rather than accept a scan with
-      // nothing to submit as proof.
+      // nothing to submit as proof. Surface that wait instead of leaving
+      // the screen looking stuck.
+      if (!_verifying) setState(() => _verifying = true);
       return;
     }
 
@@ -167,6 +175,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
     HapticFeedback.mediumImpact();
     setState(() {
       _success = true;
+      _verifying = false;
       _feedback = _ScanFeedback.none;
     });
 
@@ -193,6 +202,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
   Color get _frameColor {
     if (_success) return DriverColors.success;
+    if (_verifying) return DriverColors.primaryLight;
     switch (_feedback) {
       case _ScanFeedback.wrongParcel:
       case _ScanFeedback.unreadable:
@@ -204,6 +214,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
   String get _caption {
     if (_success) return 'Parcel confirmed!';
+    if (_verifying) return 'Verifying QR Code…';
     switch (_feedback) {
       case _ScanFeedback.wrongParcel:
         return "That's a different parcel's code — scan the one for this delivery.";
@@ -274,7 +285,15 @@ class _QrScanScreenState extends State<QrScanScreen> {
                           ),
                         ),
                       )
-                    : null,
+                    : (_verifying
+                        ? const Center(
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(color: DriverColors.primaryLight, strokeWidth: 3),
+                            ),
+                          )
+                        : null),
               ),
             ),
           ),

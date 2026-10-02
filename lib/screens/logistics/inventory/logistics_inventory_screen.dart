@@ -244,7 +244,17 @@ class _ParcelCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      DriverStatusBadge(label: badgeLabel, color: badgeColor, icon: badgeIcon),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DriverStatusBadge(label: badgeLabel, color: badgeColor, icon: badgeIcon),
+                          if (parcel.isReturn) ...[
+                            const SizedBox(height: 4),
+                            const DriverReturnChip(),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),

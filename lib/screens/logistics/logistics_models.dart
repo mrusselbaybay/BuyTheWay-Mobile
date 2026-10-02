@@ -185,6 +185,10 @@ class InventoryParcel {
   final String status;
   final bool isTransfer;
   final bool isTransferReceipt;
+
+  /// Leg of an approved Return + Refund, travelling back to the seller.
+  final bool isReturn;
+  final String? returnReason;
   final InventoryOrigin origin;
   final String? trackingNumber;
   final String? orderNumber;
@@ -205,6 +209,8 @@ class InventoryParcel {
     required this.status,
     this.isTransfer = false,
     this.isTransferReceipt = false,
+    this.isReturn = false,
+    this.returnReason,
     this.origin = InventoryOrigin.unknown,
     this.trackingNumber,
     this.orderNumber,
@@ -243,6 +249,8 @@ class InventoryParcel {
       status: str(json['status']),
       isTransfer: json['is_transfer'] == true,
       isTransferReceipt: json['is_transfer_receipt'] == true,
+      isReturn: json['is_return'] == true,
+      returnReason: strOrNull(json['return_reason']),
       origin: _parseOrigin(json['inventory_origin']),
       trackingNumber: strOrNull(json['tracking_number']),
       orderNumber: strOrNull(json['order_number']),

@@ -194,6 +194,36 @@ class DriverDispatchChip extends StatelessWidget {
   }
 }
 
+/// "To return" tag for a Return + Refund leg — this parcel is going back
+/// from the buyer to the seller, not out for a normal delivery.
+class DriverReturnChip extends StatelessWidget {
+  final bool returned;
+  const DriverReturnChip({super.key, this.returned = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = returned ? DriverColors.success : DriverColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: returned ? DriverColors.successSurface : DriverColors.warningSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.assignment_return_outlined, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            returned ? 'Returned' : 'To return',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A small circular Teal-gradient call button — used wherever a card offers
 /// a one-tap "call this person" quick action.
 class DriverCallFab extends StatelessWidget {

@@ -169,7 +169,12 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           children: [
             DriverGradientHeader(
               title: parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
-              subtitle: parcel == null ? '' : _statusLabel(parcel.status),
+              subtitle: parcel == null
+                  ? ''
+                  : [
+                      _statusLabel(parcel.status),
+                      if (parcel.isReturn) 'To return${parcel.returnReason != null ? ' — ${parcel.returnReason}' : ''}',
+                    ].join(' · '),
               onBack: () => Navigator.of(context).pop(),
               trailing: parcel != null
                   ? DriverStatusBadge(
