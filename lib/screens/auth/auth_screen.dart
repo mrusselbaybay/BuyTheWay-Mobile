@@ -3,8 +3,9 @@
 // ----------------------------------------------------------------------------
 // A flat, no-gradient login/signup experience built on the `solid_ui.dart`
 // kit: a plain surface, filled inputs, and a single solid accent color.
-// Only buyer and courier are reachable roles on mobile (see
-// _isMobileAllowedRole) — the seller/driver/logistics wizard bodies further
+// Runs as two portals (see AuthPortal): buyer (default) and partner
+// (courier/logistics, via "Ship with us"). Only buyer and courier are
+// reachable signup roles on mobile (see _isMobileAllowedRole) — the seller/driver/logistics wizard bodies further
 // below are unreachable from this screen's own role picker and were left
 // exactly as they were.
 //
@@ -15,11 +16,11 @@
 
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../widgets/brand_logo.dart';
 import '../../widgets/common.dart';
 import '../../widgets/solid_ui.dart';
 import '../../widgets/password_strength_meter.dart';
@@ -58,8 +59,14 @@ const List<String> kLineOfBusinessOptions = [
   'Health and Beauty',
 ];
 
+/// Which audience the auth screen serves. The app opens on [buyer]; couriers
+/// and logistics partners reach [partner] through the "Ship with us" link.
+enum AuthPortal { buyer, partner }
+
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.portal = AuthPortal.buyer});
+
+  final AuthPortal portal;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -69,7 +76,6 @@ class _AuthScreenState extends State<AuthScreen> {
   // API Service
   final ApiService _api = ApiService();
   String? _authToken;
-  final bool _isLoading = false;
 
   // ---------------- Top-level UI state ----------------
   String mode = 'login'; // login | signup | forgot | reset
@@ -232,7 +238,14 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Static config ----------------
   // Mobile app is limited to buyer and courier. Seller, driver and logistics
   // accounts are web-only — see _isMobileAllowedRole and the login guard.
-  final List<Map<String, dynamic>> roles = const [
+  bool get _isPartnerPortal => widget.portal == AuthPortal.partner;
+
+  /// Signup roles offered by the current portal.
+  List<Map<String, dynamic>> get roles => _allRoles
+      .where((r) => _isPartnerPortal ? r['id'] != 'buyer' : r['id'] == 'buyer')
+      .toList();
+
+  static const List<Map<String, dynamic>> _allRoles = [
     {
       'id': 'buyer',
       'label': 'Buyer',
@@ -258,6 +271,20 @@ class _AuthScreenState extends State<AuthScreen> {
       role == 'courier' ||
       role == 'logistics' ||
       role == 'logistics_admin';
+
+  /// Error to show when [role] signs in through the wrong portal, or null
+  /// when the role belongs here.
+  String? _portalRoleError(String role) {
+    if (!_isMobileAllowedRole(role)) return _webOnlyRoleMessage;
+    final isBuyer = role == 'buyer';
+    if (_isPartnerPortal && isBuyer) {
+      return 'This is a buyer account. Please log in through the buyer portal.';
+    }
+    if (!_isPartnerPortal && !isBuyer) {
+      return 'Courier and logistics accounts log in through "Ship with us" below.';
+    }
+    return null;
+  }
 
   static const String _webOnlyRoleMessage =
       'This account type is only accessible through a web browser. '
@@ -954,10 +981,11 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      if (!_isMobileAllowedRole(role)) {
+      final portalError = _portalRoleError(role);
+      if (portalError != null) {
         await _clearToken();
         setState(() {
-          errorMsg = _webOnlyRoleMessage;
+          errorMsg = portalError;
           isSubmitting = false;
         });
         return;
@@ -1041,10 +1069,11 @@ class _AuthScreenState extends State<AuthScreen> {
           return;
         }
 
-        if (!_isMobileAllowedRole(role)) {
+        final portalError = _portalRoleError(role);
+        if (portalError != null) {
           await _clearToken();
           setState(() {
-            errorMsg = _webOnlyRoleMessage;
+            errorMsg = portalError;
             isSubmitting = false;
           });
           return;
@@ -1065,10 +1094,11 @@ class _AuthScreenState extends State<AuthScreen> {
         await _saveToken(response['token']);
         final String role = response['user']['role'] ?? 'buyer';
 
-        if (!_isMobileAllowedRole(role)) {
+        final portalError = _portalRoleError(role);
+        if (portalError != null) {
           await _clearToken();
           setState(() {
-            errorMsg = _webOnlyRoleMessage;
+            errorMsg = portalError;
             isSubmitting = false;
           });
           return;
@@ -1105,7 +1135,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _handleRoleBasedNavigation(String role) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (role == 'logistics' || role == 'logistics_admin') {
+      if (_isPartnerPortal) {
+        // Drop the buyer portal sitting under this one so back can't return to it.
+        final dest = role == 'logistics' || role == 'logistics_admin'
+            ? '/logistics_dashboard'
+            : '/driver_dashboard';
+        Navigator.pushNamedAndRemoveUntil(context, dest, (_) => false);
+      } else if (role == 'logistics' || role == 'logistics_admin') {
         Navigator.pushReplacementNamed(context, '/logistics_dashboard');
       } else if (role == 'driver' || role == 'courier') {
         // Courier and driver share the driver app's UI (DriverShell) — see
@@ -1571,15 +1607,10 @@ class _AuthScreenState extends State<AuthScreen> {
         _authToken = token;
       });
 
-      // Continue straight into the dashboard instead of stranding an
-      // already-valid session on the static "You're in!" screen (which has
-      // no way forward except logging out and back in). Restricted to
-      // roles with a registered route (see main.dart) — seller/admin don't
-      // have a dashboard route yet, so auto-navigating them would crash.
-      const routedRoles = {'driver', 'courier', 'logistics', 'logistics_admin'};
-      if (routedRoles.contains(role)) {
-        _handleRoleBasedNavigation(role);
-      }
+      // Continue straight into the app instead of stranding an
+      // already-valid session on the static "You're in!" screen. Every
+      // mobile-allowed role has a registered route (see main.dart).
+      _handleRoleBasedNavigation(role);
     } on ApiException catch (e) {
       // 401/419 = the token itself was rejected (expired/revoked/invalid) —
       // that's a real "you're logged out". Anything else (5xx, a malformed
@@ -2071,64 +2102,93 @@ class _AuthScreenState extends State<AuthScreen> {
               child: _buildRightContent(),
             ),
           ),
-          if (mode == 'login' || (mode == 'signup' && signupStep == 'role'))
-            Padding(
-              padding: const EdgeInsets.only(top: 22, bottom: 12),
-              child: _buildFooterLink(),
-            ),
         ],
       ),
     );
   }
 
-  /// Brand mark + page heading. Only shown on the two root screens (login,
-  /// role picker) — wizard steps use the app bar's title instead so the
-  /// heading never fights the step context for attention.
+  /// Brand lockup, page heading and the Log in / Sign up switch. Only
+  /// shown on the two root screens (login, role picker) — wizard steps use
+  /// the app bar's title instead so the heading never fights the step
+  /// context for attention.
   Widget _buildHeader() {
     final isLogin = mode == 'login';
-    final isSignupRole = mode == 'signup' && signupStep == 'role';
-    final title = isLogin ? 'Welcome back' : 'Create your account';
-    final subtitle = isLogin
-        ? 'Log in to keep shopping smart.'
-        : isSignupRole
-            ? 'Choose how you want to use BuyTheWay.'
-            : '';
+    final String title;
+    final String subtitle;
+    if (_isPartnerPortal) {
+      title = isLogin ? 'Partner log in' : 'Ship with us';
+      subtitle = isLogin
+          ? 'For couriers and logistics companies.'
+          : 'Deliver with BuyTheWay and earn on your schedule.';
+    } else {
+      title = isLogin ? 'Welcome back' : 'Join BuyTheWay';
+      subtitle = isLogin
+          ? 'Log in to pick up where you left off.'
+          : 'Create your account and start shopping.';
+    }
 
     return Padding(
-      key: ValueKey('$mode-$signupStep-hero'),
-      padding: const EdgeInsets.only(bottom: 28),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Row(children: [
-            BrandMark(size: 40),
-            SizedBox(width: 10),
-            Text('BuyTheWay',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.slate900,
-                    letterSpacing: 0.6)),
+          const SizedBox(height: 12),
+          Row(children: [
+            const BagLogo(size: 40),
+            const SizedBox(width: 8),
+            const BrandWordmark(fontSize: 22),
+            if (_isPartnerPortal) ...[
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: BrandColors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.local_shipping_outlined, size: 14, color: BrandColors.blueDark),
+                  SizedBox(width: 5),
+                  Text('Partner',
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: BrandColors.blueDark)),
+                ]),
+              ),
+            ],
           ]),
-          const SizedBox(height: 28),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 27, fontWeight: FontWeight.w800, color: AppColors.slate900, height: 1.15)),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(subtitle,
-                style: const TextStyle(fontSize: 14.5, color: AppColors.slate500, height: 1.4)),
-          ],
+          const SizedBox(height: 32),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            layoutBuilder: (current, previous) =>
+                Stack(alignment: Alignment.topLeft, children: [...previous, if (current != null) current]),
+            child: Column(
+              key: ValueKey(isLogin),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontFamily: kBrandFont,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        fontVariations: [FontVariation('wght', 900)],
+                        color: AppColors.slate900,
+                        letterSpacing: -0.4,
+                        height: 1.15)),
+                const SizedBox(height: 6),
+                Text(subtitle,
+                    style: const TextStyle(fontSize: 14.5, color: AppColors.slate500, height: 1.4)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SolidSegmented(
+            labels: const ['Log in', 'Sign up'],
+            index: isLogin ? 0 : 1,
+            onChanged: (i) => switchMode(i == 0 ? 'login' : 'signup'),
+          ),
         ],
       ),
     );
-  }
-
-  Widget _buildFooterLink() {
-    return mode == 'login'
-        ? _linkText("Don't have an account? ", 'Sign up', () => switchMode('signup'))
-        : _linkText('Already have an account? ', 'Log in', () => switchMode('login'));
   }
 
   Widget _buildRightContent() {
@@ -2145,25 +2205,6 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Widget _linkText(String prefix, String linkLabel, VoidCallback onTap) {
-    return Center(
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: const TextStyle(color: AppColors.slate500, fontSize: 13.5),
-          children: [
-            TextSpan(text: prefix),
-            TextSpan(
-              text: linkLabel,
-              style: const TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w800),
-              recognizer: TapGestureRecognizer()..onTap = onTap,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ---------------- Login ----------------
 
   Widget _buildLoginForm() {
@@ -2177,6 +2218,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: 'juan@email.com',
             icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.email]),
         const SizedBox(height: 14),
         SolidField(
@@ -2187,6 +2229,10 @@ class _AuthScreenState extends State<AuthScreen> {
           icon: Icons.lock_outline_rounded,
           obscure: !showPassword,
           autofillHints: const [AutofillHints.password],
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!isSubmitting) handleLogin();
+          },
           suffix: IconButton(
             icon: Icon(showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                 size: 19, color: AppColors.slate400),
@@ -2207,7 +2253,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 22,
                     child: Checkbox(
                       value: rememberMe,
-                      activeColor: AppColors.teal600,
+                      activeColor: BrandColors.blue,
                       onChanged: (v) => setState(() => rememberMe = v ?? false),
                     ),
                   ),
@@ -2221,7 +2267,7 @@ class _AuthScreenState extends State<AuthScreen> {
               onPressed: () => switchMode('forgot'),
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Forgot password?',
-                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(color: BrandColors.blueDark, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
           ],
         ),
@@ -2236,8 +2282,56 @@ class _AuthScreenState extends State<AuthScreen> {
         const OrDivider(),
         const SizedBox(height: 18),
         GoogleButton(onPressed: isSubmitting ? null : _handleGoogleAuth),
+        _buildPortalSwitch(),
       ],
     );
+  }
+
+  /// Footer link between the buyer and partner portals.
+  Widget _buildPortalSwitch() {
+    final prompt = _isPartnerPortal ? 'Shopping instead?' : 'Courier or logistics company?';
+    final action = _isPartnerPortal ? 'Go to buyer portal' : 'Ship with us';
+    return Padding(
+      padding: const EdgeInsets.only(top: 28),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(prompt, style: const TextStyle(fontSize: 13.5, color: AppColors.slate500)),
+            TextButton.icon(
+              onPressed: isSubmitting ? null : _switchPortal,
+              iconAlignment: IconAlignment.end,
+              icon: Icon(
+                  _isPartnerPortal ? Icons.shopping_bag_outlined : Icons.local_shipping_outlined,
+                  size: 17),
+              label: Text(action,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+              style: TextButton.styleFrom(
+                foregroundColor: BrandColors.blueDark,
+                minimumSize: const Size(44, 44),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _switchPortal() {
+    final nav = Navigator.of(context);
+    // The partner portal is pushed over the buyer portal, so going back is a pop.
+    if (_isPartnerPortal && nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    final target = _isPartnerPortal ? AuthPortal.buyer : AuthPortal.partner;
+    final route = PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (_, __, ___) => AuthScreen(portal: target),
+      transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+    );
+    _isPartnerPortal ? nav.pushReplacement(route) : nav.push(route);
   }
 
   // ---------------- Forgot / reset password wizard ----------------
@@ -2278,7 +2372,11 @@ class _AuthScreenState extends State<AuthScreen> {
             required: true,
             hint: 'juan@email.com',
             icon: Icons.mail_outline_rounded,
-            keyboardType: TextInputType.emailAddress),
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) {
+              if (!isSubmitting) handleSendResetCode();
+            }),
         SolidBanner(error: errorMsg, success: successMsg),
         const SizedBox(height: 16),
         SolidButton(
@@ -2320,7 +2418,7 @@ class _AuthScreenState extends State<AuthScreen> {
               onPressed: handleResendResetCode,
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Resend code',
-                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(color: BrandColors.blueDark, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
             TextButton(
               onPressed: () => setState(() {
@@ -2330,7 +2428,7 @@ class _AuthScreenState extends State<AuthScreen> {
               }),
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
               child: const Text('Change email',
-                  style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(color: BrandColors.blueDark, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
           ],
         ),
@@ -2407,15 +2505,17 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             )),
         const SizedBox(height: 6),
-        const Text(
-          'Seller, driver and logistics company accounts are only '
-          'available through a web browser.',
-          style: TextStyle(color: AppColors.slate500, fontSize: 12.5, height: 1.4),
+        Text(
+          _isPartnerPortal
+              ? 'Logistics company and driver accounts are created through a web browser.'
+              : 'Seller accounts are only available through a web browser.',
+          style: const TextStyle(color: AppColors.slate500, fontSize: 12.5, height: 1.4),
         ),
         const SizedBox(height: 22),
         const OrDivider(),
         const SizedBox(height: 18),
         GoogleButton(onPressed: _handleGoogleAuth, label: 'Sign up with Google'),
+        _buildPortalSwitch(),
       ],
     );
   }
@@ -2546,7 +2646,7 @@ class _AuthScreenState extends State<AuthScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(14)),
           child: Row(children: [
-            const Icon(Icons.mark_email_read_outlined, size: 20, color: AppColors.teal600),
+            const Icon(Icons.mark_email_read_outlined, size: 20, color: BrandColors.blue),
             const SizedBox(width: 10),
             Expanded(
               child: Text.rich(TextSpan(
@@ -2582,7 +2682,7 @@ class _AuthScreenState extends State<AuthScreen> {
           onPressed: isSendingCode ? null : _sendVerificationCodeStub,
           style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
           child: const Text('Resend code',
-              style: TextStyle(color: AppColors.teal700, fontWeight: FontWeight.w700, fontSize: 13)),
+              style: TextStyle(color: BrandColors.blueDark, fontWeight: FontWeight.w700, fontSize: 13)),
         ),
         if (errorMsg.isNotEmpty)
           Padding(
@@ -2737,7 +2837,7 @@ class _AuthScreenState extends State<AuthScreen> {
               height: 22,
               child: Checkbox(
                   value: showPassword,
-                  activeColor: AppColors.teal600,
+                  activeColor: BrandColors.blue,
                   onChanged: (v) => setState(() => showPassword = v ?? false)),
             ),
             const SizedBox(width: 6),

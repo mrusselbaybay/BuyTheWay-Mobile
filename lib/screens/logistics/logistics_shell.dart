@@ -145,7 +145,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen()), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner)), (route) => false);
   }
 
   @override

@@ -45,7 +45,8 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/auth/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email, 'password': password}),
+            // 'mobile' signs buyer/seller accounts in as buyer (no seller app here).
+            body: jsonEncode({'email': email, 'password': password, 'device': 'mobile'}),
           )
           .timeout(
             const Duration(seconds: 30),
@@ -56,6 +57,8 @@ class ApiService {
             ),
           );
       return _handleResponse(response);
+    } on ApiException {
+      rethrow;
     } on SocketException {
       throw ApiException(
         message:
@@ -88,6 +91,8 @@ class ApiService {
             ),
           );
       return _handleResponse(response);
+    } on ApiException {
+      rethrow;
     } on SocketException {
       throw ApiException(
         message:

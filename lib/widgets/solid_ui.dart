@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'brand_logo.dart';
 import 'common.dart' show AppColors, PressableScale;
 
 /// A field's chrome state, shared by every input in this kit so text
@@ -28,7 +29,7 @@ class _FieldChrome extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color borderColor = hasError
         ? AppColors.errorRed
-        : (focused ? AppColors.teal600 : Colors.transparent);
+        : (focused ? BrandColors.blue : Colors.transparent);
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 150),
       opacity: enabled ? 1 : 0.55,
@@ -53,7 +54,7 @@ Widget _fieldLabel(String label, bool required) {
       children: [
         TextSpan(text: label),
         if (required)
-          const TextSpan(text: ' *', style: TextStyle(color: AppColors.teal600)),
+          const TextSpan(text: ' *', style: TextStyle(color: BrandColors.blue)),
       ],
     ),
   );
@@ -97,6 +98,8 @@ class SolidField extends StatefulWidget {
     this.maxLength,
     this.autofillHints,
     this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   final String label;
@@ -111,6 +114,8 @@ class SolidField extends StatefulWidget {
   final int? maxLength;
   final Iterable<String>? autofillHints;
   final TextCapitalization textCapitalization;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   State<SolidField> createState() => _SolidFieldState();
@@ -151,6 +156,8 @@ class _SolidFieldState extends State<SolidField> {
             maxLength: widget.maxLength,
             autofillHints: widget.autofillHints,
             textCapitalization: widget.textCapitalization,
+            textInputAction: widget.textInputAction,
+            onSubmitted: widget.onSubmitted,
             inputFormatters: widget.keyboardType == TextInputType.number
                 ? [FilteringTextInputFormatter.digitsOnly]
                 : null,
@@ -162,7 +169,7 @@ class _SolidFieldState extends State<SolidField> {
               prefixIcon: widget.icon == null
                   ? null
                   : Icon(widget.icon, size: 19,
-                      color: _focused ? AppColors.teal600 : AppColors.slate400),
+                      color: _focused ? BrandColors.blue : AppColors.slate400),
               prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 22),
               contentPadding: EdgeInsets.symmetric(
                   horizontal: widget.icon == null ? 14 : 0, vertical: 14),
@@ -313,7 +320,7 @@ class SolidDateField extends StatelessWidget {
               builder: (context, child) => Theme(
                 data: Theme.of(context).copyWith(
                   colorScheme: const ColorScheme.light(
-                    primary: AppColors.teal600,
+                    primary: BrandColors.blue,
                     onPrimary: Colors.white,
                     onSurface: AppColors.slate800,
                   ),
@@ -331,7 +338,7 @@ class SolidDateField extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.calendar_today_rounded, size: 18,
-                      color: value == null ? AppColors.slate400 : AppColors.teal600),
+                      color: value == null ? AppColors.slate400 : BrandColors.blue),
                   const SizedBox(width: 10),
                   Text(
                     value == null
@@ -383,7 +390,7 @@ class SolidButton extends StatelessWidget {
         height: height,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: disabled ? AppColors.slate200 : AppColors.teal600,
+          color: disabled ? AppColors.slate200 : BrandColors.blue,
           borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.center,
@@ -606,7 +613,7 @@ class SolidProgress extends StatelessWidget {
               duration: const Duration(milliseconds: 280),
               curve: Curves.easeOutCubic,
               widthFactor: fraction,
-              child: Container(height: 5, color: AppColors.teal600),
+              child: Container(height: 5, color: BrandColors.blue),
             ),
           ]),
         ),
@@ -721,7 +728,7 @@ class SolidUploadRow extends StatelessWidget {
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.slate800),
                       children: [
                         TextSpan(text: label),
-                        if (required) const TextSpan(text: ' *', style: TextStyle(color: AppColors.teal600)),
+                        if (required) const TextSpan(text: ' *', style: TextStyle(color: BrandColors.blue)),
                       ],
                     ),
                   ),
@@ -774,9 +781,9 @@ class SolidChoiceCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 68),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? AppColors.teal50 : AppColors.slate100,
+          color: selected ? BrandColors.blueTint : AppColors.slate100,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? AppColors.teal600 : Colors.transparent, width: 1.5),
+          border: Border.all(color: selected ? BrandColors.blue : Colors.transparent, width: 1.5),
         ),
         child: Row(
           children: [
@@ -784,7 +791,7 @@ class SolidChoiceCard extends StatelessWidget {
               width: 42, height: 42,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? AppColors.teal600 : Colors.white,
+                color: selected ? BrandColors.blue : Colors.white,
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(icon, size: 21, color: selected ? Colors.white : AppColors.slate500),
@@ -806,7 +813,7 @@ class SolidChoiceCard extends StatelessWidget {
               duration: const Duration(milliseconds: 160),
               transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
               child: selected
-                  ? const Icon(Icons.check_circle_rounded, key: ValueKey('sel'), size: 21, color: AppColors.teal600)
+                  ? const Icon(Icons.check_circle_rounded, key: ValueKey('sel'), size: 21, color: BrandColors.blue)
                   : const Icon(Icons.chevron_right_rounded, key: ValueKey('unsel'), size: 21, color: AppColors.slate300),
             ),
           ],
@@ -816,18 +823,65 @@ class SolidChoiceCard extends StatelessWidget {
   }
 }
 
-/// Small solid-fill brand mark used in the header (no gradient).
-class BrandMark extends StatelessWidget {
-  const BrandMark({super.key, this.size = 44});
-  final double size;
+
+// ---------------------------------------------------------------------------
+// SolidSegmented — two-way switch (e.g. Log in / Sign up). Flat track with
+// a sliding white thumb; the thumb moves instantly on tap.
+// ---------------------------------------------------------------------------
+class SolidSegmented extends StatelessWidget {
+  const SolidSegmented({super.key, required this.labels, required this.index, required this.onChanged});
+
+  final List<String> labels;
+  final int index;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: size, height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: AppColors.teal600, borderRadius: BorderRadius.circular(size * 0.28)),
-      child: Icon(Icons.shopping_bag_rounded, color: Colors.white, size: size * 0.5),
+      height: 46,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(12)),
+      child: Stack(children: [
+        AnimatedAlign(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment(labels.length == 1 ? 0 : -1 + 2 * index / (labels.length - 1), 0),
+          child: FractionallySizedBox(
+            widthFactor: 1 / labels.length,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: AppColors.slate200),
+              ),
+            ),
+          ),
+        ),
+        Row(children: [
+          for (var i = 0; i < labels.length; i++)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: i == index,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: i == index ? null : () => onChanged(i),
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: i == index ? AppColors.slate900 : AppColors.slate500,
+                      ),
+                      child: Text(labels[i]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ]),
+      ]),
     );
   }
 }

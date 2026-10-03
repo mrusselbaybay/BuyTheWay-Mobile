@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/auth/auth_screen.dart';
+import 'screens/buyer/buyer_shell.dart';
+import 'screens/splash/brand_splash_screen.dart';
 import 'screens/driver/auth/driver_splash_screen.dart';
 import 'screens/driver/driver_shell.dart';
 import 'screens/logistics/logistics_shell.dart';
@@ -24,8 +25,9 @@ class MyApp extends StatelessWidget {
           seedColor: const Color(0xFF14B8A6),
         ),
       ),
-      home: const AuthScreen(),
+      home: const BrandSplashScreen(),
       routes: {
+        '/home': (context) => const BuyerShell(),
 
         '/courier_dashboard': (context) => const CourierDashboard(),
         '/driver': (context) => const DriverSplashScreen(),

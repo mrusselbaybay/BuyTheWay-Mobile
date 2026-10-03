@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/common.dart';
+import '../auth/auth_screen.dart';
 import '../../widgets/navigation/courier_navbar.dart';
 
 const Color _teal = Color(0xFF0D9488);
@@ -1530,7 +1531,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove('auth_token');
     if (!context.mounted) return;
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner)), (route) => false);
   }
 
   @override
