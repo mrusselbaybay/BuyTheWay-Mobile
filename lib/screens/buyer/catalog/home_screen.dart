@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../account/wishlist_screen.dart';
 import '../buyer_models.dart';
 import '../buyer_shell.dart';
 import '../buyer_store.dart';
@@ -121,7 +122,8 @@ class _HomeHeader extends SliverPersistentHeaderDelegate {
     final store = BuyerStore.instance;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: BColors.background,
+        color: Colors.white,
+        border: const Border(bottom: BorderSide(color: BColors.border)),
         boxShadow: overlapsContent || shrinkOffset > 0
             ? [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))]
             : null,
@@ -131,7 +133,6 @@ class _HomeHeader extends SliverPersistentHeaderDelegate {
         child: Row(children: [
           Expanded(
             child: SearchBox(
-              elevated: true,
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
             ),
           ),
@@ -139,17 +140,13 @@ class _HomeHeader extends SliverPersistentHeaderDelegate {
           ListenableBuilder(
             listenable: store,
             builder: (context, _) => Row(mainAxisSize: MainAxisSize.min, children: [
+              // Cart and Chat live in the nav bar; Wishlist is the one
+              // shortcut that has no other home.
               _HeaderIconButton(
-                icon: Icons.shopping_bag_outlined,
-                tooltip: store.cartCount > 0 ? 'Cart, ${store.cartCount} items' : 'Cart',
-                badge: store.cartCount,
-                onTap: () => BuyerShell.tab.value = 2,
-              ),
-              _HeaderIconButton(
-                icon: Icons.chat_bubble_outline_rounded,
-                tooltip: store.chatUnread > 0 ? 'Messages, ${store.chatUnread} unread' : 'Messages',
-                badge: store.chatUnread,
-                onTap: () => BuyerShell.tab.value = 3,
+                icon: Icons.favorite_border_rounded,
+                tooltip: store.favorites.isNotEmpty ? 'Wishlist, ${store.favorites.length} saved' : 'Wishlist',
+                badge: store.favorites.length,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WishlistScreen())),
               ),
             ]),
           ),
@@ -200,10 +197,8 @@ class SearchBox extends StatelessWidget {
       label: text == null ? 'Search products' : 'Search: $text',
       excludeSemantics: true,
       child: Material(
-        color: Colors.white,
-        borderRadius: radius,
-        elevation: elevated ? 3 : 0,
-        shadowColor: const Color(0x260F172A),
+        color: const Color(0xFFF8FAFC),
+        shape: RoundedRectangleBorder(borderRadius: radius, side: const BorderSide(color: BColors.border)),
         child: InkWell(
           onTap: onTap,
           borderRadius: radius,
@@ -268,9 +263,13 @@ class _ActiveOrderCard extends StatelessWidget {
         if (live) dot = dot.animate(onPlay: (c) => c.repeat(reverse: true)).fade(begin: 1, end: 0.25, duration: 900.ms);
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: DecoratedBox(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(BRadius.tile), boxShadow: softShadow(0.05)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(BRadius.tile),
+              border: Border.all(color: BColors.border),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4))],
+            ),
             child: Material(
               color: BColors.surface,
               borderRadius: BorderRadius.circular(BRadius.tile),

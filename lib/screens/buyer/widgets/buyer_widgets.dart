@@ -79,10 +79,15 @@ class _ImageFallback extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => Container(
-        color: BColors.divider,
-        alignment: Alignment.center,
-        child: Icon(icon, color: BColors.faint, size: 28),
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, c) {
+          final side = c.biggest.shortestSide;
+          return Container(
+            color: BColors.divider,
+            alignment: Alignment.center,
+            child: Icon(icon, color: BColors.faint, size: side.isFinite ? (side * 0.36).clamp(16.0, 30.0) : 28),
+          );
+        },
       );
 }
 

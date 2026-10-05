@@ -629,6 +629,7 @@ class BuyerProfile {
   final DateTime? birthday;
   final String email;
   final String? avatarUrl;
+  final DateTime? memberSince;
 
   const BuyerProfile({
     required this.firstName,
@@ -639,6 +640,7 @@ class BuyerProfile {
     this.birthday,
     required this.email,
     this.avatarUrl,
+    this.memberSince,
   });
 
   String get fullName => '$firstName $lastName'.trim();
@@ -652,6 +654,7 @@ class BuyerProfile {
         birthday: _date(j['birthday']),
         email: _s(j['email']) ?? '',
         avatarUrl: _s(j['avatar_url']),
+        memberSince: _date(j['created_at']),
       );
 }
 

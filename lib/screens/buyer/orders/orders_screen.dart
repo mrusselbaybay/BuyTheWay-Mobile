@@ -168,7 +168,7 @@ class _OrderSearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Search your orders',
             hintStyle: const TextStyle(fontSize: 14.5, color: BColors.faint),
-            prefixIcon: const Icon(Icons.search_rounded, color: BColors.muted, size: 22),
+            prefixIcon: const Icon(Icons.search_rounded, color: BColors.brand, size: 20),
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
               builder: (_, v, __) => v.text.isEmpty
@@ -183,7 +183,7 @@ class _OrderSearchField extends StatelessWidget {
                     ),
             ),
             filled: true,
-            fillColor: BColors.divider,
+            fillColor: BColors.brandSurface,
             contentPadding: EdgeInsets.zero,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
           ),
@@ -200,16 +200,16 @@ class _StatusTabBar extends StatelessWidget {
         tabAlignment: TabAlignment.start,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         labelPadding: const EdgeInsets.symmetric(horizontal: 14),
-        labelColor: BColors.ink,
+        labelColor: BColors.brand,
         unselectedLabelColor: BColors.muted,
         labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
         unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(color: BColors.brand, width: 3),
+          borderSide: BorderSide(color: BColors.brand, width: 2),
           borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: BColors.border,
+        dividerColor: BColors.divider,
         tabs: [for (final (label, _) in orderTabs) Tab(height: 46, text: label)],
       );
 }
@@ -385,7 +385,8 @@ class OrderCard extends StatelessWidget {
                   Text('$count ${count == 1 ? 'item' : 'items'}', style: BText.small),
                   const Spacer(),
                   const Text('Total  ', style: TextStyle(fontSize: 13, color: BColors.muted)),
-                  Text(peso(o.total), style: const TextStyle(fontSize: 17, height: 1.1, fontWeight: FontWeight.w800, color: BColors.ink, letterSpacing: -0.2)),
+                  Text(peso(o.total),
+                      style: const TextStyle(fontSize: 17, height: 1.1, fontWeight: FontWeight.w800, color: BColors.brand, letterSpacing: -0.2)),
                 ]),
                 const SizedBox(height: 14),
                 _OrderActions(order: o),
@@ -660,10 +661,10 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = primary ? Colors.white : BColors.ink;
+    final fg = primary ? Colors.white : BColors.brand;
     return Material(
       color: primary ? BColors.brand : BColors.surface,
-      shape: StadiumBorder(side: primary ? BorderSide.none : const BorderSide(color: BColors.border)),
+      shape: StadiumBorder(side: primary ? BorderSide.none : BorderSide(color: BColors.brand.withValues(alpha: 0.35))),
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
@@ -728,15 +729,15 @@ class _QuickReviewState extends State<_QuickReview> {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-        decoration: BoxDecoration(color: BColors.background, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Quick review', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.ink)),
+              const Text('Quick review', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.brandDark)),
               const SizedBox(height: 1),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
-                child: Text(_labels[_rating], key: ValueKey(_rating), style: TextStyle(fontSize: 12, color: _rating > 0 ? BColors.warning : BColors.muted)),
+                child: Text(_labels[_rating], key: ValueKey(_rating), style: TextStyle(fontSize: 12, color: _rating > 0 ? BColors.warning : BColors.brand)),
               ),
             ]),
           ),

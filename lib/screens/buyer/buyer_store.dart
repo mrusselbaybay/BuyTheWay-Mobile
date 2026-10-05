@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
@@ -31,6 +32,26 @@ class BuyerStore extends ChangeNotifier {
   static const _recentSearchKey = 'buytheway_recent_searches';
 
   final BuyerApiService api = BuyerApiService();
+
+  bool _notifyQueued = false;
+
+  /// Screens kick off loads from initState, which can run mid-build (e.g.
+  /// a tab created by the shell's IndexedStack). Notifying then throws
+  /// "setState() called during build", so defer to the end of the frame.
+  @override
+  void notifyListeners() {
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      super.notifyListeners();
+      return;
+    }
+    if (_notifyQueued) return;
+    _notifyQueued = true;
+    scheduler.addPostFrameCallback((_) {
+      _notifyQueued = false;
+      super.notifyListeners();
+    });
+  }
 
   bool initialized = false;
   bool sessionExpired = false;
