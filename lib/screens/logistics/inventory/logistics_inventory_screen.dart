@@ -194,7 +194,8 @@ class _ParcelCard extends StatelessWidget {
   String _originLabel(InventoryOrigin origin) {
     switch (origin) {
       case InventoryOrigin.pickup:
-        return 'Picked up from seller';
+        // A return's first leg is collected from the buyer, not the seller.
+        return parcel.isReturn ? 'Picked up from buyer' : 'Picked up from seller';
       case InventoryOrigin.transferDeparture:
         return 'Outgoing transfer';
       case InventoryOrigin.transferReceipt:

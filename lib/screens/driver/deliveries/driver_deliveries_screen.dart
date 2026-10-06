@@ -680,7 +680,8 @@ class _MissionCardState extends State<_MissionCard> {
                                 const SizedBox(height: 2),
                                 Text(
                                   (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
-                                      ? d.pickupLabel
+                                      // A return's first leg is collected at the buyer's door.
+                                      ? (d.returnPickupAddress ?? d.pickupLabel)
                                       : d.dropoffLabel,
                                   style: DriverText.body,
                                   maxLines: 1,
