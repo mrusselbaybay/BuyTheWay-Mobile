@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,6 +15,7 @@ import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
 import 'qr_scan_screen.dart';
+import 'failed_attempt_sheet.dart';
 
 /// Pushed when the driver taps an assigned delivery — shows the full
 /// details and, depending on status, the one rider-initiated action this
@@ -62,7 +64,92 @@ class AssignedDeliveryDetailScreen extends StatefulWidget {
   State<AssignedDeliveryDetailScreen> createState() => _AssignedDeliveryDetailScreenState();
 }
 
-class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> {
+class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> with WidgetsBindingObserver {
+  Timer? _midnightTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleEligibilityRefresh();
+  }
+
+  void _scheduleEligibilityRefresh() {
+    _midnightTimer?.cancel();
+    final attempt = widget.delivery.deliveryAttempt;
+    final retryAt = attempt.retryAt;
+    if (widget.delivery.status != AssignedDeliveryStatus.failedAttempt || retryAt == null || attempt.eligible) return;
+    final wait = retryAt.difference(DateTime.now().toUtc());
+    if (wait.isNegative) return;
+    _midnightTimer = Timer(wait + const Duration(seconds: 1), _refresh);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_submitting) _refresh();
+  }
+
+  @override
+  void dispose() {
+    _midnightTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _failAttempt() async {
+    final reason = await showModalBottomSheet<(String, String?)>(
+      context: context, isScrollControlled: true, useSafeArea: true,
+      builder: (_) => const FailedAttemptSheet(),
+    );
+    if (reason == null || !mounted || _submitting) return;
+    final source = await _pickImageSource();
+    if (source == null || !mounted) return;
+    XFile? proof;
+    try {
+      proof = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+    } catch (_) {
+      _showProofError('Could not capture proof. Please try again.');
+      return;
+    }
+    if (proof == null || !mounted) return;
+    final bytes = await proof.readAsBytes();
+    if (!mounted) return;
+    await _submitAttemptAction(() => _api.markDeliveryFailed(
+      parcelAssignmentId: widget.delivery.id, accessToken: widget.accessToken,
+      reasonCode: reason.$1, description: reason.$2, photoBytes: bytes, photoFileName: proof!.name,
+    ), 'Failed delivery attempt recorded.');
+  }
+
+  Future<void> _reattempt() => _submitAttemptAction(() => _api.startDeliveryReattempt(
+    parcelAssignmentId: widget.delivery.id, accessToken: widget.accessToken,
+  ), 'Delivery re-attempt started.');
+
+  Future<void> _submitAttemptAction(Future<Map<String, dynamic>> Function() action, String message) async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final response = await action();
+      final data = response['data'];
+      if (data is! Map) throw ApiException(message: 'Invalid delivery response. Refresh and try again.', statusCode: 500);
+      if (!mounted) return;
+      setState(() {
+        widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+        _photoBytes = null;
+        _photoFilePath = null;
+        _photoFileName = null;
+        _scannedToken = null;
+      });
+      _scheduleEligibilityRefresh();
+      DriverTopNotification.show(context, message: message);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update this delivery. Check your connection and refresh before retrying.')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   final ApiService _api = ApiService();
 
   String? _photoFileName;
@@ -470,16 +557,20 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   String _formatDate(DateTime? d) {
     if (d == null) return 'Unknown time';
-    final local = d.toLocal();
+    final local = d.toUtc().add(const Duration(hours: 8));
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final m = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
-    return '${months[local.month - 1]} ${local.day} · $h:$m $period';
+    return '${months[local.month - 1]} ${local.day}, ${local.year} - $h:$m $period PHT';
   }
 
   (String, Color, IconData) _actionTag(AssignedDeliveryStatus status) {
     switch (status) {
+      case AssignedDeliveryStatus.failedAttempt:
+        return ('Failed Attempt', DriverColors.warning, Icons.warning_amber_rounded);
+      case AssignedDeliveryStatus.needsDispatcherReview:
+        return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
       case AssignedDeliveryStatus.assigned:
         return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.pickedUp:
@@ -552,6 +643,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       final match = rows.where((row) => row.id == widget.delivery.id).firstOrNull;
       if (!mounted || match == null) return;
       setState(() => widget.delivery.applyFrom(match));
+      _scheduleEligibilityRefresh();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -573,6 +665,22 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (d.deliveryAttempt.reason != null) ...[
+            _sectionCard(
+              icon: Icons.warning_amber_rounded,
+              title: 'Failed attempt ${d.deliveryAttempt.count}',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(d.deliveryAttempt.reason!, style: DriverText.body),
+                if (d.deliveryAttempt.description != null) Text(d.deliveryAttempt.description!, style: DriverText.body),
+                Text(_formatDate(d.deliveryAttempt.failedAt), style: DriverText.caption),
+                if (d.status == AssignedDeliveryStatus.needsDispatcherReview)
+                  Text(d.deliveryAttempt.returnFlaggedAt != null ? 'Flagged for the separate return process. Courier re-attempts are blocked.' : 'Waiting for dispatcher review. You cannot start another attempt yet.', style: DriverText.caption)
+                else if (d.status == AssignedDeliveryStatus.failedAttempt)
+                  Text('Re-attempt available from ${_formatDate(d.deliveryAttempt.retryAt)}.', style: DriverText.caption),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
           DriverDispatchChip(label: d.dispatchedByLabel),
           const SizedBox(height: 16),
           if (d.isReturn) ...[
@@ -966,6 +1074,27 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// delivery is already marked delivered, since there's no further action
   /// to take.
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
+    if (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview) {
+      final allowed = d.status == AssignedDeliveryStatus.failedAttempt && d.deliveryAttempt.eligible;
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (!allowed) Text(d.deliveryAttempt.needsReview
+                ? 'Dispatcher approval required'
+                : 'Available from ${_formatDate(d.deliveryAttempt.retryAt)}. Pull down to refresh.', style: DriverText.caption),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: ElevatedButton.icon(
+              onPressed: allowed && !_submitting ? _reattempt : null,
+              icon: Icon(allowed ? Icons.replay_rounded : Icons.lock_rounded),
+              label: Text(_submitting ? 'Submitting...' : 'Re-attempt Delivery'),
+              style: DriverButtonStyle.primary(DriverColors.primary),
+            )),
+          ]),
+        ),
+      );
+    }
     // Nothing to do from here once it's delivered/transferred, or once this
     // rider has handed it back to logistics (a different rider delivers
     // it) — every other status has a rider-facing action.
@@ -1010,6 +1139,13 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (d.canMarkFailed)
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: _submitting || _capturing ? null : _failAttempt,
+                icon: const Icon(Icons.warning_amber_rounded),
+                label: const Text('Failed Delivery Attempt'),
+                style: OutlinedButton.styleFrom(foregroundColor: DriverColors.warning, minimumSize: const Size.fromHeight(48)),
+              )),
             if (!_hasPhoto && !_submitting)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),

@@ -16,12 +16,14 @@ class DriverNavBar extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
     this.unreadChats = 0,
+    this.isCourier = false,
   });
 
   /// 0 Home, 1 Deliveries, 2 Earnings, 3 Chat, 4 Account.
   final int currentIndex;
   final ValueChanged<int> onTap;
   final int unreadChats;
+  final bool isCourier;
 
   static const Color _teal = Color(0xFF0D9488);
 
@@ -54,14 +56,14 @@ class DriverNavBar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -6))],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -6))],
               ),
               child: SafeArea(
                 top: false,
                 child: Row(
                   children: [
                     Expanded(child: _DriverNavItem(icon: Icons.assignment_turned_in_rounded, label: 'Deliveries', selected: currentIndex == 1, onTap: () => _handleTap(1))),
-                    Expanded(child: _DriverNavItem(icon: Icons.account_balance_wallet_rounded, label: 'Earnings', selected: currentIndex == 2, onTap: () => _handleTap(2))),
+                    Expanded(child: _DriverNavItem(icon: isCourier ? Icons.receipt_long_rounded : Icons.account_balance_wallet_rounded, label: isCourier ? 'Payslips' : 'Earnings', selected: currentIndex == 2, onTap: () => _handleTap(2))),
                     const SizedBox(width: 64),
                     Expanded(
                       child: _DriverNavItem(
@@ -95,7 +97,7 @@ class DriverNavBar extends StatelessWidget {
                     colors: currentIndex == 0 ? const [Color(0xFF14B8A6), _teal] : const [Color(0xFF5EEAD4), Color(0xFF2DD4BF)],
                   ),
                   border: Border.all(color: Colors.white, width: 4),
-                  boxShadow: [BoxShadow(color: _teal.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
+                  boxShadow: [BoxShadow(color: _teal.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
                 ),
                 child: AnimatedScale(
                   scale: currentIndex == 0 ? 1.0 : 0.92,
@@ -146,7 +148,7 @@ class _DriverNavItem extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: selected ? _teal.withOpacity(0.12) : Colors.transparent,
+                    color: selected ? _teal.withValues(alpha: 0.12) : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(icon, size: 21, color: selected ? _teal : _inactive),

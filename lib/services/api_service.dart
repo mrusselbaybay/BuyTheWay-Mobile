@@ -812,6 +812,34 @@ class ApiService {
 
   /// Loads the parcels the logistics team has assigned to the signed-in
   /// rider/courier for the Deliveries tab, via `GET /api/driver/deliveries`.
+  Future<Map<String, dynamic>> markDeliveryFailed({
+    required String parcelAssignmentId, required String accessToken,
+    required String reasonCode, String? description,
+    required Uint8List photoBytes, required String photoFileName,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/failed-attempt'))
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken'
+      ..fields['reason_code'] = reasonCode;
+    if (description != null) request.fields['description'] = description;
+    request.files.add(http.MultipartFile.fromBytes('photo', photoBytes, filename: photoFileName));
+    final response = await request.send().timeout(const Duration(seconds: 30));
+    return _handleResponse(await http.Response.fromStream(response));
+  }
+
+  Future<Map<String, dynamic>> startDeliveryReattempt({
+    required String parcelAssignmentId, required String accessToken,
+  }) => _deliveryAttemptAction(parcelAssignmentId, accessToken, 'reattempt', {});
+
+  Future<Map<String, dynamic>> _deliveryAttemptAction(String id, String token, String action, Map<String, dynamic> body) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/driver/deliveries/$id/$action'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 30), onTimeout: () => throw ApiException(message: 'Connection timed out. Refresh the delivery before trying again.', statusCode: 408));
+    return _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> getDriverDeliveries({
     required String accessToken,
   }) async {

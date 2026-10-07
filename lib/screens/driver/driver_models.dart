@@ -62,6 +62,8 @@ class ActiveDelivery {
 }
 
 enum AssignedDeliveryStatus {
+  failedAttempt,
+  needsDispatcherReview,
   assigned,
   pickedUp,
   delivered,
@@ -84,6 +86,10 @@ enum AssignedDeliveryStatus {
 
 AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
   switch (value) {
+    case 'failed_attempt':
+      return AssignedDeliveryStatus.failedAttempt;
+    case 'needs_dispatcher_review':
+      return AssignedDeliveryStatus.needsDispatcherReview;
     case 'picked_up':
       return AssignedDeliveryStatus.pickedUp;
     case 'delivered':
@@ -167,6 +173,36 @@ class AssignedDeliveryItem {
   String? get weightLabel => weightKg == null ? null : '${weightKg!.toStringAsFixed(weightKg! == weightKg!.roundToDouble() ? 0 : 2)} kg';
 }
 
+class DeliveryAttemptInfo {
+  final int count;
+  final int limit;
+  final DateTime? retryAt;
+  final DateTime? failedAt;
+  final String? reason;
+  final String? description;
+  final bool needsReview;
+  final bool eligible;
+  final DateTime? returnFlaggedAt;
+
+  const DeliveryAttemptInfo({this.count = 0, this.limit = 3, this.retryAt, this.failedAt,
+    this.reason, this.description, this.needsReview = false, this.eligible = false, this.returnFlaggedAt});
+
+  factory DeliveryAttemptInfo.fromApi(Map<String, dynamic> json) {
+    final latest = json['latest_attempt'] as Map?;
+    return DeliveryAttemptInfo(
+      count: (json['attempt_count'] as num?)?.toInt() ?? 0,
+      limit: (json['attempt_limit'] as num?)?.toInt() ?? 3,
+      retryAt: DateTime.tryParse(json['retry_at'] as String? ?? ''),
+      failedAt: DateTime.tryParse(latest?['failed_at'] as String? ?? ''),
+      reason: latest?['reason_label'] as String?,
+      description: latest?['description'] as String?,
+      returnFlaggedAt: DateTime.tryParse(json['return_flagged_at'] as String? ?? ''),
+      needsReview: json['needs_review'] == true,
+      eligible: json['can_reattempt'] == true,
+    );
+  }
+}
+
 /// A delivery the logistics team has pushed down to this driver — distinct
 /// from [DeliveryRequest] (mockAvailableRequests()), which the driver pulls
 /// from an open queue and accepts. These already have a driver attached by
@@ -179,6 +215,9 @@ class AssignedDeliveryItem {
 /// "hardcode this for now" note at the top of this file), Deliveries is
 /// wired to the actual parcel-assignment data logistics dispatch creates.
 class AssignedDelivery {
+  final int earningPreviewCents;
+  final bool earningIsEstimate;
+
   final String id;
   final String orderNumber;
   final String? trackingNumber;
@@ -202,6 +241,8 @@ class AssignedDelivery {
   bool hasPickupPhoto;
   bool hasDeliveryPhoto;
   AssignedDeliveryStatus status;
+  DeliveryAttemptInfo deliveryAttempt;
+  bool canMarkFailed;
 
   /// True for a cross-region transfer leg (seller/buyer island-group
   /// mismatch) — this parcel is being ferried to another logistics
@@ -238,6 +279,8 @@ class AssignedDelivery {
   bool hasConfirmationQr;
 
   AssignedDelivery({
+    this.earningPreviewCents = 0,
+    this.earningIsEstimate = true,
     required this.id,
     required this.orderNumber,
     this.trackingNumber,
@@ -260,6 +303,8 @@ class AssignedDelivery {
     this.confirmationToken,
     this.hasConfirmationQr = false,
     required this.status,
+    this.deliveryAttempt = const DeliveryAttemptInfo(),
+    this.canMarkFailed = false,
     this.isTransfer = false,
     this.isReturn = false,
     this.returnReason,
@@ -289,6 +334,8 @@ class AssignedDelivery {
     }
 
     return AssignedDelivery(
+      earningPreviewCents: (json['earning_preview_cents'] as num?)?.toInt() ?? 0,
+      earningIsEstimate: json['earning_is_estimate'] != false,
       id: str(json['id']),
       orderNumber: str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
       trackingNumber: str(json['tracking_number']).isEmpty ? null : str(json['tracking_number']),
@@ -314,6 +361,8 @@ class AssignedDelivery {
       confirmationToken: str(json['confirmation_token']).isEmpty ? null : str(json['confirmation_token']),
       hasConfirmationQr: json['has_confirmation_qr'] == true,
       status: _parseAssignedDeliveryStatus(json['status']),
+      deliveryAttempt: DeliveryAttemptInfo.fromApi(Map<String, dynamic>.from(json['delivery_attempt'] as Map? ?? {})),
+      canMarkFailed: json['can_mark_failed'] == true,
       isTransfer: json['is_transfer'] == true,
       isReturn: json['is_return'] == true,
       returnReason: str(json['return_reason']).isEmpty ? null : str(json['return_reason']),
@@ -327,6 +376,8 @@ class AssignedDelivery {
   /// needing to splice a fresh instance into it.
   void applyFrom(AssignedDelivery other) {
     status = other.status;
+    deliveryAttempt = other.deliveryAttempt;
+    canMarkFailed = other.canMarkFailed;
     handedOffAt = other.handedOffAt;
     deliveredAt = other.deliveredAt;
     transferredAt = other.transferredAt;

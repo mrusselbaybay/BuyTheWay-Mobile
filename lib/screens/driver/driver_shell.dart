@@ -11,6 +11,7 @@ import 'deliveries/driver_deliveries_screen.dart';
 import 'driver_models.dart';
 import 'driver_theme.dart';
 import 'earnings/driver_earnings_screen.dart';
+import 'earnings/driver_payslip_screen.dart';
 import 'history/driver_history_screen.dart';
 import 'home/deliver_order_screen.dart';
 import 'home/delivery_request_details_screen.dart';
@@ -487,13 +488,15 @@ class _DriverShellState extends State<DriverShell> {
         onOpenHistory: _openHistory,
         controller: _chatController!,
       ),
-      DriverEarningsScreen(
-        todayEarnings: _todayEarnings,
-        availableBalance: _availableBalance,
-        withdrawals: _withdrawals,
-        onWithdraw: _withdraw,
-        onRefresh: _refreshAll,
-      ),
+      account.role == 'courier'
+          ? DriverPayslipScreen(accessToken: accessToken)
+          : DriverEarningsScreen(
+              todayEarnings: _todayEarnings,
+              availableBalance: _availableBalance,
+              withdrawals: _withdrawals,
+              onWithdraw: _withdraw,
+              onRefresh: _refreshAll,
+            ),
       DriverChatListScreen(
         controller: _chatController!,
         isActive: _tabIndex == 3,
@@ -517,7 +520,7 @@ class _DriverShellState extends State<DriverShell> {
       backgroundColor: DriverColors.background,
       extendBody: true,
       body: IndexedStack(index: _tabIndex, children: pages),
-      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, onTap: (i) => setState(() => _tabIndex = i)),
+      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, isCourier: account.role == 'courier', onTap: (i) => setState(() => _tabIndex = i)),
     );
   }
 }

@@ -552,6 +552,10 @@ class _MissionCardState extends State<_MissionCard> {
 
   (String, Color, IconData) get _actionTag {
     switch (widget.delivery.status) {
+      case AssignedDeliveryStatus.failedAttempt:
+        return ('Failed Attempt', DriverColors.warning, Icons.warning_amber_rounded);
+      case AssignedDeliveryStatus.needsDispatcherReview:
+        return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
       case AssignedDeliveryStatus.assigned:
         return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.pickedUp:
@@ -676,6 +680,8 @@ class _MissionCardState extends State<_MissionCard> {
                                   ],
                                 ),
                                 const SizedBox(height: 6),
+                                if (d.deliveryAttempt.reason != null && (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview))
+                                  Text(d.deliveryAttempt.reason!, style: DriverText.caption, maxLines: 2, overflow: TextOverflow.ellipsis),
                                 Text(d.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                                 const SizedBox(height: 2),
                                 Text(
@@ -689,6 +695,9 @@ class _MissionCardState extends State<_MissionCard> {
                                 ),
                                 const SizedBox(height: 8),
                                 DriverDispatchChip(label: d.dispatchedByLabel),
+                                  const SizedBox(height: 6),
+                                  Text("You'll earn ₱${d.earningPreviewCents ~/ 100}.${(d.earningPreviewCents % 100).toString().padLeft(2, '0')}", style: const TextStyle(color: DriverColors.primaryDark, fontWeight: FontWeight.w700)),
+                                  if (d.earningIsEstimate) const Text('Estimate until the final route is confirmed', style: DriverText.caption),
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [

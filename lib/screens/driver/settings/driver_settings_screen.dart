@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
+import '../earnings/driver_payslip_screen.dart';
 import '../auth/driver_login_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
@@ -206,6 +207,15 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                 subtitle: '${a.vehicleType} · ${a.plateNumber}',
                 onTap: _openVehicleDocuments,
               ),
+              if (a.role == 'courier')
+                SettingsNavTile(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'My payslips',
+                  subtitle: 'Released salary statements · MOCK-UP',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => DriverPayslipScreen(accessToken: widget.accessToken),
+                  )),
+                ),
               if (a.role == 'courier')
                 SettingsNavTile(
                   icon: Icons.storefront_rounded,
