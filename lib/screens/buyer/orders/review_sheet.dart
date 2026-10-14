@@ -42,6 +42,7 @@ class _ReviewSheet extends StatefulWidget {
 class _ReviewSheetState extends State<_ReviewSheet> {
   final store = BuyerStore.instance;
   late int rating = widget.initialRating;
+  bool anonymous = false;
   final comment = TextEditingController();
   bool saving = false;
 
@@ -55,7 +56,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
     setState(() => saving = true);
     final text = comment.text.trim().isEmpty ? null : comment.text.trim();
     try {
-      await store.api.createReview(widget.orderItemId, rating, text);
+      await store.api.createReview(widget.orderItemId, rating, text, anonymous: anonymous);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -114,7 +115,16 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                     OutlineInputBorder(borderRadius: BorderRadius.circular(BRadius.sm), borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
               ),
             ),
-            const SizedBox(height: 8),
+            SwitchListTile.adaptive(
+              value: anonymous,
+              onChanged: saving ? null : (v) => setState(() => anonymous = v),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              activeTrackColor: BColors.brand,
+              title: const Text('Post anonymously', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              subtitle: const Text('Your name is masked and your photo hidden.', style: BText.tiny),
+            ),
+            const SizedBox(height: 4),
             ElevatedButton(
               onPressed: rating == 0 || saving ? null : _submit,
               style: BButtons.cta(height: 48),

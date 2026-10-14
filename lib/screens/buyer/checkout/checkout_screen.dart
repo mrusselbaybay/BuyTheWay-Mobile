@@ -35,6 +35,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<ShippingOption> shippingOptions = [];
   int sellerCount = 1;
   String shippingMethod = 'standard';
+  final Set<String> _collapsed = {};
   bool loadingShipping = true;
   String? shippingError;
 
@@ -51,6 +52,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   static const String paymentMethod = 'cod';
 
   bool placing = false;
+  String messageToSeller = ''; // one note, sent with every shop's order
 
   List<CartItem> get items => widget.items;
 
@@ -88,7 +90,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       final before = shippingMethod;
       setState(() {
-        shippingOptions = options;
+        shippingOptions = options.where((o) => o.id != 'same_day').toList();
         sellerCount = count;
         if (!options.any((o) => o.id == shippingMethod && o.available)) shippingMethod = 'standard';
       });
@@ -178,6 +180,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   double get totalSavings => shopSavings + platformSavings;
 
+  /// The slots split out for the order summary.
+  double _slot(String slot) {
+    var sum = 0.0;
+    for (final e in voucherQuote.sellers.entries) {
+      sum += e.value.find(slot, slot == 'discount' ? selectedVouchers[e.key]?.discount : selectedVouchers[e.key]?.shipping)?.amount ?? 0;
+    }
+    final platform = voucherQuote.platform;
+    if (platform != null) sum += platform.find(slot, slot == 'discount' ? platformDiscount : platformShipping)?.amount ?? 0;
+    return sum;
+  }
+
+  double get shopDiscountSavings => voucherQuote.sellers.entries.fold(0.0, (s, e) => s + (e.value.find('discount', selectedVouchers[e.key]?.discount)?.amount ?? 0));
+  double get platformDiscountSavings => voucherQuote.platform?.find('discount', platformDiscount)?.amount ?? 0;
+  double get voucherDiscount => _slot('discount');
+  double get shippingDiscount => _slot('shipping');
+
+  /// What the items would cost at their original (pre-sale) prices.
+  double get originalSubtotal => items.fold(0.0, (s, i) => s + ((i.oldPrice ?? 0) > i.effectivePrice ? i.oldPrice! : i.effectivePrice) * i.quantity);
+  double get saleSavings => originalSubtotal - subtotal;
+
   double get total => math.max(0, subtotal + shippingFee - shopSavings - platformSavings);
 
   int get itemCount => items.fold(0, (s, i) => s + i.quantity);
@@ -247,16 +269,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _placeOrder() async {
     final a = address!;
-    final confirmed = await confirmDialog(
-      context,
-      title: 'Place this order?',
-      message: 'You\'re ordering $itemCount ${itemCount == 1 ? 'item' : 'items'} for ${peso(total)}, '
-          'paying with Cash on Delivery. Delivering to ${a.fullName}.',
-      confirmLabel: 'Place order',
-      cancelLabel: 'Keep reviewing',
-    );
-    if (!confirmed || !mounted) return;
-
     setState(() => placing = true);
     final payload = {
       'items': items
@@ -277,6 +289,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             {'seller_id': id, 'discount_voucher_id': selectedVouchers[id]!.discount, 'shipping_voucher_id': selectedVouchers[id]!.shipping},
       ],
       'platform_vouchers': {'discount_voucher_id': platformDiscount, 'shipping_voucher_id': platformShipping},
+      if (messageToSeller.trim().isNotEmpty) 'message_to_seller': messageToSeller.trim(),
       'delivery_address': {
         'address_id': a.id,
         'recipient_name': a.fullName,
@@ -323,6 +336,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     final reason = blockReason;
     final platformOffer = voucherQuote.platform;
+    final freeShipping = shippingFee > 0 && shippingDiscount >= shippingFee;
+    final saved = saleSavings + totalSavings;
 
     return Scaffold(
       backgroundColor: BColors.background,
@@ -330,69 +345,80 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         backgroundColor: BColors.surface,
         surfaceTintColor: BColors.surface,
         foregroundColor: BColors.ink,
-        title: const Text('Checkout', style: BText.title),
+        elevation: 0,
+        centerTitle: true,
+        title: const Text('Checkout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       ),
-      body: ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+      body: ListView(padding: const EdgeInsets.only(top: 12, bottom: 16), children: [
         _AddressPanel(address: address, loading: address == null && store.loadingAddresses, onTap: _pickAddress),
-        for (final entry in groups.entries) _shopPanel(entry.key, entry.value),
-        if (platformOffer != null && platformOffer.count > 0) _platformPanel(platformOffer),
+        for (final entry in groups.entries) _shopPanel(entry.key, entry.value, groups.length),
+        if (platformOffer != null) _platformPanel(platformOffer),
+        _notePanel(groups.length),
         _shippingPanel(),
         _paymentPanel(),
-        Panel(
-          child: Column(children: [
-            _summaryRow('Merchandise subtotal', peso(subtotal)),
-            _summaryRow(
-              sellerCount > 1 ? 'Shipping (${selectedShipping?.name ?? '—'} × $sellerCount shops)' : 'Shipping (${selectedShipping?.name ?? '—'})',
-              loadingShipping ? '…' : peso(shippingFee),
-            ),
-            if (shopSavings > 0) _summaryRow('Shop vouchers', '-${peso(shopSavings)}', valueColor: BColors.success),
-            if (platformSavings > 0) _summaryRow('BuyTheWay vouchers', '-${peso(platformSavings)}', valueColor: BColors.success),
-            const Divider(height: 20, color: BColors.divider),
-            _summaryRow('Total payment', peso(total), bold: true, valueColor: BColors.cta),
-            if (totalSavings > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Align(alignment: Alignment.centerRight, child: Text('You save ${peso(totalSavings)} with vouchers', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BColors.success))),
-              ),
-          ]),
+        _summaryPanel(),
+        if (saved > 0)
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF99F6E4))),
+            child: Row(children: [
+              const Icon(Icons.celebration_rounded, size: 20, color: BColors.brand),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Congrats! You\'re saving ${peso(saved)} on this order.', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BColors.brandDark))),
+            ]),
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+          child: Text('By placing an order, you agree to BuyTheWay\'s Terms of Use and Sale and acknowledge that you have read the Privacy Policy.', style: TextStyle(fontSize: 11.5, height: 1.45, color: BColors.muted)),
         ),
-        if (sellerCount > 1)
+        if (groups.length > 1)
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14),
+            padding: EdgeInsets.symmetric(horizontal: 20),
             child: Text('Items from different shops ship separately, so you\'ll get one order per shop.', style: BText.tiny),
           ),
       ]),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(color: BColors.surface, border: Border(top: BorderSide(color: BColors.border))),
+        decoration: BoxDecoration(color: BColors.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(22)), boxShadow: softShadow(0.12)),
         child: SafeArea(
           top: false,
-          child: SizedBox(
-            height: 60,
-            child: Row(children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text.rich(TextSpan(children: [
-                      const TextSpan(text: 'Total ', style: TextStyle(fontSize: 13)),
-                      TextSpan(text: peso(total), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: BColors.cta)),
-                    ])),
-                    if (reason.isNotEmpty)
-                      Text(reason, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: BColors.error))
-                    else if (totalSavings > 0)
-                      Text('Saved ${peso(totalSavings)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BColors.success)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (reason.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded, size: 15, color: BColors.error),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(reason, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BColors.error))),
                   ]),
                 ),
-              ),
+              Row(children: [
+                Text('Total ($itemCount ${itemCount == 1 ? 'item' : 'items'})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BColors.ink)),
+                const Spacer(),
+                pesoText(total, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: BColors.brandDark, letterSpacing: -0.4)),
+              ]),
+              const SizedBox(height: 10),
               SizedBox(
-                width: 140,
-                height: 60,
+                width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: reason.isEmpty && !placing ? _placeOrder : null,
-                  style: BButtons.cta(height: 60).copyWith(shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: BColors.brand,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFF99F6E4),
+                    disabledForegroundColor: Colors.white,
+                    elevation: 0,
+                    shape: const StadiumBorder(),
+                  ),
                   child: placing
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                      : const Text('Place Order'),
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                      : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Text('Place order', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, height: 1.1)),
+                          if (freeShipping) Text('Free shipping', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.9))),
+                        ]),
                 ),
               ),
             ]),
@@ -402,114 +428,210 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  /// One shop's items, then its voucher row (discount + shipping vouchers).
-  Widget _shopPanel(String shop, List<CartItem> shopItems) {
+  Widget _card({required Widget child, EdgeInsets padding = EdgeInsets.zero}) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        padding: padding,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(color: BColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: BColors.border), boxShadow: softShadow(0.03)),
+        child: child,
+      );
+
+  /// One shop's items, its delivery line, then its voucher row.
+  Widget _shopPanel(String shop, List<CartItem> shopItems, int shopCount) {
     final sellerId = shopItems.map((i) => i.sellerId).whereType<String>().firstOrNull;
     final offer = sellerId == null ? null : voucherQuote.sellers[sellerId];
-    return Panel(
-      padding: EdgeInsets.zero,
+    return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
           child: Row(children: [
-            const Icon(Icons.storefront, size: 18),
-            const SizedBox(width: 6),
-            Expanded(child: Text(shop, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
+            const Icon(Icons.storefront_rounded, size: 20, color: BColors.ink),
+            const SizedBox(width: 8),
+            Expanded(child: Text(shop, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
           ]),
         ),
         for (final item in shopItems)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              CategoryThumb(category: item.category, image: item.image, size: 64),
-              const SizedBox(width: 10),
+              ClipRRect(borderRadius: BorderRadius.circular(12), child: CategoryThumb(category: item.category, image: item.image, size: 78)),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, height: 1.3)),
-                  if (item.variation != null) Text(item.variation!, style: BText.tiny),
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    Text(peso(item.effectivePrice), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    Text('x${item.quantity}', style: BText.small),
+                  Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, height: 1.3, fontWeight: FontWeight.w700)),
+                  if (item.variation != null) ...[
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(7)),
+                      child: Text(item.variation!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: BColors.brandDark)),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Expanded(child: PriceText(item.effectivePrice, oldPrice: item.oldPrice, size: 16)),
+                    Text('x${item.quantity}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.muted)),
                   ]),
                 ]),
               ),
             ]),
           ),
-        if (offer != null && offer.count > 0) _voucherRow(offer: offer, pick: selectedVouchers[sellerId] ?? (discount: null, shipping: null), auto: !touchedSellers.contains(sellerId), onTap: () => _openShopVouchers(sellerId!, shop)),
+        // Delivery summary for this shop.
+        if (selectedShipping != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.local_shipping_outlined, size: 18, color: BColors.brand),
+              const SizedBox(width: 10),
+              Expanded(child: Text([selectedShipping!.name, if (selectedShipping!.description != null) selectedShipping!.description!].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BColors.brandDark))),
+              const SizedBox(width: 8),
+              if (shippingDiscount >= shippingFee && shippingFee > 0) ...[
+                Text(peso(selectedShipping!.fee), style: const TextStyle(fontSize: 12, color: BColors.faint, decoration: TextDecoration.lineThrough)),
+                const SizedBox(width: 6),
+                const Text('Free', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: BColors.brandDark)),
+              ] else
+                pesoText(selectedShipping!.fee, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: BColors.brandDark)),
+            ]),
+          ),
+        if (offer != null && offer.count > 0) _voucherRow(offer: offer, pick: selectedVouchers[sellerId] ?? (discount: null, shipping: null), auto: !touchedSellers.contains(sellerId), title: 'Seller discount', onTap: () => _openShopVouchers(sellerId!, shop)),
       ]),
     );
   }
 
-  Widget _platformPanel(VoucherOffer offer) => Panel(
-        padding: EdgeInsets.zero,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
-            child: Row(children: [
-              Icon(Icons.verified_rounded, size: 18, color: BColors.brand),
-              SizedBox(width: 6),
-              Expanded(child: Text('BuyTheWay vouchers', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
-            ]),
-          ),
-          _voucherRow(offer: offer, pick: (discount: platformDiscount, shipping: platformShipping), auto: !platformTouched, onTap: _openPlatformVouchers),
-        ]),
+  Widget _platformPanel(VoucherOffer offer) => _card(
+        child: _voucherRow(offer: offer, pick: (discount: platformDiscount, shipping: platformShipping), auto: !platformTouched, title: 'BuyTheWay discount', icon: Icons.confirmation_number_outlined, topBorder: false, onTap: _openPlatformVouchers),
       );
 
-  /// "Vouchers · applied tags · −₱X ›" (or "N available") — tap to change.
-  Widget _voucherRow({required VoucherOffer offer, required VoucherPick pick, required bool auto, required VoidCallback onTap}) {
+  /// "Seller discount · tags · −₱X ›" (or "N available") — tap to change.
+  Widget _voucherRow({required VoucherOffer offer, required VoucherPick pick, required bool auto, required String title, required VoidCallback onTap, IconData icon = Icons.sell_outlined, bool topBorder = true}) {
+    final empty = offer.count == 0;
     final discount = offer.find('discount', pick.discount);
     final shipping = offer.find('shipping', pick.shipping);
     final saved = (discount?.amount ?? 0) + (shipping?.amount ?? 0);
     final applied = [discount, shipping].whereType<VoucherOption>().toList();
     return InkWell(
-      onTap: onTap,
+      onTap: empty ? null : onTap,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: BColors.divider))),
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        decoration: BoxDecoration(border: topBorder ? const Border(top: BorderSide(color: BColors.divider)) : null),
         child: Row(children: [
-          const Icon(Icons.confirmation_number_outlined, size: 18, color: BColors.cta),
-          const SizedBox(width: 8),
+          Icon(icon, size: 20, color: BColors.brand),
+          const SizedBox(width: 10),
           Expanded(
-            child: applied.isEmpty
-                ? Text('${offer.count} voucher${offer.count == 1 ? '' : 's'} available', style: const TextStyle(fontSize: 13, color: BColors.muted, fontWeight: FontWeight.w600))
-                : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(auto ? 'Best vouchers auto-applied' : 'Vouchers applied', style: const TextStyle(fontSize: 12, color: BColors.muted)),
-                    const SizedBox(height: 4),
-                    Wrap(spacing: 6, runSpacing: 4, children: [
-                      for (final o in applied)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: o.isShipping ? BColors.brandSurface : BColors.ctaSurface, borderRadius: BorderRadius.circular(6)),
-                          child: Text(o.label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: o.isShipping ? BColors.brandDark : BColors.cta)),
-                        ),
-                    ]),
-                  ]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+              if (empty)
+                const Text('No vouchers available for this order right now', style: BText.small)
+              else if (applied.isEmpty)
+                Text('${offer.count} voucher${offer.count == 1 ? '' : 's'} available', style: BText.small)
+              else ...[
+                Text(auto ? 'Best vouchers auto-applied' : 'Vouchers applied', style: BText.tiny),
+                const SizedBox(height: 4),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final o in applied)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(6)),
+                      child: Text(o.label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: BColors.brandDark)),
+                    ),
+                ]),
+              ],
+            ]),
           ),
-          if (saved > 0) Text('-${peso(saved)}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BColors.success)),
-          const Icon(Icons.chevron_right, color: BColors.faint, size: 20),
+          if (saved > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(8)),
+              child: Text('-${peso(saved)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: BColors.brandDark)),
+            ),
+          if (!empty) const Icon(Icons.chevron_right, color: BColors.faint, size: 22),
         ]),
       ),
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool bold = false, Color? valueColor}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [
-          Expanded(child: Text(label, style: TextStyle(fontSize: bold ? 14.5 : 13, color: bold ? BColors.ink : BColors.muted, fontWeight: bold ? FontWeight.w600 : FontWeight.w400))),
-          Text(value, style: TextStyle(fontSize: bold ? 17 : 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: valueColor ?? BColors.ink)),
+  // ---- Message to seller ----
+
+  Future<void> _editNote(int shopCount) async {
+    final controller = TextEditingController(text: messageToSeller);
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: BColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('Message to seller', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(shopCount > 1 ? 'This note is sent to every shop in your order.' : 'Anything the seller should know about your order — optional.', textAlign: TextAlign.center, style: BText.small),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 4,
+            maxLines: 6,
+            maxLength: 1000,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'e.g. Please pack it carefully, or leave it with the guard.',
+              filled: true,
+              fillColor: BColors.background,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            if (messageToSeller.isNotEmpty)
+              Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, ''), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), shape: const StadiumBorder()), child: const Text('Remove note'))),
+            if (messageToSeller.isNotEmpty) const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), style: FilledButton.styleFrom(backgroundColor: BColors.brand, minimumSize: const Size(0, 48), shape: const StadiumBorder()), child: const Text('Save note', style: TextStyle(fontWeight: FontWeight.w800))),
+            ),
+          ]),
         ]),
+      ),
+    );
+    controller.dispose();
+    if (result != null && mounted) setState(() => messageToSeller = result);
+  }
+
+  Widget _notePanel(int shopCount) => _card(
+        child: InkWell(
+          onTap: () => _editNote(shopCount),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+            child: Row(children: [
+              const Icon(Icons.edit_note_rounded, size: 22, color: BColors.brand),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(shopCount > 1 ? 'Message to sellers' : 'Message to seller', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                  if (messageToSeller.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 3), child: Text(messageToSeller, maxLines: 2, overflow: TextOverflow.ellipsis, style: BText.small)),
+                ]),
+              ),
+              Text(messageToSeller.isEmpty ? 'Add note' : 'Edit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: BColors.muted)),
+              const Icon(Icons.chevron_right, color: BColors.faint, size: 22),
+            ]),
+          ),
+        ),
       );
 
+  // ---- Shipping / payment / summary ----
+
   Widget _shippingPanel() {
-    return Panel(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+    return _card(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Icon(Icons.local_shipping_outlined, size: 18, color: BColors.brand),
+          Icon(Icons.local_shipping_outlined, size: 20, color: BColors.brand),
           SizedBox(width: 8),
-          Text('Shipping Option', style: BText.section),
+          Text('Shipping option', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
         ]),
         const SizedBox(height: 6),
         if (loadingShipping && shippingOptions.isEmpty)
@@ -533,8 +655,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Row(children: [
-                  Expanded(child: Text(o.name, style: TextStyle(fontSize: 14, color: o.available ? BColors.ink : BColors.faint))),
-                  Text(peso(o.fee * sellerCount), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: o.available ? BColors.ink : BColors.faint)),
+                  Expanded(child: Text(o.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: o.available ? BColors.ink : BColors.faint))),
+                  Text(peso(o.fee * sellerCount), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: o.available ? BColors.ink : BColors.faint)),
                 ]),
                 subtitle: Text(o.available ? (o.description ?? '') : (o.unavailableReason ?? 'Not available for this order'), style: BText.tiny),
               )).toList()),
@@ -544,37 +666,109 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   /// Cash on delivery is the only payment method (no payment provider is active).
-  Widget _paymentPanel() => Panel(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+  Widget _paymentPanel() => _card(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Row(children: [
-            Icon(Icons.account_balance_wallet_outlined, size: 18, color: BColors.brand),
+            Icon(Icons.account_balance_wallet_outlined, size: 20, color: BColors.brand),
             SizedBox(width: 8),
-            Text('Payment Method', style: BText.section),
+            Text('Payment method', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: BColors.brand, width: 1.4)),
-            child: const Row(children: [
-              Icon(Icons.payments_outlined, color: BColors.brand),
-              SizedBox(width: 12),
-              Expanded(
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(6)),
+                child: const Text('COD', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Colors.white)),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Cash on Delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                  Text('Cash on delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                   SizedBox(height: 2),
                   Text('Pay the courier when your parcel arrives.', style: BText.tiny),
                 ]),
               ),
-              Icon(Icons.check_circle_rounded, color: BColors.brand),
+              const Icon(Icons.check_circle_rounded, color: BColors.brand),
             ]),
           ),
         ]),
       );
+
+  Widget _summaryPanel() {
+    Widget row(String label, String? value, {bool sub = false, bool discount = false, String? group, bool negative = false, num amount = 0, String? hint}) {
+      final style = TextStyle(fontSize: sub ? 13 : 14.5, fontWeight: sub ? FontWeight.w500 : FontWeight.w800, color: discount ? BColors.brandDark : BColors.ink);
+      final open = group == null || !_collapsed.contains(group);
+      final content = Padding(
+        // Collapsible rows get ~44px of height so they're comfortable to tap.
+        padding: EdgeInsets.fromLTRB(sub ? 14 : 0, group == null ? 4 : 12, 0, group == null ? 4 : 12),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(fontSize: sub ? 13 : 14.5, fontWeight: sub ? FontWeight.w400 : FontWeight.w700, color: sub ? BColors.muted : BColors.ink)),
+              if (!open && hint != null) Text(hint, style: BText.tiny),
+            ]),
+          ),
+          if (value != null) Text(value, style: style) else pesoText(amount, style: style),
+          // Fixed-width slot keeps amounts aligned whether or not a row can collapse.
+          SizedBox(
+            width: 26,
+            child: group == null
+                ? null
+                : AnimatedRotation(
+                    turns: open ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_up_rounded, size: 24, color: BColors.brand),
+                  ),
+          ),
+        ]),
+      );
+      if (group == null) return content;
+      return InkWell(onTap: () => setState(() => open ? _collapsed.add(group) : _collapsed.remove(group)), child: content);
+    }
+
+    bool open(String g) => !_collapsed.contains(g);
+    final shippingAfter = math.max(0.0, shippingFee - shippingDiscount);
+    return _card(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(children: [
+        const Align(alignment: Alignment.centerLeft, child: Text('Order summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+        const SizedBox(height: 8),
+        if (saleSavings > 0) ...[
+          row('Product subtotal', null, amount: subtotal, group: 'product', hint: 'Sale price · you save ${peso(saleSavings)}'),
+          if (open('product')) ...[
+            row('Original price', null, amount: originalSubtotal, sub: true),
+            row('Sale discount', null, amount: saleSavings, negative: true, sub: true, discount: true),
+          ],
+        ] else
+          row('Product subtotal', null, amount: subtotal),
+        if (loadingShipping) row('Shipping subtotal', '…') else row('Shipping subtotal', null, amount: shippingAfter, group: 'shipping', hint: shippingDiscount > 0 ? '${peso(shippingFee)} fee − ${peso(shippingDiscount)} discount' : null),
+        if (open('shipping')) ...[
+          if (loadingShipping) row(sellerCount > 1 ? 'Shipping fee (× $sellerCount shops)' : 'Shipping fee', '…', sub: true) else row(sellerCount > 1 ? 'Shipping fee (× $sellerCount shops)' : 'Shipping fee', null, amount: shippingFee, sub: true),
+          if (shippingDiscount > 0) row('Shipping discount', null, amount: shippingDiscount, negative: true, sub: true, discount: true),
+        ],
+        if (voucherDiscount > 0) ...[
+          row('Voucher discounts', null, amount: voucherDiscount, negative: true, discount: true, group: 'voucher', hint: [if (shopDiscountSavings > 0) 'Shop', if (platformDiscountSavings > 0) 'BuyTheWay'].join(' + ')),
+          if (open('voucher')) ...[
+            if (shopDiscountSavings > 0) row('Shop vouchers', null, amount: shopDiscountSavings, negative: true, sub: true, discount: true),
+            if (platformDiscountSavings > 0) row('BuyTheWay vouchers', null, amount: platformDiscountSavings, negative: true, sub: true, discount: true),
+          ],
+        ],
+        const Divider(height: 22, color: BColors.divider),
+        Row(children: [
+          const Expanded(child: Text('Total', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
+          pesoText(total, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: BColors.brandDark)),
+          const SizedBox(width: 26),
+        ]),
+      ]),
+    );
+  }
 }
 
-/// Delivery address card with the "envelope" stripe shoppers recognise
-/// from other PH marketplaces.
+/// Delivery address card at the top of checkout.
 class _AddressPanel extends StatelessWidget {
   const _AddressPanel({required this.address, required this.loading, required this.onTap});
 
@@ -582,74 +776,58 @@ class _AddressPanel extends StatelessWidget {
   final bool loading;
   final VoidCallback onTap;
 
+  /// `(+63)91******67` — enough to recognise the number without showing it.
+  static String _masked(String raw) {
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('63')) digits = '0${digits.substring(2)}';
+    if (digits.length < 6) return raw;
+    return '(+63)${digits.substring(1, 3)}${'*' * (digits.length - 5)}${digits.substring(digits.length - 2)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = address;
     return Container(
-      color: BColors.surface,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Column(children: [
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.location_on_outlined, color: BColors.cta, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: loading
-                    ? const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        SkeletonBox(height: 13, width: 160),
-                        SizedBox(height: 8),
-                        SkeletonBox(height: 12),
-                      ])
-                    : a == null
-                        ? const Text('Add a delivery address', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: BColors.cta))
-                        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            const Text('Delivery Address', style: BText.small),
-                            const SizedBox(height: 4),
-                            Text('${a.fullName} | ${a.phone}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(a.formatted, style: const TextStyle(fontSize: 13, color: BColors.ink, height: 1.35)),
-                            if (!a.isComplete) ...[
-                              const SizedBox(height: 6),
-                              const Text('Incomplete — tap to add the province, city and barangay.', style: TextStyle(fontSize: 12, color: BColors.error)),
-                            ],
-                          ]),
-              ),
-              const Icon(Icons.chevron_right, color: BColors.faint),
-            ]),
-          ),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      decoration: BoxDecoration(color: BColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: BColors.border), boxShadow: softShadow(0.03)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.location_on_rounded, color: BColors.brand, size: 21),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: loading
+                  ? const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [SkeletonBox(height: 13, width: 160), SizedBox(height: 8), SkeletonBox(height: 12)])
+                  : a == null
+                      ? const Padding(padding: EdgeInsets.symmetric(vertical: 9), child: Text('Add a delivery address', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: BColors.brand)))
+                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text.rich(
+                            TextSpan(children: [
+                              TextSpan(text: a.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                              TextSpan(text: '  ${_masked(a.phone)}', style: const TextStyle(color: BColors.muted, fontSize: 13)),
+                            ]),
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(a.formatted, style: const TextStyle(fontSize: 13.5, color: BColors.ink, height: 1.4)),
+                          if (!a.isComplete) ...[
+                            const SizedBox(height: 6),
+                            const Text('Incomplete — tap to add the province, city and barangay.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: BColors.error)),
+                          ],
+                        ]),
+            ),
+            const Padding(padding: EdgeInsets.only(top: 8), child: Icon(Icons.chevron_right, color: BColors.faint)),
+          ]),
         ),
-        const SizedBox(height: 3, width: double.infinity, child: CustomPaint(painter: _StripePainter())),
-      ]),
+      ),
     );
   }
-}
-
-class _StripePainter extends CustomPainter {
-  const _StripePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const stripe = 18.0;
-    final teal = Paint()..color = BColors.brand.withValues(alpha: 0.7);
-    final orange = Paint()..color = BColors.cta.withValues(alpha: 0.7);
-    var x = -size.height;
-    var i = 0;
-    while (x < size.width) {
-      final path = Path()
-        ..moveTo(x, size.height)
-        ..lineTo(x + size.height, 0)
-        ..lineTo(x + size.height + stripe, 0)
-        ..lineTo(x + stripe, size.height)
-        ..close();
-      canvas.drawPath(path, i.isEven ? teal : orange);
-      x += stripe + 6;
-      i++;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

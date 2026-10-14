@@ -56,19 +56,24 @@ class _WishlistScreenState extends State<WishlistScreen> {
   }
 
   Future<void> _load() async {
+    if (loading && products.isNotEmpty) return;
     setState(() {
       loading = true;
       error = null;
     });
     try {
       await store.loadWishlist();
-      final results = await Future.wait(store.favorites.map((id) => store.api.product(id).catchError((_) => null)));
-      if (!mounted) return;
-      setState(() {
-        products
-          ..clear()
-          ..addEntries(results.whereType<Product>().map((p) => MapEntry(p.id, p)));
-      });
+      final ids = store.favorites.toList();
+      for (var start = 0; start < ids.length; start += 4) {
+        final batch = ids.skip(start).take(4);
+        final results = await Future.wait(batch.map((id) => store.api.product(id).catchError((_) => null)));
+        if (!mounted) return;
+        setState(() {
+          if (start == 0) products.clear();
+          products.addEntries(results.whereType<Product>().map((p) => MapEntry(p.id, p)));
+        });
+      }
+      if (ids.isEmpty && mounted) setState(products.clear);
     } catch (e) {
       if (mounted) setState(() => error = store.handleError(e));
     } finally {

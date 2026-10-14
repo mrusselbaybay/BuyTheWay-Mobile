@@ -84,7 +84,6 @@ class BuyerStore extends ChangeNotifier {
     _unreadTimer = Timer.periodic(const Duration(seconds: 45), (_) => refreshChatUnread());
     unawaited(loadWishlist());
     unawaited(refreshCart());
-    unawaited(loadAddresses());
     unawaited(loadOrders());
   }
 

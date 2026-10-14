@@ -80,8 +80,10 @@ class Product {
   final List<String> images;
   final String? sellerId;
   final String seller;
+  final String? sellerLocation; // "City, Province"
   final double? rating;
   final int reviewCount;
+  final int soldCount; // units on delivered orders
   final bool hasVariants;
   final List<ProductOption> options;
   final List<ProductVariant> variants;
@@ -103,8 +105,10 @@ class Product {
     this.images = const [],
     this.sellerId,
     required this.seller,
+    this.sellerLocation,
     this.rating,
     this.reviewCount = 0,
+    this.soldCount = 0,
     this.hasVariants = false,
     this.options = const [],
     this.variants = const [],
@@ -172,8 +176,10 @@ class Product {
       images: (j['images'] is List ? (j['images'] as List) : const []).map((e) => '$e').where((e) => e.isNotEmpty).toList(),
       sellerId: _s(j['seller_id']),
       seller: _s(j['seller']) ?? 'BuyTheWay Seller',
+      sellerLocation: _s(j['seller_location']),
       rating: _dn(j['rating']),
       reviewCount: _i(j['reviewCount']),
+      soldCount: _i(j['soldCount']),
       hasVariants: j['hasVariants'] == true,
       options: _maps(j['options']).map(ProductOption.fromJson).toList(),
       variants: _maps(j['variants']).map((v) => ProductVariant.fromJson(v, price)).toList(),
@@ -536,6 +542,9 @@ class ChatMessage {
   final DateTime? readAt;
   final Map<String, dynamic>? orderContext;
   final Map<String, dynamic>? productContext;
+  final String? source;
+  final String? quickQuestionKey;
+  final bool isAutomatic;
 
   /// Local-only: optimistic bubble still being sent / failed to send.
   final bool pending;
@@ -550,6 +559,9 @@ class ChatMessage {
     this.readAt,
     this.orderContext,
     this.productContext,
+    this.source,
+    this.quickQuestionKey,
+    this.isAutomatic = false,
     this.pending = false,
     this.failed = false,
   });
@@ -565,6 +577,9 @@ class ChatMessage {
         readAt: _date(j['readAt']),
         orderContext: j['orderContext'] is Map ? _map(j['orderContext']) : null,
         productContext: j['productContext'] is Map ? _map(j['productContext']) : null,
+        source: _s(j['source']),
+        quickQuestionKey: _s(j['quickQuestionKey']),
+        isAutomatic: j['isAutomatic'] == true,
       );
 }
 
@@ -582,6 +597,20 @@ class ChatConversation {
   final DateTime? updatedAt;
   final String? preview;
   final String? productName;
+  final String? productId;
+  final double? productPrice;
+  final double? productOldPrice;
+  final String? productImage;
+  final String? orderNumber;
+  final String? orderStatus;
+  final String? orderName;
+  final String? orderImage;
+  final bool blocked;
+  final bool locked;
+  final String? lockReason;
+  final double? rating; // seller shops only (single-thread fetch)
+  final int reviewCount;
+  final String? courierCompany; // courier threads only (single-thread fetch)
 
   const ChatConversation({
     required this.id,
@@ -597,9 +626,25 @@ class ChatConversation {
     this.updatedAt,
     this.preview,
     this.productName,
+    this.productId,
+    this.productPrice,
+    this.productOldPrice,
+    this.productImage,
+    this.orderNumber,
+    this.orderStatus,
+    this.orderName,
+    this.orderImage,
+    this.blocked = false,
+    this.locked = false,
+    this.lockReason,
+    this.rating,
+    this.reviewCount = 0,
+    this.courierCompany,
   });
 
   bool get isCourier => role == 'courier';
+  bool get isSeller => role == 'seller';
+  bool get readOnly => blocked || locked;
 
   factory ChatConversation.fromJson(Map<String, dynamic> j) => ChatConversation(
         id: '${j['id']}',
@@ -615,6 +660,70 @@ class ChatConversation {
         updatedAt: _date(j['updatedAt']),
         preview: _s(j['lastMessagePreview']),
         productName: _s(_map(j['product'])['name']),
+        productId: _s(_map(j['product'])['id']),
+        productPrice: _dn(_map(j['product'])['price']),
+        productOldPrice: _dn(_map(j['product'])['oldPrice']),
+        productImage: _s(_map(j['product'])['image']),
+        orderNumber: _s(_map(j['order'])['orderNumber']),
+        orderStatus: _s(_map(j['order'])['status']),
+        orderName: _s(_map(j['order'])['previewName']),
+        orderImage: _s(_map(j['order'])['previewImage']),
+        blocked: j['blocked'] == true,
+        locked: j['locked'] == true,
+        lockReason: _s(j['lockReason']),
+        rating: _dn(j['sellerRating']),
+        reviewCount: _i(j['sellerReviewCount']),
+        courierCompany: _s(j['courierCompany']),
+      );
+
+  ChatConversation copyWith({bool? blocked, bool? archived, String? status}) => ChatConversation(
+        id: id,
+        type: type,
+        name: name,
+        counterpartId: counterpartId,
+        avatarUrl: avatarUrl,
+        role: role,
+        status: status ?? this.status,
+        archived: archived ?? this.archived,
+        online: online,
+        unread: unread,
+        updatedAt: updatedAt,
+        preview: preview,
+        productName: productName,
+        productId: productId,
+        productPrice: productPrice,
+        productOldPrice: productOldPrice,
+        productImage: productImage,
+        orderNumber: orderNumber,
+        orderStatus: orderStatus,
+        orderName: orderName,
+        orderImage: orderImage,
+        blocked: blocked ?? this.blocked,
+        locked: locked,
+        lockReason: lockReason,
+        rating: rating,
+        reviewCount: reviewCount,
+        courierCompany: courierCompany,
+      );
+}
+
+/// A canned question from the web's shop assistant (chat_quick_questions).
+class QuickQuestion {
+  final String key;
+  final String question;
+  final String contextType; // general | order
+  final String? orderId;
+
+  const QuickQuestion({required this.key, required this.question, required this.contextType, this.orderId});
+
+  bool get isStock => key == 'stock_availability';
+  bool get needsOrder => contextType == 'order' && orderId == null;
+
+  factory QuickQuestion.fromJson(Map<String, dynamic> j) => QuickQuestion(
+        key: '${j['key']}',
+        question: _s(j['question']) ?? '',
+        contextType: _s(j['contextType']) ?? 'general',
+        orderId: _s(j['orderId']),
       );
 }
 
@@ -720,6 +829,12 @@ class Review {
   final bool verifiedPurchase;
   final List<String> images;
   final String? sellerResponse;
+  final String? productName; // set on store-wide review lists
+  final String? avatarUrl; // null when the reviewer posted anonymously
+  final bool anonymous;
+  final int helpfulCount;
+  final bool isHelpful;
+  final bool canLike;
 
   const Review({
     required this.id,
@@ -731,6 +846,12 @@ class Review {
     this.verifiedPurchase = false,
     this.images = const [],
     this.sellerResponse,
+    this.productName,
+    this.avatarUrl,
+    this.anonymous = false,
+    this.helpfulCount = 0,
+    this.isHelpful = false,
+    this.canLike = false,
   });
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
@@ -743,6 +864,12 @@ class Review {
         verifiedPurchase: j['verifiedPurchase'] == true,
         images: (j['images'] is List ? (j['images'] as List) : const []).map((e) => '$e').toList(),
         sellerResponse: _s(j['sellerResponse']),
+        productName: j['product'] is Map ? _s((j['product'] as Map)['name']) : null,
+        avatarUrl: _s(j['avatar']),
+        anonymous: j['anonymous'] == true,
+        helpfulCount: _i(j['helpfulCount']),
+        isHelpful: j['isHelpful'] == true,
+        canLike: j['canLike'] == true,
       );
 }
 
@@ -946,6 +1073,65 @@ class Order {
       history: _maps(j['statusHistory']).map((h) => StatusEvent(status: _s(h['status']) ?? '', note: _s(h['note']), at: _date(h['createdAt']))).toList(),
       items: _maps(j['items']).map(OrderItem.fromJson).toList(),
       courierName: _s(_map(parcel['courier'])['name']),
+    );
+  }
+}
+
+/// One map point on a parcel's route (seller → hubs → buyer).
+class JourneyStop {
+  const JourneyStop({required this.lat, required this.lng, required this.name, required this.role, this.reached = false});
+
+  final double lat;
+  final double lng;
+  final String name;
+  final String role; // origin | hub | destination
+  final bool reached;
+}
+
+/// Payload of GET /buyer/orders/{n}/tracking (OrderTrackingService::journey).
+class ParcelJourney {
+  const ParcelJourney({
+    required this.mappable,
+    required this.active,
+    required this.live,
+    required this.statusLabel,
+    required this.disclaimer,
+    required this.stops,
+    required this.trail,
+    this.parcel,
+  });
+
+  final bool mappable;
+  final bool active; // worth polling
+  final bool live;
+  final String statusLabel;
+  final String? disclaimer;
+  final List<JourneyStop> stops;
+  final List<({double lat, double lng})> trail;
+  final ({double lat, double lng})? parcel;
+
+  factory ParcelJourney.fromJson(Map<String, dynamic> j) {
+    final reachedIndex = (j['reachedIndex'] as num?)?.toInt() ?? 0;
+    final stops = <JourneyStop>[];
+    for (final (i, s) in _maps(j['stops']).indexed) {
+      final lat = _dn(s['lat']), lng = _dn(s['lng']);
+      if (lat == null || lng == null) continue;
+      stops.add(JourneyStop(lat: lat, lng: lng, name: _s(s['name']) ?? '', role: _s(s['role']) ?? 'hub', reached: i <= reachedIndex));
+    }
+    final p = _map(j['parcel']);
+    final pl = _dn(p['lat']), pg = _dn(p['lng']);
+    return ParcelJourney(
+      mappable: j['mappable'] == true && stops.length > 1,
+      active: j['active'] == true,
+      live: j['live'] == true,
+      statusLabel: _s(j['statusLabel']) ?? 'Tracking',
+      disclaimer: _s(j['disclaimer']),
+      stops: stops,
+      trail: [
+        for (final t in _maps(j['trail']))
+          if (_dn(t['lat']) != null && _dn(t['lng']) != null) (lat: _dn(t['lat'])!, lng: _dn(t['lng'])!),
+      ],
+      parcel: pl != null && pg != null ? (lat: pl, lng: pg) : null,
     );
   }
 }

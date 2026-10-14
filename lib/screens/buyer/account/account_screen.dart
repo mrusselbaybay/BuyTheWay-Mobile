@@ -21,8 +21,19 @@ import 'wishlist_screen.dart';
 /// Account tab — built from the courier app's own Settings components
 /// (SettingsProfileSummary / SettingsSectionLabel / SettingsGroupCard /
 /// SettingsNavTile) so both apps share one visual language exactly.
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  @override
+  void initState() {
+    super.initState();
+    BuyerStore.instance.loadAddresses();
+  }
 
   Future<void> _signOut(BuildContext context) async {
     final ok = await confirmDialog(context, title: 'Log out?', message: 'Your cart is saved to your account.', confirmLabel: 'Log out', destructive: true);

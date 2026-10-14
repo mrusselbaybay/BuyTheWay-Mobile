@@ -177,7 +177,7 @@ class SearchBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(elevated ? 24 : 12);
+    final radius = BorderRadius.circular(elevated ? 24 : 22);
     return Semantics(
       button: true,
       label: text == null ? 'Search products' : 'Search: $text',

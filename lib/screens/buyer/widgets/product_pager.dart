@@ -12,9 +12,34 @@ class ProductPager extends ChangeNotifier {
   ProductPager({this.search, this.category, this.sellerId, this.perPage = 20});
 
   final String? search;
-  final String? category;
+  String? category;
   final String? sellerId;
   final int perPage;
+
+  // Search filters (set through [applyFilters]).
+  num? priceMin;
+  num? priceMax;
+  num? minRating;
+  bool inStock = false;
+  bool onSale = false;
+
+  /// Number of filters currently narrowing the results.
+  int get activeFilters =>
+      (category != null ? 1 : 0) +
+      (priceMin != null || priceMax != null ? 1 : 0) +
+      (minRating != null ? 1 : 0) +
+      (inStock ? 1 : 0) +
+      (onSale ? 1 : 0);
+
+  Future<void> applyFilters({String? category, num? priceMin, num? priceMax, num? minRating, bool inStock = false, bool onSale = false}) {
+    this.onSale = onSale;
+    this.category = category;
+    this.priceMin = priceMin;
+    this.priceMax = priceMax;
+    this.minRating = minRating;
+    this.inStock = inStock;
+    return refresh();
+  }
 
   final List<Product> products = [];
   final Set<String> _ids = {};
@@ -23,12 +48,15 @@ class ProductPager extends ChangeNotifier {
   bool loading = false;
   String? error;
   bool _disposed = false;
+  int _gen = 0;
 
   bool get hasMore => _page < _lastPage;
   bool get initialLoading => products.isEmpty && (loading || (_page == 0 && error == null));
 
   Future<void> refresh() {
     NetImage.retryFailed();
+    _gen++;
+    loading = false;
     products.clear();
     _ids.clear();
     _page = 0;
@@ -41,25 +69,35 @@ class ProductPager extends ChangeNotifier {
     if (loading || !hasMore) return;
     loading = true;
     error = null;
+    final gen = _gen;
     _notify();
     try {
       final (items, lastPage) = await BuyerStore.instance.api.products(
         search: search,
         category: category,
         sellerId: sellerId,
+        priceMin: priceMin,
+        priceMax: priceMax,
+        minRating: minRating,
+        inStock: inStock,
+        onSale: onSale,
         page: _page + 1,
         perPage: perPage,
       );
+      if (gen != _gen) return; // filters changed mid-flight; a newer load owns the state
       for (final p in items) {
         if (_ids.add(p.id)) products.add(p);
       }
       _page++;
       _lastPage = lastPage;
     } catch (e) {
+      if (gen != _gen) return;
       error = BuyerStore.instance.handleError(e);
     } finally {
-      loading = false;
-      _notify();
+      if (gen == _gen) {
+        loading = false;
+        _notify();
+      }
     }
   }
 

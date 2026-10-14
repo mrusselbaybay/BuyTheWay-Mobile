@@ -15,8 +15,8 @@ import 'widgets/buyer_widgets.dart';
 /// nav pill only surfaces Orders · Home · Account (Home centered) — Cart and
 /// Chat are reached via the shortcuts beside the home search bar, and
 /// Categories is a step away from Home's hero banner / category rail. Tabs
-/// are kept alive in an IndexedStack so switching never re-fetches or loses
-/// scroll position.
+/// Visited tabs are kept alive so switching never re-fetches or loses scroll
+/// position. Unvisited tabs do not start their requests at login.
 class BuyerShell extends StatefulWidget {
   const BuyerShell({super.key});
 
@@ -35,6 +35,7 @@ class BuyerShell extends StatefulWidget {
 
 class _BuyerShellState extends State<BuyerShell> {
   final store = BuyerStore.instance;
+  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
@@ -46,7 +47,8 @@ class _BuyerShellState extends State<BuyerShell> {
   Future<void> _backToSignIn() async {
     await store.signOut();
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen()), (_) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthScreen()), (_) => false);
   }
 
   @override
@@ -57,7 +59,8 @@ class _BuyerShellState extends State<BuyerShell> {
         if (!store.initialized) {
           return const Scaffold(
             backgroundColor: BColors.background,
-            body: Center(child: CircularProgressIndicator(color: BColors.brand)),
+            body:
+                Center(child: CircularProgressIndicator(color: BColors.brand)),
           );
         }
         if (store.sessionExpired) {
@@ -67,7 +70,8 @@ class _BuyerShellState extends State<BuyerShell> {
               child: EmptyState(
                 icon: Icons.lock_clock_outlined,
                 title: 'Your session has expired',
-                message: 'Sign in again to keep shopping. Your cart is saved on this device.',
+                message:
+                    'Sign in again to keep shopping. Your cart is saved on this device.',
                 actionLabel: 'Sign in',
                 onAction: _backToSignIn,
               ),
@@ -76,6 +80,7 @@ class _BuyerShellState extends State<BuyerShell> {
         }
 
         final index = BuyerShell.tab.value;
+        _visitedTabs.add(index);
         return PopScope(
           canPop: index == 0,
           onPopInvokedWithResult: (didPop, _) {
@@ -86,12 +91,24 @@ class _BuyerShellState extends State<BuyerShell> {
             extendBody: true,
             body: IndexedStack(
               index: index,
-              children: const [
-                HomeScreen(),
-                OrdersScreen(),
-                CartScreen(),
-                ChatListScreen(embedded: true),
-                AccountScreen(),
+              children: [
+                const HomeScreen(),
+                if (_visitedTabs.contains(1))
+                  const OrdersScreen()
+                else
+                  const SizedBox.shrink(),
+                if (_visitedTabs.contains(2))
+                  const CartScreen()
+                else
+                  const SizedBox.shrink(),
+                if (_visitedTabs.contains(3))
+                  const ChatListScreen(embedded: true)
+                else
+                  const SizedBox.shrink(),
+                if (_visitedTabs.contains(4))
+                  const AccountScreen()
+                else
+                  const SizedBox.shrink(),
               ],
             ),
             bottomNavigationBar: BuyerNavBar(

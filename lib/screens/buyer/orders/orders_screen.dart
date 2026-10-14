@@ -19,15 +19,23 @@ final List<(String, bool Function(Order))> orderTabs = [
   ('To Ship', (o) => o.status == OrderStatus.toShip),
   ('Processing', (o) => o.status == OrderStatus.processing),
   ('To Receive', (o) => o.status == OrderStatus.inTransit),
-  ('Completed', (o) => o.status == OrderStatus.delivered && o.returnState == null),
-  ('Returns', (o) => o.returnState == 'to_return' || o.returnState == 'returned'),
+  (
+    'Completed',
+    (o) => o.status == OrderStatus.delivered && o.returnState == null
+  ),
+  (
+    'Returns',
+    (o) => o.returnState == 'to_return' || o.returnState == 'returned'
+  ),
   ('Cancelled', (o) => o.status == OrderStatus.cancelled),
 ];
 
 String orderStatusLabel(Order o) {
   final s = o.displayStatus;
   if (s == OrderStatus.toShip) return 'To Ship';
-  if (s == OrderStatus.delivered) return o.receivedAt == null ? 'Delivered' : 'Completed';
+  if (s == OrderStatus.delivered) {
+    return o.receivedAt == null ? 'Delivered' : 'Completed';
+  }
   return s;
 }
 
@@ -86,7 +94,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
-    store.loadOrders();
+    if (!store.ordersLoaded) {
+      store.loadOrders();
+    }
   }
 
   @override
@@ -98,14 +108,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   bool _matches(Order o, String q) {
     if (q.isEmpty) return true;
-    return o.seller.toLowerCase().contains(q) || o.orderId.toLowerCase().contains(q) || o.items.any((i) => i.name.toLowerCase().contains(q));
+    return o.seller.toLowerCase().contains(q) ||
+        o.orderId.toLowerCase().contains(q) ||
+        o.items.any((i) => i.name.toLowerCase().contains(q));
   }
 
   @override
   Widget build(BuildContext context) {
     // Embedded as the Orders tab (no back arrow); pushed from Account's
     // status shortcuts otherwise.
-    final pushed = Navigator.of(context).canPop() && !(ModalRoute.of(context)?.isFirst ?? true);
+    final pushed = Navigator.of(context).canPop() &&
+        !(ModalRoute.of(context)?.isFirst ?? true);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: DefaultTabController(
@@ -116,7 +129,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           body: Column(children: [
             DecoratedBox(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [BColors.brandSurface, BColors.surface]),
+                gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [BColors.brandSurface, BColors.surface]),
               ),
               child: SafeArea(
                 bottom: false,
@@ -128,17 +144,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         IconButton(
                           tooltip: 'Back',
                           onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: BColors.ink),
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                              size: 20, color: BColors.ink),
                         )
                       else
                         const SizedBox(width: 16),
-                      const Expanded(child: Text('My Orders', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BColors.ink))),
+                      const Expanded(
+                          child: Text('My Orders',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: BColors.ink))),
                       SizedBox(width: pushed ? 48 : 16),
                     ]),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-                    child: _OrderSearchField(controller: _searchCtrl, onChanged: (v) => _query.value = v.trim().toLowerCase()),
+                    child: _OrderSearchField(
+                        controller: _searchCtrl,
+                        onChanged: (v) =>
+                            _query.value = v.trim().toLowerCase()),
                   ),
                   const _StatusTabBar(),
                 ]),
@@ -149,7 +175,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 listenable: Listenable.merge([store, _query]),
                 builder: (context, _) => TabBarView(
                   children: [
-                    for (final (_, filter) in orderTabs) _OrderList(filter: (o) => filter(o) && _matches(o, _query.value), searching: _query.value.isNotEmpty),
+                    for (final (_, filter) in orderTabs)
+                      _OrderList(
+                          filter: (o) => filter(o) && _matches(o, _query.value),
+                          searching: _query.value.isNotEmpty),
                   ],
                 ),
               ),
@@ -178,14 +207,16 @@ class _OrderSearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Search your orders',
             hintStyle: const TextStyle(fontSize: 14.5, color: BColors.faint),
-            prefixIcon: const Icon(Icons.search_rounded, color: BColors.brand, size: 20),
+            prefixIcon: const Icon(Icons.search_rounded,
+                color: BColors.brand, size: 20),
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
               builder: (_, v, __) => v.text.isEmpty
                   ? const SizedBox.shrink()
                   : IconButton(
                       tooltip: 'Clear',
-                      icon: const Icon(Icons.close_rounded, size: 18, color: BColors.muted),
+                      icon: const Icon(Icons.close_rounded,
+                          size: 18, color: BColors.muted),
                       onPressed: () {
                         controller.clear();
                         onChanged('');
@@ -195,9 +226,15 @@ class _OrderSearchField extends StatelessWidget {
             filled: true,
             fillColor: Colors.white,
             contentPadding: EdgeInsets.zero,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: BColors.border)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: BColors.border)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
           ),
         ),
       );
@@ -218,8 +255,10 @@ class _StatusTabBar extends StatelessWidget {
             labelPadding: const EdgeInsets.symmetric(horizontal: 14),
             labelColor: BColors.brand,
             unselectedLabelColor: BColors.muted,
-            labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            labelStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            unselectedLabelStyle:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             indicator: const UnderlineTabIndicator(
               borderSide: BorderSide(color: BColors.brand, width: 3),
               borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
@@ -233,12 +272,21 @@ class _StatusTabBar extends StatelessWidget {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(label),
                     // Counts only on the actionable tabs, not All / Cancelled.
-                    if (label != 'All' && label != 'Cancelled' && orders.where(filter).isNotEmpty) ...[
+                    if (label != 'All' &&
+                        label != 'Cancelled' &&
+                        orders.where(filter).isNotEmpty) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(999)),
-                        child: Text('${orders.where(filter).length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                            color: BColors.brand,
+                            borderRadius: BorderRadius.circular(999)),
+                        child: Text('${orders.where(filter).length}',
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
                       ),
                     ],
                   ]),
@@ -278,9 +326,13 @@ class _OrderList extends StatelessWidget {
               SizedBox(
                 height: 420,
                 child: store.ordersError != null && !store.ordersLoaded
-                    ? ErrorState(message: store.ordersError!, onRetry: store.loadOrders)
+                    ? ErrorState(
+                        message: store.ordersError!, onRetry: store.loadOrders)
                     : searching
-                        ? const EmptyState(icon: Icons.search_off_rounded, title: 'No matching orders', message: 'Try a product or shop name.')
+                        ? const EmptyState(
+                            icon: Icons.search_off_rounded,
+                            title: 'No matching orders',
+                            message: 'Try a product or shop name.')
                         : EmptyState(
                             icon: Icons.receipt_long_outlined,
                             title: 'Nothing here yet',
@@ -315,7 +367,12 @@ class _OrderList extends StatelessWidget {
     case OrderStatus.inTransit:
       return (color: BColors.brand, icon: Icons.local_shipping_rounded);
     case OrderStatus.delivered:
-      return (color: BColors.success, icon: o.receivedAt == null ? Icons.markunread_mailbox_rounded : Icons.check_circle_rounded);
+      return (
+        color: BColors.success,
+        icon: o.receivedAt == null
+            ? Icons.markunread_mailbox_rounded
+            : Icons.check_circle_rounded
+      );
     case OrderStatus.cancelled:
       return (color: BColors.muted, icon: Icons.cancel_rounded);
     case 'To Return':
@@ -340,11 +397,21 @@ class _StatusPill extends StatelessWidget {
     return Container(
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(color: c.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(13)),
+      decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(13)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 6, height: 6, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+        Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(_headline(order), style: TextStyle(fontSize: 12, height: 1, fontWeight: FontWeight.w700, color: c)),
+        Text(_headline(order),
+            style: TextStyle(
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w700,
+                color: c)),
       ]),
     );
   }
@@ -361,7 +428,8 @@ class OrderCard extends StatelessWidget {
 
   final Order order;
 
-  void _open(BuildContext context) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)));
+  void _open(BuildContext context) => Navigator.of(context)
+      .push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)));
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +440,9 @@ class OrderCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: softShadow(0.05)),
+        decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: softShadow(0.05)),
         child: Material(
           color: BColors.surface,
           borderRadius: BorderRadius.circular(20),
@@ -381,55 +451,81 @@ class OrderCard extends StatelessWidget {
             onTap: () => _open(context),
             child: Padding(
               padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(9)),
-                    child: const Icon(Icons.storefront_rounded, size: 16, color: BColors.brand),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Row(children: [
-                      Flexible(
-                        child: Text(o.seller,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: BColors.ink)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                            color: BColors.brandSurface,
+                            borderRadius: BorderRadius.circular(9)),
+                        child: const Icon(Icons.storefront_rounded,
+                            size: 16, color: BColors.brand),
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 18, color: BColors.faint),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Row(children: [
+                          Flexible(
+                            child: Text(o.seller,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: BColors.ink)),
+                          ),
+                          const Icon(Icons.chevron_right_rounded,
+                              size: 18, color: BColors.faint),
+                        ]),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusPill(order: o),
                     ]),
-                  ),
-                  const SizedBox(width: 8),
-                  _StatusPill(order: o),
-                ]),
-                const SizedBox(height: 12),
-                if (returned) _RefundStrip(order: o, onTap: () => _open(context)) else _TrackingStrip(order: o, onTap: () => _open(context)),
-                const SizedBox(height: 14),
-                for (final item in o.items.take(2)) _ItemRow(item: item),
-                if (extra > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 76, bottom: 10),
-                    child: Text('+$extra more ${extra == 1 ? 'item' : 'items'}',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: BColors.brand)),
-                  ),
-                const Divider(height: 1, color: BColors.divider),
-                const SizedBox(height: 12),
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('$count ${count == 1 ? 'item' : 'items'}', style: BText.small),
-                  const Spacer(),
-                  const Text('Total  ', style: TextStyle(fontSize: 13, color: BColors.muted)),
-                  Text(peso(o.total),
-                      style: const TextStyle(fontSize: 17, height: 1.1, fontWeight: FontWeight.w800, color: BColors.brand, letterSpacing: -0.2)),
-                ]),
-                const SizedBox(height: 14),
-                _OrderActions(order: o),
-                if (o.status == OrderStatus.delivered && !returned && o.items.any((i) => !i.reviewed)) ...[
-                  const SizedBox(height: 12),
-                  _QuickReview(item: o.items.firstWhere((i) => !i.reviewed)),
-                ],
-              ]),
+                    const SizedBox(height: 12),
+                    if (returned)
+                      _RefundStrip(order: o, onTap: () => _open(context))
+                    else
+                      _TrackingStrip(order: o, onTap: () => _open(context)),
+                    const SizedBox(height: 14),
+                    for (final item in o.items.take(2)) _ItemRow(item: item),
+                    if (extra > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 76, bottom: 10),
+                        child: Text(
+                            '+$extra more ${extra == 1 ? 'item' : 'items'}',
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: BColors.brand)),
+                      ),
+                    const Divider(height: 1, color: BColors.divider),
+                    const SizedBox(height: 12),
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('$count ${count == 1 ? 'item' : 'items'}',
+                          style: BText.small),
+                      const Spacer(),
+                      const Text('Total  ',
+                          style: TextStyle(fontSize: 13, color: BColors.muted)),
+                      Text(peso(o.total),
+                          style: const TextStyle(
+                              fontSize: 17,
+                              height: 1.1,
+                              fontWeight: FontWeight.w800,
+                              color: BColors.brand,
+                              letterSpacing: -0.2)),
+                    ]),
+                    const SizedBox(height: 14),
+                    _OrderActions(order: o),
+                    if (o.status == OrderStatus.delivered &&
+                        !returned &&
+                        o.items.any((i) => !i.reviewed)) ...[
+                      const SizedBox(height: 12),
+                      _QuickReview(
+                          item: o.items.firstWhere((i) => !i.reviewed)),
+                    ],
+                  ]),
             ),
           ),
         ),
@@ -440,7 +536,13 @@ class OrderCard extends StatelessWidget {
 
 /// Icon badge + title/time + one line of copy, tinted with the status tone.
 class _Strip extends StatelessWidget {
-  const _Strip({required this.tone, required this.icon, required this.title, required this.onTap, this.trailing, this.subtitle});
+  const _Strip(
+      {required this.tone,
+      required this.icon,
+      required this.title,
+      required this.onTap,
+      this.trailing,
+      this.subtitle});
 
   final Color tone;
   final IconData icon;
@@ -462,25 +564,45 @@ class _Strip extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: BColors.surface, shape: BoxShape.circle, boxShadow: softShadow(0.04)),
+                decoration: BoxDecoration(
+                    color: BColors.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: softShadow(0.04)),
                 child: Icon(icon, size: 18, color: tone),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(
-                        child: DefaultTextStyle.merge(style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.ink), child: title)),
-                    if (trailing != null && trailing!.isNotEmpty)
-                      Text(trailing!, style: const TextStyle(fontSize: 11.5, color: BColors.muted, fontWeight: FontWeight.w500)),
-                  ]),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    DefaultTextStyle.merge(style: const TextStyle(fontSize: 12.5, height: 1.3, color: BColors.muted), child: subtitle!),
-                  ],
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                            child: DefaultTextStyle.merge(
+                                style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: BColors.ink),
+                                child: title)),
+                        if (trailing != null && trailing!.isNotEmpty)
+                          Text(trailing!,
+                              style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: BColors.muted,
+                                  fontWeight: FontWeight.w500)),
+                      ]),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        DefaultTextStyle.merge(
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                height: 1.3,
+                                color: BColors.muted),
+                            child: subtitle!),
+                      ],
+                    ]),
               ),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: BColors.faint),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: BColors.faint),
             ]),
           ),
         ),
@@ -496,16 +618,35 @@ class _TrackingStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final o = order;
-    final last = o.history.isEmpty ? null : o.history.reduce((a, b) => (b.at?.isAfter(a.at ?? DateTime(0)) ?? false) ? b : a);
+    final last = o.history.isEmpty
+        ? null
+        : o.history.reduce(
+            (a, b) => (b.at?.isAfter(a.at ?? DateTime(0)) ?? false) ? b : a);
     final (title, sub) = switch (o.status) {
-      OrderStatus.toShip => ('Order placed', 'Waiting for the seller to prepare it.'),
-      OrderStatus.processing => ('Being packed', 'The seller is packing your parcel.'),
-      OrderStatus.inTransit => ('In transit', o.courierName != null ? '${o.courierName} is delivering your parcel.' : 'Your parcel is on its way to you.'),
+      OrderStatus.toShip => (
+          'Order placed',
+          'Waiting for the seller to prepare it.'
+        ),
+      OrderStatus.processing => (
+          'Being packed',
+          'The seller is packing your parcel.'
+        ),
+      OrderStatus.inTransit => (
+          'In transit',
+          o.courierName != null
+              ? '${o.courierName} is delivering your parcel.'
+              : 'Your parcel is on its way to you.'
+        ),
       OrderStatus.delivered => (
           'Delivered',
-          o.receivedAt == null ? "Check your items, then confirm you've received them." : 'Your package has been delivered.'
+          o.receivedAt == null
+              ? "Check your items, then confirm you've received them."
+              : 'Your package has been delivered.'
         ),
-      OrderStatus.cancelled => ('Delivery cancelled', 'This order was cancelled.'),
+      OrderStatus.cancelled => (
+          'Delivery cancelled',
+          'This order was cancelled.'
+        ),
       _ => (o.status, last?.note ?? ''),
     };
     final tone = _tone(o);
@@ -514,7 +655,9 @@ class _TrackingStrip extends StatelessWidget {
       icon: tone.icon,
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: _when(last?.at ?? o.createdAt),
-      subtitle: sub.isEmpty ? null : Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: sub.isEmpty
+          ? null
+          : Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis),
       onTap: onTap,
     );
   }
@@ -538,14 +681,21 @@ class _RefundStrip extends StatelessWidget {
       title: Text.rich(
         TextSpan(children: [
           TextSpan(text: done ? 'Refund completed  ' : 'Refund pending  '),
-          TextSpan(text: peso(order.total), style: const TextStyle(color: BColors.brand, fontWeight: FontWeight.w800)),
+          TextSpan(
+              text: peso(order.total),
+              style: const TextStyle(
+                  color: BColors.brand, fontWeight: FontWeight.w800)),
         ]),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: done && last?.at != null ? formatDate(last!.at) : null,
-      subtitle: Text(done ? 'Returned to your original payment method.' : 'Refunded once the seller receives your return.',
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+          done
+              ? 'Returned to your original payment method.'
+              : 'Refunded once the seller receives your return.',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis),
       onTap: onTap,
     );
   }
@@ -565,18 +715,28 @@ class _ItemRow extends StatelessWidget {
         Container(
           width: 64,
           height: 64,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: BColors.divider)),
-          child: ClipRRect(borderRadius: BorderRadius.circular(13), child: NetImage(item.image, fallbackIcon: categoryIcon(item.category))),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: BColors.divider)),
+          child: ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: NetImage(item.image,
+                  fallbackIcon: categoryIcon(item.category))),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: SizedBox(
             height: 64,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13.5, height: 1.3, fontWeight: FontWeight.w500, color: BColors.ink)),
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.3,
+                      fontWeight: FontWeight.w500,
+                      color: BColors.ink)),
               const Spacer(),
               Row(children: [
                 Expanded(
@@ -585,16 +745,29 @@ class _ItemRow extends StatelessWidget {
                       : Align(
                           alignment: Alignment.centerLeft,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(color: BColors.divider, borderRadius: BorderRadius.circular(6)),
-                            child: Text(variation, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: BColors.muted)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: BColors.divider,
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Text(variation,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11.5, color: BColors.muted)),
                           ),
                         ),
                 ),
                 const SizedBox(width: 8),
-                Text('×${item.quantity}', style: const TextStyle(fontSize: 12.5, color: BColors.muted)),
+                Text('×${item.quantity}',
+                    style:
+                        const TextStyle(fontSize: 12.5, color: BColors.muted)),
                 const SizedBox(width: 10),
-                Text(peso(item.unitPrice), style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.ink)),
+                Text(peso(item.unitPrice),
+                    style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: BColors.ink)),
               ]),
             ]),
           ),
@@ -625,7 +798,8 @@ class _OrderActionsState extends State<_OrderActions> {
 
   Order get o => widget.order;
 
-  void _openDetail() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: o)));
+  void _openDetail() => Navigator.of(context)
+      .push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: o)));
 
   Future<void> _reorder({required bool goToCart}) async {
     if (_busy) return;
@@ -644,15 +818,21 @@ class _OrderActionsState extends State<_OrderActions> {
       _openDetail();
       return;
     }
-    final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => ReturnRequestScreen(order: o, item: eligible.first)));
+    final submitted = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => ReturnRequestScreen(order: o, item: eligible.first)));
     if (submitted == true) store.loadOrders();
   }
 
   @override
   Widget build(BuildContext context) {
-    final delivered = o.status == OrderStatus.delivered && o.returnState == null;
-    final cart = _CartButton(busy: _busy, onTap: () => _reorder(goToCart: false));
-    final buyAgain = _Pill(label: 'Buy again', primary: o.returnState == null, onTap: _busy ? null : () => _reorder(goToCart: true));
+    final delivered =
+        o.status == OrderStatus.delivered && o.returnState == null;
+    final cart =
+        _CartButton(busy: _busy, onTap: () => _reorder(goToCart: false));
+    final buyAgain = _Pill(
+        label: 'Buy again',
+        primary: o.returnState == null,
+        onTap: _busy ? null : () => _reorder(goToCart: true));
 
     final List<Widget> row;
     if (o.status == OrderStatus.toShip || o.status == OrderStatus.processing) {
@@ -662,17 +842,32 @@ class _OrderActionsState extends State<_OrderActions> {
       ];
     } else if (o.status == OrderStatus.inTransit) {
       row = [
-        if (o.courierName != null) _Pill(icon: Icons.chat_bubble_outline_rounded, label: 'Message', onTap: () => openCourierChat(context, o.number)),
-        _Pill(icon: Icons.near_me_rounded, label: 'Track order', primary: true, onTap: _openDetail),
+        if (o.courierName != null)
+          _Pill(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Message',
+              onTap: () => openCourierChat(context, o.number)),
+        _Pill(
+            icon: Icons.near_me_rounded,
+            label: 'Track order',
+            primary: true,
+            onTap: _openDetail),
       ];
     } else if (delivered) {
-      row = [_Pill(label: 'Request refund', onTap: _requestRefund), cart, buyAgain];
+      row = [
+        _Pill(label: 'Request refund', onTap: _requestRefund),
+        cart,
+        buyAgain
+      ];
     } else {
       row = [cart, buyAgain];
     }
 
     final actions = Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-      for (var i = 0; i < row.length; i++) ...[if (i > 0) const SizedBox(width: 8), row[i]],
+      for (var i = 0; i < row.length; i++) ...[
+        if (i > 0) const SizedBox(width: 8),
+        row[i]
+      ],
     ]);
     if (!o.awaitingReceipt) return actions;
     // Confirming receipt is the one thing a delivered order needs next,
@@ -687,7 +882,11 @@ class _OrderActionsState extends State<_OrderActions> {
 
 /// Action pill: outlined by default, solid teal when [primary].
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.onTap, this.primary = false, this.icon});
+  const _Pill(
+      {required this.label,
+      required this.onTap,
+      this.primary = false,
+      this.icon});
 
   final String label;
   final VoidCallback? onTap;
@@ -699,7 +898,10 @@ class _Pill extends StatelessWidget {
     final fg = primary ? Colors.white : BColors.brand;
     return Material(
       color: primary ? BColors.brand : BColors.surface,
-      shape: StadiumBorder(side: primary ? BorderSide.none : BorderSide(color: BColors.brand.withValues(alpha: 0.35))),
+      shape: StadiumBorder(
+          side: primary
+              ? BorderSide.none
+              : BorderSide(color: BColors.brand.withValues(alpha: 0.35))),
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
@@ -708,8 +910,13 @@ class _Pill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           alignment: Alignment.center,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (icon != null) ...[Icon(icon, size: 16, color: fg), const SizedBox(width: 6)],
-            Text(label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: fg)),
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6)
+            ],
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700, color: fg)),
           ]),
         ),
       ),
@@ -737,8 +944,13 @@ class _CartButton extends StatelessWidget {
               height: _kActionHeight,
               child: Center(
                 child: busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: BColors.brand))
-                    : const Icon(Icons.add_shopping_cart_rounded, size: 19, color: BColors.brand),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: BColors.brand))
+                    : const Icon(Icons.add_shopping_cart_rounded,
+                        size: 19, color: BColors.brand),
               ),
             ),
           ),
@@ -755,7 +967,8 @@ class _QuickReview extends StatelessWidget {
 
   Future<void> _rate(BuildContext context, int stars) async {
     HapticFeedback.selectionClick();
-    final saved = await showReviewSheet(context, productName: item.name, orderItemId: item.id, initialRating: stars);
+    final saved = await showReviewSheet(context,
+        productName: item.name, orderItemId: item.id, initialRating: stars);
     if (saved && context.mounted) {
       showToast(context, 'Thanks for your review!');
       BuyerStore.instance.loadOrders();
@@ -765,13 +978,23 @@ class _QuickReview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-        decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+            color: BColors.brandSurface,
+            borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Rate your purchase', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.brandDark)),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Rate your purchase',
+                  style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: BColors.brandDark)),
               const SizedBox(height: 1),
-              Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: BColors.brand)),
+              Text(item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: BColors.brand)),
             ]),
           ),
           for (var i = 1; i <= 5; i++)
@@ -782,7 +1005,11 @@ class _QuickReview extends StatelessWidget {
               child: InkResponse(
                 radius: 20,
                 onTap: () => _rate(context, i),
-                child: const SizedBox(width: 34, height: 40, child: Icon(Icons.star_outline_rounded, size: 26, color: BColors.star)),
+                child: const SizedBox(
+                    width: 34,
+                    height: 40,
+                    child: Icon(Icons.star_outline_rounded,
+                        size: 26, color: BColors.star)),
               ),
             ),
         ]),
@@ -797,22 +1024,32 @@ class _OrderCardSkeleton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: BColors.surface, borderRadius: BorderRadius.circular(20)),
-          child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              SkeletonBox(height: 28, width: 28, radius: 9),
-              SizedBox(width: 8),
-              SkeletonBox(height: 14, width: 120),
-              Spacer(),
-              SkeletonBox(height: 26, width: 92, radius: 13)
-            ]),
-            SizedBox(height: 12),
-            SkeletonBox(height: 56, radius: 14),
-            SizedBox(height: 14),
-            Row(children: [SkeletonBox(height: 64, width: 64, radius: 14), SizedBox(width: 12), Expanded(child: SkeletonBox(height: 40))]),
-            SizedBox(height: 14),
-            Align(alignment: Alignment.centerRight, child: SkeletonBox(height: _kActionHeight, width: 210, radius: 20)),
-          ]),
+          decoration: BoxDecoration(
+              color: BColors.surface, borderRadius: BorderRadius.circular(20)),
+          child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  SkeletonBox(height: 28, width: 28, radius: 9),
+                  SizedBox(width: 8),
+                  SkeletonBox(height: 14, width: 120),
+                  Spacer(),
+                  SkeletonBox(height: 26, width: 92, radius: 13)
+                ]),
+                SizedBox(height: 12),
+                SkeletonBox(height: 56, radius: 14),
+                SizedBox(height: 14),
+                Row(children: [
+                  SkeletonBox(height: 64, width: 64, radius: 14),
+                  SizedBox(width: 12),
+                  Expanded(child: SkeletonBox(height: 40))
+                ]),
+                SizedBox(height: 14),
+                Align(
+                    alignment: Alignment.centerRight,
+                    child: SkeletonBox(
+                        height: _kActionHeight, width: 210, radius: 20)),
+              ]),
         ),
       );
 }

@@ -88,12 +88,30 @@ class BuyerApiService {
   // ---------------- Catalog (public) ----------------
 
   /// Newest-first catalog page. Returns the products and the last page.
-  Future<(List<Product>, int)> products({String? search, String? category, String? sellerId, int page = 1, int perPage = 20}) async {
+  Future<(List<Product>, int)> products({
+    String? search,
+    String? category,
+    String? sellerId,
+    String? sort,
+    num? priceMin,
+    num? priceMax,
+    num? minRating,
+    bool inStock = false,
+    bool onSale = false,
+    int page = 1,
+    int perPage = 20,
+  }) async {
     final body = await _send('GET', '/products',
         query: _q({
           'search': search,
           'category': category,
           'seller_id': sellerId,
+          'sort': sort,
+          'price_min': priceMin?.toString(),
+          'price_max': priceMax?.toString(),
+          'min_rating': minRating?.toString(),
+          'in_stock': inStock ? '1' : null,
+          'on_sale': onSale ? '1' : null,
           'page': '$page',
           'per_page': '$perPage',
         }));
@@ -102,7 +120,70 @@ class BuyerApiService {
     return (_list(body['data']).map(Product.fromJson).toList(), lastPage);
   }
 
+  /// Category counts, price range and rating availability for a search's results.
+  Future<Map<String, dynamic>> searchFacets(String search, {String? sellerId}) async {
+    final body = await _send('GET', '/products', query: _q({'search': search, 'seller_id': sellerId, 'facets': '1', 'per_page': '1'}));
+    return body['facets'] is Map ? Map<String, dynamic>.from(body['facets'] as Map) : {};
+  }
+
+  /// Header-search suggestions: a few products and stores matching [query].
+  Future<({List<Map<String, dynamic>> products, List<Map<String, dynamic>> stores})> searchSuggestions(String query, {String? sellerId}) async {
+    final body = await _send('GET', '/search/suggestions', query: _q({'q': query, 'seller_id': sellerId}));
+    return (products: _list(body['products']), stores: _list(body['stores']));
+  }
+
   /// null when the product no longer exists (404).
+  /// Marks a review helpful / removes the mark. Returns the new (count, liked).
+  Future<(int, bool)> setReviewLike(String reviewId, bool liked) async {
+    final path = '/reviews/${Uri.encodeComponent(reviewId)}/like';
+    final body = await _send(liked ? 'PUT' : 'DELETE', path);
+    final data = body['data'] is Map ? body['data'] as Map : const {};
+    return ((data['helpfulCount'] as num?)?.toInt() ?? 0, data['isHelpful'] == true);
+  }
+
+  /// A shop's claimable vouchers (shop discounts and free shipping).
+  Future<List<Coupon>> storeVouchers(String id) async {
+    final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}/vouchers');
+    return _list(body['data']).map(Coupon.fromJson).toList();
+  }
+
+  /// Category names with product counts for one shop.
+  Future<List<(String, int)>> storeCategories(String id) async {
+    final body = await _send('GET', '/products', query: 'seller_id=${Uri.encodeQueryComponent(id)}&facets=1&per_page=1');
+    final facets = body['facets'] is Map ? body['facets'] as Map : const {};
+    return _list(facets['categories']).map((c) => ('${c['name']}', (c['count'] as num?)?.toInt() ?? 0)).toList();
+  }
+
+  /// Reports a shop (reason is one of the server's report reason keys).
+  Future<void> reportStore(String storeId,
+          {required String reason, required String details, bool anonymous = false, List<String> evidence = const []}) =>
+      _send('POST', '/buyer/reports',
+          body: {'target_type': 'store', 'target_id': storeId, 'reason': reason, 'details': details, 'anonymous': anonymous, 'evidence': evidence});
+
+  /// Stages one report evidence file; pass the returned paths to [reportStore].
+  Future<String> uploadReportEvidence(List<int> bytes, String fileName) async {
+    final body = await _multipart('/buyer/reports/evidence', 'file', bytes, fileName);
+    return '${body['path']}';
+  }
+
+  Future<void> blockShop(String id) => _send('POST', '/buyer/stores/${Uri.encodeComponent(id)}/block');
+
+  /// Reviews across every product of a shop (newest first), with the shop-wide star breakdown.
+  Future<(List<Review>, ReviewSummary, int)> storeReviews(String id, {int page = 1, int perPage = 10, int? rating, bool withImages = false}) async {
+    final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}/reviews',
+        query: _q({'page': '$page', 'per_page': '$perPage', 'rating': rating?.toString(), 'has_images': withImages ? '1' : null}));
+    final meta = body['meta'] is Map ? body['meta'] as Map : const {};
+    final lastPage = meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
+    final summary = body['summary'] is Map ? ReviewSummary.fromJson(Map<String, dynamic>.from(body['summary'])) : const ReviewSummary();
+    return (_list(body['data']).map(Review.fromJson).toList(), summary, lastPage);
+  }
+
+  /// Public store profile (name, logo, rating, counts) for the product page's shop card.
+  Future<Map<String, dynamic>> storeInfo(String id) async {
+    final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}');
+    return body['data'] is Map ? Map<String, dynamic>.from(body['data'] as Map) : {};
+  }
+
   Future<Product?> product(String id) async {
     try {
       final body = await _send('GET', '/products/${Uri.encodeComponent(id)}');
@@ -208,6 +289,11 @@ class BuyerApiService {
     return _list(body['data']).map(Order.fromJson).toList();
   }
 
+  Future<ParcelJourney> orderTracking(String number) async {
+    final body = await _send('GET', '/buyer/orders/${Uri.encodeComponent(number)}/tracking');
+    return ParcelJourney.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+  }
+
   Future<Order> order(String number) async {
     final body = await _send('GET', '/buyer/orders/${Uri.encodeComponent(number)}');
     return Order.fromJson(Map<String, dynamic>.from(body['data'] as Map));
@@ -275,8 +361,8 @@ class BuyerApiService {
     return _list(body['data']).map(MyReview.fromJson).toList();
   }
 
-  Future<void> createReview(String orderItemId, int rating, String? comment) =>
-      _send('POST', '/buyer/reviews', body: {'order_item_id': orderItemId, 'rating': rating, 'comment': comment});
+  Future<void> createReview(String orderItemId, int rating, String? comment, {bool anonymous = false}) =>
+      _send('POST', '/buyer/reviews', body: {'order_item_id': orderItemId, 'rating': rating, 'comment': comment, 'anonymous': anonymous});
 
   Future<void> deleteReview(String reviewId) => _send('DELETE', '/buyer/reviews/${Uri.encodeComponent(reviewId)}');
 
@@ -449,12 +535,45 @@ class BuyerApiService {
     );
   }
 
-  Future<ChatMessage> sendMessage(String conversationId, {String? text, List<String> attachmentIds = const []}) async {
+  /// Returns the sent message plus the shop assistant's instant auto-reply, if any.
+  Future<(ChatMessage, ChatMessage?)> sendMessage(
+    String conversationId, {
+    String? text,
+    List<String> attachmentIds = const [],
+    String? quickQuestionKey,
+    String? orderId,
+    String? productId,
+    String? variantId,
+    bool contactSeller = false,
+  }) async {
     final body = await _send('POST', '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/messages', body: {
       if (text != null && text.isNotEmpty) 'body': text,
       if (attachmentIds.isNotEmpty) 'attachment_ids': attachmentIds,
+      if (quickQuestionKey != null) 'quick_question_key': quickQuestionKey,
+      if (orderId != null) 'order_id': orderId,
+      if (productId != null) 'product_id': productId,
+      if (variantId != null) 'variant_id': variantId,
+      if (contactSeller) 'contact_seller': true,
     });
-    return ChatMessage.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+    final data = Map<String, dynamic>.from(body['data'] as Map);
+    final auto = data['autoReply'];
+    return (ChatMessage.fromJson(data), auto is Map ? ChatMessage.fromJson(Map<String, dynamic>.from(auto)) : null);
+  }
+
+  Future<List<QuickQuestion>> quickQuestions(String conversationId, {bool menu = false}) async {
+    final body = await _send('GET', '/buyer/messages/quick-questions', query: _q({'conversation_id': conversationId, 'menu': menu ? '1' : null}));
+    return _list(body['data']).map(QuickQuestion.fromJson).toList();
+  }
+
+  /// The "which product / which order?" pickers behind quick questions.
+  /// Returns (items, lastPage).
+  Future<(List<Map<String, dynamic>>, int)> chatPickerItems(String conversationId, {required bool orders, bool active = false, String search = '', int page = 1}) async {
+    // active: the buyer's undelivered orders with this shop, newest first.
+    final path = active ? 'orders' : (orders ? 'products' : 'catalog-products');
+    final body = await _send('GET', '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/$path',
+        query: _q({'page': '$page', 'search': orders || search.isEmpty ? null : search}));
+    final meta = body['meta'] is Map ? body['meta'] as Map : const {};
+    return (_list(body['data']), (meta['lastPage'] as num?)?.toInt() ?? page);
   }
 
   /// Stages a file; send its returned id with [sendMessage].

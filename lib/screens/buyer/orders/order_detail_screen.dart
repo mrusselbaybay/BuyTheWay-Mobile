@@ -9,6 +9,7 @@ import '../chat/chat_thread_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../widgets/buyer_widgets.dart';
 import 'order_actions.dart';
+import 'parcel_tracking.dart';
 import 'return_request_screen.dart';
 
 /// Order details, in three moods that follow the order:
@@ -115,7 +116,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 _Section(
                   first: true,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (_inProgress) ...[_Stepper(order: order), const SizedBox(height: 18)],
+                    if (_inProgress) ...[
+                      _Stepper(order: order),
+                      const SizedBox(height: 18),
+                      ParcelMapCard(key: ValueKey(order.number), orderNumber: order.number, history: order.history),
+                    ],
                     _TrackingCard(order: order, latest: _latest, onTap: order.history.isEmpty ? null : _showTimeline),
                     const SizedBox(height: 16),
                     _AddressRow(order: order),
@@ -513,7 +518,7 @@ class _ItemBlock extends StatelessWidget {
                     child:
                         Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, height: 1.3, color: BColors.ink))),
                 const SizedBox(width: 10),
-                Text(peso(item.unitPrice), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: BColors.ink)),
+                pesoText(item.unitPrice, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: BColors.ink)),
               ]),
               const SizedBox(height: 4),
               Row(children: [
@@ -653,7 +658,7 @@ class _OrderInfoState extends State<_OrderInfo> {
                 child: Text(paymentLabel(o.paymentMethod),
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: BColors.ink))),
             const Text('Total  ', style: TextStyle(fontSize: 13.5, color: BColors.muted)),
-            Text(peso(o.total), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BColors.ink)),
+            pesoText(o.total, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BColors.ink)),
             AnimatedRotation(
               turns: _open ? 0.5 : 0,
               duration: const Duration(milliseconds: 180),
@@ -735,7 +740,6 @@ class _TimelineSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = [...events]..sort((a, b) => (b.at ?? DateTime(0)).compareTo(a.at ?? DateTime(0)));
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,
@@ -748,49 +752,7 @@ class _TimelineSheet extends StatelessWidget {
           child: Align(
               alignment: Alignment.centerLeft, child: Text('Order timeline', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BColors.ink))),
         ),
-        Expanded(
-          child: ListView.builder(
-            controller: controller,
-            padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 20),
-            itemCount: list.length,
-            itemBuilder: (_, i) {
-              final ev = list[i];
-              final first = i == 0;
-              return IntrinsicHeight(
-                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  SizedBox(
-                    width: 22,
-                    child: Column(children: [
-                      Container(
-                        width: first ? 14 : 10,
-                        height: first ? 14 : 10,
-                        margin: EdgeInsets.only(top: first ? 2 : 4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: first ? BColors.brand : BColors.border,
-                          boxShadow: first ? [BoxShadow(color: BColors.brand.withValues(alpha: 0.25), blurRadius: 0, spreadRadius: 4)] : null,
-                        ),
-                      ),
-                      if (i < list.length - 1) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 4), color: BColors.divider)),
-                    ]),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(ev.status, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: first ? BColors.brand : BColors.ink)),
-                        if (ev.note != null && ev.note!.isNotEmpty) ...[const SizedBox(height: 2), Text(ev.note!, style: BText.small)],
-                        const SizedBox(height: 3),
-                        Text(formatDate(ev.at, withTime: true), style: BText.tiny),
-                      ]),
-                    ),
-                  ),
-                ]),
-              );
-            },
-          ),
-        ),
+        Expanded(child: OrderTimelineList(events: events, controller: controller)),
       ]),
     );
   }

@@ -267,7 +267,7 @@ class PriceText extends StatelessWidget {
       children: [
         Text(
           range ? '${peso(price)} – ${peso(maxPrice!)}' : peso(price),
-          style: TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: BColors.cta, height: 1.1),
+          style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: BColors.brand, height: 1.1),
         ),
         if (showOld && !range)
           Text(
@@ -312,8 +312,8 @@ class DiscountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: BoxDecoration(color: BColors.ctaSurface, borderRadius: BorderRadius.circular(2)),
-        child: Text('-$percent%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BColors.cta)),
+        decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(4)),
+        child: Text('-$percent%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: BColors.brandDark)),
       );
 }
 
@@ -350,7 +350,6 @@ class ProductCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(BRadius.tile - _kCardInset + 2),
                   child: Stack(fit: StackFit.expand, children: [
                     NetImage(p.primaryImage, fallbackIcon: categoryIcon(p.category)),
-                    if (p.discountPercent > 0 && !p.isSoldOut) Positioned(top: 8, left: 8, child: DiscountRibbon(p.discountPercent)),
                     Positioned(top: 4, right: 4, child: _WishHeart(productId: p.id)),
                     if (p.isSoldOut)
                       Container(
@@ -378,31 +377,38 @@ class ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(pesoCompact(low), maxLines: 1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BColors.cta, height: 1.1)),
-                  if (high > low) const Text(' +', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BColors.cta)),
-                  if (p.oldPrice != null && p.oldPrice! > low && high == low) ...[
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        pesoCompact(p.oldPrice!),
-                        maxLines: 1,
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
-                        style: const TextStyle(fontSize: 11, color: BColors.faint, decoration: TextDecoration.lineThrough, decorationColor: BColors.faint),
-                      ),
+                  Text(pesoCompact(low), maxLines: 1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: BColors.brand, height: 1.1)),
+                  if (high > low) const Text(' +', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: BColors.brand)),
+                  if (p.discountPercent > 0 && !p.isSoldOut && high == low) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(color: BColors.brand.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
+                      child: Text('-${p.discountPercent}%',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: BColors.brand, height: 1.2)),
                     ),
                   ],
                 ]),
-                const SizedBox(height: 7),
+                const SizedBox(height: 6),
+                // Rating on the left, units sold beside it.
+                SizedBox(
+                  height: 15,
+                  child: Row(children: [
+                    if (rating != null && p.reviewCount > 0) ...[
+                      const Icon(Icons.star_rounded, size: 13, color: BColors.star),
+                      const SizedBox(width: 2),
+                      Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BColors.ink)),
+                    ],
+                    if (rating != null && p.reviewCount > 0 && p.soldCount > 0)
+                      const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: SizedBox(height: 10, child: VerticalDivider(width: 1, color: BColors.border))),
+                    if (p.soldCount > 0) Flexible(child: Text('${compactCount(p.soldCount)} sold', maxLines: 1, overflow: TextOverflow.ellipsis, style: BText.tiny)),
+                  ]),
+                ),
+                const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.storefront_rounded, size: 13, color: BColors.faint),
-                  const SizedBox(width: 3),
-                  Expanded(child: Text(p.seller, maxLines: 1, overflow: TextOverflow.ellipsis, style: BText.tiny)),
-                  if (rating != null && p.reviewCount > 0) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.star_rounded, size: 13, color: BColors.star),
-                    Text(rating.toStringAsFixed(1), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: BColors.ink)),
-                  ],
+                  const Icon(Icons.location_on_outlined, size: 13, color: BColors.faint),
+                  const SizedBox(width: 2),
+                  Expanded(child: Text(p.sellerLocation ?? p.seller, maxLines: 1, overflow: TextOverflow.ellipsis, style: BText.tiny)),
                 ]),
               ]),
             ),
@@ -412,6 +418,9 @@ class ProductCard extends StatelessWidget {
     );
   }
 }
+
+/// "711", "999+": counts above 999 are capped.
+String compactCount(int n) => n > 999 ? '999+' : '$n';
 
 /// Inset of the image inside a [ProductCard].
 const double _kCardInset = 6;
@@ -425,7 +434,7 @@ class DiscountRibbon extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(color: BColors.cta, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(20)),
         child: Text('-$percent%', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
       );
 }
@@ -487,7 +496,7 @@ SliverGridDelegate productGridDelegate(BuildContext context, {double? width}) {
     crossAxisCount: columns,
     mainAxisSpacing: spacing,
     crossAxisSpacing: spacing,
-    mainAxisExtent: (width - kGridPadding * 2 - spacing * (columns - 1)) / columns + 100, // inset image (w - 12) + 6 top + text block
+    mainAxisExtent: (width - kGridPadding * 2 - spacing * (columns - 1)) / columns + 124, // inset image (w - 12) + 6 top + text block
   );
 }
 
@@ -719,16 +728,28 @@ class Panel extends StatelessWidget {
   Widget build(BuildContext context) => Container(color: BColors.surface, padding: padding, margin: margin, child: child);
 }
 
-void showToast(BuildContext context, String message, {bool error = false, SnackBarAction? action}) {
+void showToast(BuildContext context, String message, {bool error = false, SnackBarAction? action, IconData? icon}) {
   final messenger = ScaffoldMessenger.of(context);
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(SnackBar(
-    content: Text(message),
+    content: Row(children: [
+      Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), shape: BoxShape.circle),
+        child: Icon(icon ?? (error ? Icons.error_outline_rounded : Icons.check_rounded), size: 17, color: error ? Colors.white : const Color(0xFF86EFAC)),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: Text(message, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.3))),
+    ]),
     behavior: SnackBarBehavior.floating,
+    margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+    padding: EdgeInsets.fromLTRB(14, 12, action != null ? 6 : 14, 12),
+    elevation: 6,
     backgroundColor: error ? BColors.error : BColors.ink,
-    duration: Duration(milliseconds: action != null ? 4000 : 2200),
+    duration: Duration(milliseconds: action != null ? 4000 : 2400),
     action: action,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(BRadius.md)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
   ));
 }
 

@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../buyer_store.dart';
 
-/// Buyer bottom navigation: a floating deep-teal pill with icon-only tabs.
-/// The selected tab sits in a lighter circle and swaps to its filled icon.
+/// Buyer bottom navigation: a floating white pill with icon-only tabs and
+/// Home in the middle. The selected tab's outline icon turns teal (no circle).
 ///
-/// 0 Home · 1 Orders · 2 Cart · 3 Chat · 4 Account.
+/// Left to right: Orders · Cart · Home · Chat · Account
+/// (shell tab indices 1 · 2 · 0 · 3 · 4).
 ///
 /// Hosted with `Scaffold.extendBody: true`, so tab bodies receive the bar's
 /// height in `MediaQuery.padding.bottom` and pad themselves past it.
@@ -16,7 +17,7 @@ class BuyerNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  static const Color _bar = Color(0xFF0F5F5A);
+  static const Color _teal = Color(0xFF0D9488);
   static const double _barHeight = 66;
 
   void _handleTap(int index) {
@@ -34,16 +35,17 @@ class BuyerNavBar extends StatelessWidget {
         height: _barHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: _bar,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(34),
-          boxShadow: [BoxShadow(color: _bar.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 10))],
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8))],
         ),
         child: ListenableBuilder(
           listenable: store,
           builder: (context, _) => Row(children: [
-            _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home', selected: currentIndex == 0, onTap: () => _handleTap(0)),
             _NavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Orders', selected: currentIndex == 1, onTap: () => _handleTap(1)),
             _NavItem(icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart_rounded, label: 'Cart', selected: currentIndex == 2, badgeCount: store.cartCount, onTap: () => _handleTap(2)),
+            _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home', selected: currentIndex == 0, onTap: () => _handleTap(0)),
             _NavItem(icon: Icons.chat_bubble_outline_rounded, activeIcon: Icons.chat_bubble_rounded, label: 'Chat', selected: currentIndex == 3, badgeCount: store.chatUnread, onTap: () => _handleTap(3)),
             _NavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Account', selected: currentIndex == 4, onTap: () => _handleTap(4)),
           ]),
@@ -78,18 +80,10 @@ class _NavItem extends StatelessWidget {
             onTap: onTap,
             child: Center(
               child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
+                SizedBox(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? Colors.white.withValues(alpha: 0.2) : Colors.transparent),
-                  child: AnimatedScale(
-                    scale: selected ? 1.08 : 1,
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutBack,
-                    child: Icon(selected ? activeIcon : icon, size: 24, color: selected ? Colors.white : Colors.white.withValues(alpha: 0.65)),
-                  ),
+                  child: Icon(icon, size: 26, color: selected ? BuyerNavBar._teal : const Color(0xFF94A3B8)),
                 ),
                 if (badgeCount > 0)
                   Positioned(
@@ -98,7 +92,7 @@ class _NavItem extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       constraints: const BoxConstraints(minWidth: 16),
-                      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(20), border: Border.all(color: BuyerNavBar._bar, width: 1.5)),
+                      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white, width: 1.5)),
                       child: Text(badgeCount > 9 ? '9+' : '$badgeCount', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, height: 1.3)),
                     ),
                   ),

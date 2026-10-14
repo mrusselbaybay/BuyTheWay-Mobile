@@ -8,6 +8,7 @@ import '../buyer_store.dart';
 import '../buyer_theme.dart';
 import '../cart/cart_screen.dart';
 import '../catalog/product_list_screen.dart';
+import '../catalog/store_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../widgets/buyer_widgets.dart';
 import 'settings_kit.dart';
@@ -515,7 +516,7 @@ class _VoucherTicket extends StatelessWidget {
       final category = coupon.categories.length == 1 ? coupon.categories.first : null;
       nav.push(MaterialPageRoute(builder: (_) => ProductListScreen(title: category ?? 'BuyTheWay deals', category: category)));
     } else if (coupon.sellerId != null) {
-      nav.push(MaterialPageRoute(builder: (_) => ProductListScreen(title: coupon.shopName ?? 'Shop', sellerId: coupon.sellerId)));
+      nav.push(MaterialPageRoute(builder: (_) => StoreScreen(storeId: coupon.sellerId!, name: coupon.shopName)));
     }
   }
 

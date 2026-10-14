@@ -107,6 +107,16 @@ String peso(num value) {
   return '${negative ? '-' : ''}₱$buffer.${parts[1]}';
 }
 
+/// [peso] with the cents rendered smaller.
+Widget pesoText(num value, {required TextStyle style, bool negative = false}) {
+  final full = '${negative ? '-' : ''}${peso(value)}';
+  final dot = full.lastIndexOf('.');
+  return Text.rich(TextSpan(style: style, children: [
+    TextSpan(text: full.substring(0, dot)),
+    TextSpan(text: full.substring(dot), style: TextStyle(fontSize: (style.fontSize ?? 14) * 0.72)),
+  ]));
+}
+
 /// `₱1,299` for whole amounts, `₱1,299.50` otherwise — listing cards.
 String pesoCompact(num value) {
   final full = peso(value);

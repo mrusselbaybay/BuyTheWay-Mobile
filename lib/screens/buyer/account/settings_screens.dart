@@ -8,7 +8,7 @@ import '../../driver/driver_theme.dart';
 import '../../driver/settings/driver_change_password_sheet.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../buyer_store.dart';
-import '../catalog/product_list_screen.dart';
+import '../catalog/store_screen.dart';
 import '../orders/orders_screen.dart';
 import '../widgets/buyer_widgets.dart';
 import 'profile_screen.dart';
@@ -505,9 +505,7 @@ class _BuyerFollowingScreenState extends State<BuyerFollowingScreen> {
                     await Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => ProductListScreen(
-                                title: '${store['name'] ?? 'Store'}',
-                                sellerId: '${store['id']}')));
+                            builder: (_) => StoreScreen(storeId: '${store['id']}', name: '${store['name'] ?? 'Store'}', logo: store['logo'] as String?)));
                     if (mounted) _load(reset: true);
                   },
                 ),
