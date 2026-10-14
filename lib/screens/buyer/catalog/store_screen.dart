@@ -193,7 +193,7 @@ class _StoreScreenState extends State<StoreScreen> {
       useSafeArea: true,
       backgroundColor: BColors.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => _ReportSheet(storeId: widget.storeId, name: _name),
+      builder: (_) => ReportSheet(targetId: widget.storeId, name: _name),
     );
     if (sent == true && mounted) {
       await showSuccessPopup(context, title: 'Report submitted', message: 'Thanks — our team will review it. You can follow it in Help & Support → My Reports.');
@@ -755,17 +755,28 @@ const _reportReasons = [
   ('customer_service', 'Customer Service and Communication'),
 ];
 
-class _ReportSheet extends StatefulWidget {
-  const _ReportSheet({required this.storeId, required this.name});
+const _productReportReasons = [
+  ('prohibited_items', 'Prohibited (Banned) Items'),
+  ('counterfeit_copyright', 'Counterfeits and Copyright'),
+  ('offensive_items', 'Offensive or Potentially Offensive Items'),
+  ('fraudulent_listing', 'Fraudulent Listings (illegal seller demands, etc.)'),
+  ('off_platform_transactions', 'Directing Transactions Outside BuyTheWay'),
+  ('others', 'Others'),
+];
 
-  final String storeId;
+/// Report a shop, or a product when [product] is true.
+class ReportSheet extends StatefulWidget {
+  const ReportSheet({super.key, required this.targetId, required this.name, this.product = false});
+
+  final String targetId;
   final String name;
+  final bool product;
 
   @override
-  State<_ReportSheet> createState() => _ReportSheetState();
+  State<ReportSheet> createState() => _ReportSheetState();
 }
 
-class _ReportSheetState extends State<_ReportSheet> {
+class _ReportSheetState extends State<ReportSheet> {
   final store = BuyerStore.instance;
   final details = TextEditingController();
   String? reason;
@@ -821,7 +832,9 @@ class _ReportSheetState extends State<_ReportSheet> {
     });
     try {
       final paths = await Future.wait(evidence.map((e) => store.api.uploadReportEvidence(e.$2, e.$1)));
-      await store.api.reportStore(widget.storeId, reason: reason!, details: details.text.trim(), anonymous: anonymous, evidence: paths);
+      widget.product
+          ? await store.api.reportProduct(widget.targetId, reason: reason!, details: details.text.trim(), anonymous: anonymous, evidence: paths)
+          : await store.api.reportStore(widget.targetId, reason: reason!, details: details.text.trim(), anonymous: anonymous, evidence: paths);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -863,7 +876,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                     error = null;
                   }),
                   child: Column(children: [
-                    for (final (key, label) in _reportReasons) RadioListTile<String>(value: key, dense: true, contentPadding: EdgeInsets.zero, activeColor: BColors.brand, title: Text(label, style: const TextStyle(fontSize: 14))),
+                    for (final (key, label) in (widget.product ? _productReportReasons : _reportReasons)) RadioListTile<String>(value: key, dense: true, contentPadding: EdgeInsets.zero, activeColor: BColors.brand, title: Text(label, style: const TextStyle(fontSize: 14))),
                   ]),
                 ),
                 const SizedBox(height: 8),

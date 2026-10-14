@@ -9,7 +9,9 @@ import '../chat/chat_thread_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../widgets/buyer_widgets.dart';
 import 'order_actions.dart';
+import '../widgets/success_popup.dart';
 import 'parcel_tracking.dart';
+import 'report_delivered_sheet.dart';
 import 'return_request_screen.dart';
 
 /// Order details, in three moods that follow the order:
@@ -28,6 +30,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final store = BuyerStore.instance;
   late Order order = widget.order;
   bool _busy = false;
+  final Set<String> _reportedItemIds = {};
 
   @override
   void initState() {
@@ -52,6 +55,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   /// Only after the buyer confirmed receipt, one open request per item —
   /// same gate as the web OrderDetails page / ReturnController.
+  /// Web `canReportDeliveredOrder`: delivered but receipt not yet confirmed.
+  bool _canReport(OrderItem item) => order.status == OrderStatus.delivered && order.receivedAt == null && item.productId != null && !_reportedItemIds.contains(item.id);
+
+  Future<void> _reportItem(OrderItem item) async {
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: BColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => ReportDeliveredSheet(orderNumber: order.number, productId: item.productId!, productName: item.name),
+    );
+    if (sent == true && mounted) {
+      setState(() => _reportedItemIds.add(item.id));
+      await showSuccessPopup(context, title: 'Report submitted', message: 'Thanks — our team will review it. You can follow it in Help & Support → My Reports.');
+    }
+  }
+
   bool _canReturn(OrderItem item) => order.status == OrderStatus.delivered && order.receivedAt != null && item.returnStatus == null;
 
   StatusEvent? get _latest => order.history.isEmpty ? null : order.history.reduce((a, b) => (b.at?.isAfter(a.at ?? DateTime(0)) ?? false) ? b : a);
@@ -562,6 +583,10 @@ class _ItemBlock extends StatelessWidget {
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           if (state._delivered) ...[
+            if (state._canReport(item)) ...[
+              _FlagButton(onTap: () => state._reportItem(item)),
+              const SizedBox(width: 8),
+            ],
             _ItemPill(label: 'Request refund', onTap: state._canReturn(item) ? () => state._requestReturn(item) : null),
             const SizedBox(width: 8),
           ],
@@ -574,6 +599,27 @@ class _ItemBlock extends StatelessWidget {
       ],
     ]);
   }
+}
+
+/// Report this delivered product (flag, left of "Request refund").
+class _FlagButton extends StatelessWidget {
+  const _FlagButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: 'Report this delivered product',
+        child: Material(
+          color: BColors.background,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: const SizedBox(width: 40, height: 40, child: Icon(Icons.flag_outlined, size: 20, color: BColors.error)),
+          ),
+        ),
+      );
 }
 
 /// Item-level action; a null [onTap] renders it greyed out (e.g. refund

@@ -160,6 +160,30 @@ class BuyerApiService {
       _send('POST', '/buyer/reports',
           body: {'target_type': 'store', 'target_id': storeId, 'reason': reason, 'details': details, 'anonymous': anonymous, 'evidence': evidence});
 
+  /// Reports a product listing (reason is one of the server's product report keys).
+  Future<void> reportProduct(String productId,
+          {required String reason, required String details, bool anonymous = false, List<String> evidence = const []}) =>
+      _send('POST', '/buyer/reports',
+          body: {'target_type': 'product', 'target_id': productId, 'reason': reason, 'details': details, 'anonymous': anonymous, 'evidence': evidence});
+
+  /// Reports a delivered (not yet received) item of an order. Evidence paths
+  /// come from [uploadReportEvidence]; which ones are required depends on the issue.
+  Future<void> reportDeliveredOrder(String orderNumber,
+          {required String productId,
+          required String issueType,
+          required String details,
+          String? packagePhoto,
+          List<String> contentsPhotos = const [],
+          List<String> evidence = const []}) =>
+      _send('POST', '/buyer/orders/${Uri.encodeComponent(orderNumber)}/reports', body: {
+        'product_id': productId,
+        'issue_type': issueType,
+        'details': details,
+        if (packagePhoto != null) 'package_photo': packagePhoto,
+        if (contentsPhotos.isNotEmpty) 'contents_photos': contentsPhotos,
+        if (evidence.isNotEmpty) 'evidence': evidence,
+      });
+
   /// Stages one report evidence file; pass the returned paths to [reportStore].
   Future<String> uploadReportEvidence(List<int> bytes, String fileName) async {
     final body = await _multipart('/buyer/reports/evidence', 'file', bytes, fileName);

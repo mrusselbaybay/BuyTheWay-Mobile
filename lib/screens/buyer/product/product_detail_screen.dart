@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../services/buyer_api_service.dart';
 import '../buyer_models.dart';
+import '../buyer_shell.dart';
 import '../buyer_store.dart';
 import '../buyer_theme.dart';
 import '../cart/cart_screen.dart';
 import '../catalog/store_screen.dart';
-import '../catalog/search_screen.dart';
 import '../checkout/checkout_screen.dart';
 import '../widgets/buyer_widgets.dart';
 import '../chat/chat_thread_screen.dart';
 import '../widgets/deal_ticket.dart';
+import '../widgets/success_popup.dart';
 import 'reviews_screen.dart';
 import 'variant_sheet.dart';
 
@@ -60,6 +62,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final _sectionKeys = List.generate(_tabs.length, (_) => GlobalKey());
   int tab = 0;
   bool _jumping = false;
+  bool _solid = false; // header turns from floating buttons into a solid bar + tabs
 
   @override
   void initState() {
@@ -77,11 +80,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // ---------------- Tabs ----------------
 
+  double get _heroHeight => (MediaQuery.sizeOf(context).width * 0.95).clamp(280.0, 420.0);
+
+  /// Status bar + button row + tab strip: what the solid header covers.
+  double get _overlayHeight => MediaQuery.paddingOf(context).top + 56 + 46;
+
   void _onScroll() {
+    final solid = _scroll.hasClients && _scroll.offset > _heroHeight - _overlayHeight;
+    if (solid != _solid) setState(() => _solid = solid);
     if (_jumping) return;
     final viewport = _viewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (viewport == null || !viewport.attached) return;
-    final threshold = viewport.localToGlobal(Offset.zero).dy + 24;
+    final threshold = viewport.localToGlobal(Offset.zero).dy + _overlayHeight + 24;
     var active = 0;
     for (var i = 0; i < _sectionKeys.length; i++) {
       final box = _sectionKeys[i].currentContext?.findRenderObject() as RenderBox?;
@@ -97,7 +107,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final box = _sectionKeys[index].currentContext?.findRenderObject() as RenderBox?;
     if (viewport == null || box == null || !_scroll.hasClients) return;
     final dy = box.localToGlobal(Offset.zero).dy - viewport.localToGlobal(Offset.zero).dy;
-    final target = (_scroll.offset + dy).clamp(0.0, _scroll.position.maxScrollExtent);
+    final target = (_scroll.offset + dy - _overlayHeight + 1).clamp(0.0, _scroll.position.maxScrollExtent);
     setState(() {
       tab = index;
       _jumping = true;
@@ -269,6 +279,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _openCart() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CartScreen(standalone: true)));
 
+  Future<void> _share() async {
+    await Clipboard.setData(ClipboardData(text: '${BuyerApiService.origin}/buyer/dashboard?product=${widget.productId}'));
+    if (mounted) showToast(context, 'Product link copied');
+  }
+
+  Future<void> _report(Product p) async {
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: BColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => ReportSheet(targetId: p.id, name: p.name, product: true),
+    );
+    if (sent == true && mounted) {
+      await showSuccessPopup(context, title: 'Report submitted', message: 'Thanks — our team will review it. You can follow it in Help & Support → My Reports.');
+    }
+  }
+
   void _openShop(Product p) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StoreScreen(storeId: p.sellerId!, name: p.seller)));
 
   Future<void> _toggleFavorite() async {
@@ -321,36 +350,49 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: BColors.background,
-      body: Column(children: [
-        _TopBar(product: p, onBack: () => Navigator.pop(context), onSearch: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())), onFavorite: _toggleFavorite, onCart: _openCart),
-        _TabStrip(index: tab, onTap: _goTo),
-        Expanded(
-          child: SingleChildScrollView(
-            key: _viewportKey,
-            controller: _scroll,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              KeyedSubtree(key: _sectionKeys[0], child: _overview(p)),
-              KeyedSubtree(key: _sectionKeys[1], child: _reviewsSection(p)),
-              _storeReviewsCard(p),
-              _shopCard(p),
-              KeyedSubtree(key: _sectionKeys[2], child: _descriptionSection(p)),
-              KeyedSubtree(key: _sectionKeys[3], child: _relatedSection()),
-              const SizedBox(height: 16),
-            ]),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: BColors.background,
+          body: Stack(children: [
+            SingleChildScrollView(
+              key: _viewportKey,
+              controller: _scroll,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                KeyedSubtree(key: _sectionKeys[0], child: _overview(p)),
+                KeyedSubtree(key: _sectionKeys[1], child: _reviewsSection(p)),
+                _storeReviewsCard(p),
+                _shopCard(p),
+                KeyedSubtree(key: _sectionKeys[2], child: _descriptionSection(p)),
+                KeyedSubtree(key: _sectionKeys[3], child: _relatedSection()),
+                const SizedBox(height: 16),
+              ]),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _HeaderBar(
+                solid: _solid,
+                tab: tab,
+                onTab: _goTo,
+                onBack: () => Navigator.pop(context),
+                onShare: _share,
+                onCart: _openCart,
+                onHome: () => BuyerShell.goTo(context, 0),
+                onReport: () => _report(p),
+              ),
+            ),
+          ]),
+          bottomNavigationBar: _BottomBar(
+            price: p.priceRange.$1,
+            soldOut: p.isSoldOut,
+            onShop: p.sellerId == null ? null : () => _openShop(p),
+            onChat: p.sellerId == null ? null : () => openSellerChat(context, sellerId: p.sellerId!, productId: p.id),
+            onAddToCart: _addToCart,
+            onBuyNow: _buyNow,
           ),
-        ),
-      ]),
-      bottomNavigationBar: _BottomBar(
-        price: p.priceRange.$1,
-        soldOut: p.isSoldOut,
-        onShop: p.sellerId == null ? null : () => _openShop(p),
-        onChat: p.sellerId == null ? null : () => openSellerChat(context, sellerId: p.sellerId!, productId: p.id),
-        onAddToCart: _addToCart,
-        onBuyNow: _buyNow,
-      ),
-    );
+        ));
   }
 
   Widget _card({required Widget child, EdgeInsets padding = const EdgeInsets.all(14), EdgeInsets margin = const EdgeInsets.fromLTRB(12, 0, 12, 10)}) => Container(
@@ -364,7 +406,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ---- Overview: gallery, price + title, delivery / options, deals ----
 
   Widget _overview(Product p) {
-    final width = MediaQuery.sizeOf(context).width;
     final images = p.images.isNotEmpty ? p.images : [if (p.image != null) p.image!];
     final (low, high) = p.priceRange;
     final stock = p.availableStock;
@@ -373,25 +414,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
-        margin: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        height: (width * 0.72).clamp(220.0, 340.0),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: BColors.border)),
+        margin: const EdgeInsets.only(bottom: 10),
+        height: _heroHeight,
+        color: Colors.white,
         child: Stack(fit: StackFit.expand, children: [
           images.isEmpty
               ? NetImage(null, fallbackIcon: categoryIcon(p.category))
               : PageView.builder(
                   itemCount: images.length,
                   onPageChanged: (i) => setState(() => galleryIndex = i),
-                  itemBuilder: (_, i) => Padding(padding: const EdgeInsets.all(6), child: NetImage(images[i], fit: BoxFit.contain, fallbackIcon: categoryIcon(p.category))),
+                  itemBuilder: (_, i) =>
+                      Padding(padding: EdgeInsets.fromLTRB(0, MediaQuery.paddingOf(context).top + 40, 0, 0), child: NetImage(images[i], fit: BoxFit.contain, fallbackIcon: categoryIcon(p.category))),
                 ),
           if (images.length > 1)
             Positioned(
-              right: 12,
-              bottom: 12,
+              right: 14,
+              bottom: 14,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(14)),
                 child: Text('${galleryIndex + 1}/${images.length}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
               ),
             ),
@@ -399,35 +440,59 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       _card(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Flexible(child: PriceText(low, maxPrice: high > low ? high : null, oldPrice: p.oldPrice, size: 24)),
-            if (p.discountPercent > 0) ...[const SizedBox(width: 8), DiscountBadge(p.discountPercent)],
+        child: Stack(clipBehavior: Clip.none, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Flexible(child: PriceText(low, maxPrice: high > low ? high : null, oldPrice: p.oldPrice, size: 24)),
+              if (p.discountPercent > 0) ...[const SizedBox(width: 8), DiscountBadge(p.discountPercent)],
+            ]),
+            const SizedBox(height: 10),
+            Text(p.name, style: const TextStyle(fontSize: 16.5, height: 1.35, fontWeight: FontWeight.w700, color: BColors.ink)),
+            const SizedBox(height: 10),
+            Row(children: [
+              if (p.rating != null && p.reviewCount > 0) ...[
+                const Icon(Icons.star_rounded, size: 18, color: BColors.star),
+                const SizedBox(width: 3),
+                Text(p.rating!.toStringAsFixed(1), style: const TextStyle(fontSize: 13.5, color: BColors.ink, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 4),
+                Text('(${p.reviewCount})', style: const TextStyle(fontSize: 13, color: BColors.brand, fontWeight: FontWeight.w600)),
+              ] else
+                const Text('No ratings yet', style: BText.small),
+              if (p.soldCount > 0) ...[
+                Container(width: 1, height: 12, margin: const EdgeInsets.symmetric(horizontal: 9), color: BColors.border),
+                Text(_soldLabel(p.soldCount), style: const TextStyle(fontSize: 13, color: BColors.ink, fontWeight: FontWeight.w600)),
+              ],
+              const Spacer(),
+              if (stock != null && stock > 0 && stock <= 10)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(999)),
+                  child: Text('Only $stock left', style: const TextStyle(fontSize: 11.5, color: BColors.brandDark, fontWeight: FontWeight.w800)),
+                ),
+            ]),
           ]),
-          const SizedBox(height: 10),
-          Text(p.name, style: const TextStyle(fontSize: 16.5, height: 1.35, fontWeight: FontWeight.w700, color: BColors.ink)),
-          const SizedBox(height: 10),
-          Row(children: [
-            if (p.rating != null && p.reviewCount > 0) ...[
-              const Icon(Icons.star_rounded, size: 18, color: BColors.star),
-              const SizedBox(width: 3),
-              Text(p.rating!.toStringAsFixed(1), style: const TextStyle(fontSize: 13.5, color: BColors.ink, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 4),
-              Text('(${p.reviewCount})', style: const TextStyle(fontSize: 13, color: BColors.brand, fontWeight: FontWeight.w600)),
-            ] else
-              const Text('No ratings yet', style: BText.small),
-            if (p.soldCount > 0) ...[
-              Container(width: 1, height: 12, margin: const EdgeInsets.symmetric(horizontal: 9), color: BColors.border),
-              Text(_soldLabel(p.soldCount), style: const TextStyle(fontSize: 13, color: BColors.ink, fontWeight: FontWeight.w600)),
-            ],
-            const Spacer(),
-            if (stock != null && stock > 0 && stock <= 10)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(999)),
-                child: Text('Only $stock left', style: const TextStyle(fontSize: 11.5, color: BColors.brandDark, fontWeight: FontWeight.w800)),
-              ),
-          ]),
+          Positioned(
+            top: -8,
+            right: -6,
+            child: ListenableBuilder(
+              listenable: store,
+              builder: (_, __) {
+                final fav = store.isFavorite(p.id);
+                return InkResponse(
+                  onTap: _toggleFavorite,
+                  radius: 26,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+                      child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded, key: ValueKey(fav), size: 26, color: fav ? const Color(0xFFE11D48) : BColors.muted),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ]),
       ),
       _card(
@@ -455,7 +520,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 38, height: 38, child: NetImage(v.image, fallbackIcon: categoryIcon(p.category)))),
                   const SizedBox(width: 6),
                 ],
-                Expanded(child: Text('Select ${p.options.map((o) => o.name).join(', ')} · ${p.variants.where((v) => v.isActive).length} options', maxLines: 2, overflow: TextOverflow.ellipsis, style: BText.small)),
+                Expanded(
+                    child: Text('Select ${p.options.map((o) => o.name).join(', ')} · ${p.variants.where((v) => v.isActive).length} options',
+                        maxLines: 2, overflow: TextOverflow.ellipsis, style: BText.small)),
               ]),
             ),
           ],
@@ -475,7 +542,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: coupons.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => DealTicket(coupon: coupons[i], claimed: claimedCoupons.contains(coupons[i].id), claiming: claimingCoupons.contains(coupons[i].id), onClaim: () => _claim(coupons[i])),
+            itemBuilder: (_, i) =>
+                DealTicket(coupon: coupons[i], claimed: claimedCoupons.contains(coupons[i].id), claiming: claimingCoupons.contains(coupons[i].id), onClaim: () => _claim(coupons[i])),
           ),
         ),
         const SizedBox(height: 14),
@@ -519,7 +587,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
         if (topReviews.isEmpty)
-          const Padding(padding: EdgeInsets.fromLTRB(14, 0, 14, 16), child: Align(alignment: Alignment.centerLeft, child: Text('No reviews yet. Be the first after your purchase.', style: BText.small)))
+          const Padding(
+              padding: EdgeInsets.fromLTRB(14, 0, 14, 16), child: Align(alignment: Alignment.centerLeft, child: Text('No reviews yet. Be the first after your purchase.', style: BText.small)))
         else
           for (final r in topReviews) Column(children: [const Divider(height: 1, color: BColors.divider), ReviewTile(review: r)]),
       ]),
@@ -732,74 +801,111 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 // Pieces
 // ============================================================
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.product, required this.onBack, required this.onSearch, required this.onFavorite, required this.onCart});
+/// Floats over the hero image as translucent grey circles; once the image
+/// scrolls away it becomes a solid bar with the section tabs.
+class _HeaderBar extends StatelessWidget {
+  const _HeaderBar({
+    required this.solid,
+    required this.tab,
+    required this.onTab,
+    required this.onBack,
+    required this.onShare,
+    required this.onCart,
+    required this.onHome,
+    required this.onReport,
+  });
 
-  final Product product;
+  final bool solid;
+  final int tab;
+  final ValueChanged<int> onTab;
   final VoidCallback onBack;
-  final VoidCallback onSearch;
-  final VoidCallback onFavorite;
+  final VoidCallback onShare;
   final VoidCallback onCart;
+  final VoidCallback onHome;
+  final VoidCallback onReport;
+
+  Widget _circle(IconData icon, {String? tooltip, VoidCallback? onTap, Widget? child}) {
+    final body = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: solid ? BColors.background : Colors.black.withValues(alpha: 0.32)),
+      child: child ?? Icon(icon, size: 21, color: solid ? BColors.ink : Colors.white),
+    );
+    return Tooltip(message: tooltip ?? '', child: onTap == null ? body : GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: body));
+  }
 
   @override
   Widget build(BuildContext context) {
     final store = BuyerStore.instance;
-    return Container(
-      color: BColors.surface,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 56,
-          child: Row(children: [
-            IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: BColors.ink)),
-            Expanded(
-              child: InkWell(
-                onTap: onSearch,
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(22)),
-                  child: Row(children: [
-                    const Icon(Icons.search_rounded, size: 20, color: BColors.brand),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: BColors.muted))),
-                  ]),
-                ),
-              ),
-            ),
-            ListenableBuilder(
-              listenable: store,
-              builder: (_, __) {
-                final fav = store.isFavorite(product.id);
-                return IconButton(
-                  tooltip: fav ? 'Remove from wishlist' : 'Add to wishlist',
-                  onPressed: onFavorite,
-                  icon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
-                    child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded, key: ValueKey(fav), color: fav ? const Color(0xFFE11D48) : BColors.ink),
-                  ),
-                );
-              },
-            ),
-            ListenableBuilder(
-              listenable: store,
-              builder: (_, __) => IconButton(
-                tooltip: 'Cart',
-                onPressed: onCart,
-                icon: Badge(
-                  isLabelVisible: store.cartCount > 0,
-                  label: Text(store.cartCount > 99 ? '99+' : '${store.cartCount}'),
-                  backgroundColor: const Color(0xFFDC2626),
-                  child: const Icon(Icons.shopping_cart_outlined, color: BColors.ink),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-          ]),
-        ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: solid ? BColors.surface : Colors.transparent,
+        border: solid ? const Border(bottom: BorderSide(color: BColors.border)) : null,
       ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(children: [
+                _circle(Icons.arrow_back_rounded, tooltip: 'Back', onTap: onBack),
+                const Spacer(),
+                _circle(Icons.share_outlined, tooltip: 'Share', onTap: onShare),
+                const SizedBox(width: 10),
+                ListenableBuilder(
+                  listenable: store,
+                  builder: (_, __) => _circle(
+                    Icons.shopping_cart_outlined,
+                    tooltip: 'Cart',
+                    onTap: onCart,
+                    child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+                      Icon(Icons.shopping_cart_outlined, size: 21, color: solid ? BColors.ink : Colors.white),
+                      if (store.cartCount > 0)
+                        Positioned(
+                          top: -9,
+                          right: -9,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            constraints: const BoxConstraints(minWidth: 18),
+                            decoration: BoxDecoration(color: const Color(0xFFDC2626), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
+                            child: Text(store.cartCount > 99 ? '99+' : '${store.cartCount}',
+                                textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w800, height: 1.3)),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  offset: const Offset(0, 46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  onSelected: (v) => v == 'home' ? onHome() : onReport(),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'home',
+                      child: Row(children: [Icon(Icons.home_outlined, size: 20, color: BColors.ink), SizedBox(width: 12), Text('Return to home page')]),
+                    ),
+                    PopupMenuItem(
+                      value: 'report',
+                      child: Row(children: [Icon(Icons.flag_outlined, size: 20, color: BColors.error), SizedBox(width: 12), Text('Report this product', style: TextStyle(color: BColors.error))]),
+                    ),
+                  ],
+                  child: _circle(Icons.more_vert_rounded),
+                ),
+              ]),
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.topCenter,
+          child: solid ? _TabStrip(index: tab, onTap: onTab) : const SizedBox(width: double.infinity),
+        ),
+      ]),
     );
   }
 }
@@ -825,7 +931,8 @@ class _TabStrip extends StatelessWidget {
                       child: Text(_tabs[i], style: TextStyle(fontSize: 14.5, fontWeight: i == index ? FontWeight.w800 : FontWeight.w600, color: i == index ? BColors.brand : BColors.muted)),
                     ),
                   ),
-                  AnimatedContainer(duration: const Duration(milliseconds: 200), height: 3, width: i == index ? 36 : 0, decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(3))),
+                  AnimatedContainer(
+                      duration: const Duration(milliseconds: 200), height: 3, width: i == index ? 36 : 0, decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(3))),
                 ]),
               ),
             ),
@@ -952,7 +1059,10 @@ class _BottomBar extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: soldOut
-                      ? Container(decoration: BoxDecoration(color: BColors.border, borderRadius: BorderRadius.circular(26)), alignment: Alignment.center, child: const Text('Sold Out', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BColors.muted)))
+                      ? Container(
+                          decoration: BoxDecoration(color: BColors.border, borderRadius: BorderRadius.circular(26)),
+                          alignment: Alignment.center,
+                          child: const Text('Sold Out', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: BColors.muted)))
                       : Material(
                           color: BColors.brand,
                           borderRadius: BorderRadius.circular(26),
