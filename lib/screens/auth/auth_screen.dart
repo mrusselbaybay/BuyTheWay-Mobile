@@ -1134,7 +1134,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleRoleBasedNavigation(String role) {
+    FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_isPartnerPortal) {
         // Drop the buyer portal sitting under this one so back can't return to it.
         final dest = role == 'logistics' || role == 'logistics_admin'

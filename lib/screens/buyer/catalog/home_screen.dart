@@ -51,20 +51,20 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: BColors.background,
-        body: ListenableBuilder(
-          listenable: pager,
-          builder: (context, _) {
-            final deals = pager.products.where((p) => p.discountPercent > 0 && !p.isSoldOut).take(12).toList();
-            return RefreshIndicator(
-              color: BColors.brand,
-              edgeOffset: media.padding.top + _HomeHeader.collapsedHeight,
-              onRefresh: _refresh,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (n) => handleNearEnd(n, pager.loadMore),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPersistentHeader(pinned: true, delegate: _HomeHeader(topPadding: media.padding.top)),
+        body: Column(children: [
+          const _HomeHeader(),
+          Expanded(child: ListenableBuilder(
+            listenable: pager,
+            builder: (context, _) {
+              final deals = pager.products.where((p) => p.discountPercent > 0 && !p.isSoldOut).take(12).toList();
+              return RefreshIndicator(
+                color: BColors.brand,
+                onRefresh: _refresh,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (n) => handleNearEnd(n, pager.loadMore),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
                     const SliverToBoxAdapter(child: _ActiveOrderCard()),
                     const SliverToBoxAdapter(child: _HeroBanner()),
                     const SliverToBoxAdapter(child: _CategoryRail()),
@@ -85,12 +85,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       ),
                     ),
                     SliverToBoxAdapter(child: SizedBox(height: media.padding.bottom + 8)),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          )),
+        ]),
       ),
     );
   }
@@ -100,36 +101,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 // Header
 // ============================================================
 
-/// Pinned top bar: pill search + Cart and Messages shortcuts.
-class _HomeHeader extends SliverPersistentHeaderDelegate {
-  _HomeHeader({required this.topPadding});
-
-  static const double collapsedHeight = 68;
-
-  final double topPadding;
+/// Fixed top bar: search and the wishlist shortcut.
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader();
 
   @override
-  double get maxExtent => topPadding + collapsedHeight;
-
-  @override
-  double get minExtent => maxExtent;
-
-  @override
-  bool shouldRebuild(covariant _HomeHeader oldDelegate) => oldDelegate.topPadding != topPadding;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(BuildContext context) {
     final store = BuyerStore.instance;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
         border: const Border(bottom: BorderSide(color: BColors.border)),
-        boxShadow: overlapsContent || shrinkOffset > 0
-            ? [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))]
-            : null,
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, topPadding + 10, 12, 10),
+        padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 10, 12, 10),
         child: Row(children: [
           Expanded(
             child: SearchBox(
@@ -370,8 +356,8 @@ class _HeroBanner extends StatelessWidget {
                       style: TextStyle(color: Colors.white, fontSize: 18, height: 1.25, fontWeight: FontWeight.w800, letterSpacing: -0.2),
                     ),
                     const Spacer(),
-                    const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('Browse categories', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                    const Row(children: [
+                      Flexible(child: Text('Browse categories', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700))),
                       SizedBox(width: 4),
                       Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 17),
                     ]),

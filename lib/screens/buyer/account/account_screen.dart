@@ -13,6 +13,8 @@ import 'addresses_screen.dart';
 import 'my_reviews_screen.dart';
 import 'payment_methods_screen.dart';
 import 'profile_screen.dart';
+import 'settings_kit.dart';
+import 'settings_screens.dart';
 import 'vouchers_screen.dart';
 import 'wishlist_screen.dart';
 
@@ -23,7 +25,7 @@ class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   Future<void> _signOut(BuildContext context) async {
-    final ok = await confirmDialog(context, title: 'Log out?', message: 'Your cart stays saved on this device.', confirmLabel: 'Log out', destructive: true);
+    final ok = await confirmDialog(context, title: 'Log out?', message: 'Your cart is saved to your account.', confirmLabel: 'Log out', destructive: true);
     if (!ok || !context.mounted) return;
     final nav = Navigator.of(context);
     await BuyerStore.instance.signOut();
@@ -44,14 +46,7 @@ class AccountScreen extends StatelessWidget {
         final address = store.defaultAddress;
         return Scaffold(
           backgroundColor: DriverColors.background,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 0,
-            foregroundColor: DriverColors.textPrimary,
-            automaticallyImplyLeading: false,
-            title: const Text('Account', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
+          appBar: settingsAppBar('Account', centerTitle: true, backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
           body: RefreshIndicator(
             color: DriverColors.primary,
             onRefresh: () {
@@ -60,18 +55,19 @@ class AccountScreen extends StatelessWidget {
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(16, 18, 16, MediaQuery.paddingOf(context).bottom + 24),
+              padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
               children: [
-                SettingsProfileSummary(
+                _AccountHero(
                   name: name,
                   email: store.email,
-                  status: 'active',
-                  role: 'Buyer',
-                  memberSince: store.profile?.memberSince ?? DateTime.now(),
                   avatarUrl: store.avatarUrl,
+                  memberSince: store.profile?.memberSince,
+                  completeness: store.profile == null ? null : _completeness(store),
                   onTap: () => _push(context, const ProfileScreen()),
                 ),
-                const SizedBox(height: 26),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 _PurchasesCard(
                   toShip: store.countOrders(OrderStatus.toShip),
                   processing: store.countOrders(OrderStatus.processing),
@@ -121,12 +117,20 @@ class AccountScreen extends StatelessWidget {
                   SettingsNavTile(
                     icon: Icons.credit_card_rounded,
                     title: 'Payment Methods',
-                    subtitle: 'Cards and e-wallets',
+                    subtitle: 'Saved methods and checkout options',
                     onTap: () => _push(context, const PaymentMethodsScreen()),
                   ),
+                  SettingsNavTile(icon: Icons.lock_outline_rounded, title: 'Login & Security', subtitle: 'Sign-in and password', onTap: () => _push(context, const BuyerSecurityScreen())),
+                  SettingsNavTile(icon: Icons.notifications_none_rounded, title: 'Notifications', subtitle: 'Email choices and report outcomes', onTap: () => _push(context, const BuyerNotificationsScreen())),
+                  SettingsNavTile(icon: Icons.shield_outlined, title: 'Privacy & Account', subtitle: 'Your data and blocked shops', onTap: () => _push(context, const BuyerPrivacyScreen())),
                 ]),
                 const SizedBox(height: 26),
-                _SupportCard(onCustomerService: () => showToast(context, 'Customer service chat is coming soon.')),
+                const SettingsSectionLabel('Stores & support'),
+                const SizedBox(height: 8),
+                SettingsGroupCard(children: [
+                  SettingsNavTile(icon: Icons.storefront_outlined, title: 'Followed Stores', subtitle: 'Shops you follow', onTap: () => _push(context, const BuyerFollowingScreen())),
+                  SettingsNavTile(icon: Icons.help_outline_rounded, title: 'Help & Support', subtitle: 'Shopping, orders and returns', onTap: () => _push(context, const BuyerHelpScreen())),
+                ]),
                 const SizedBox(height: 26),
                 SettingsGroupCard(children: [
                   SettingsNavTile(
@@ -139,6 +143,8 @@ class AccountScreen extends StatelessWidget {
                 ]),
                 const SizedBox(height: 18),
                 const Center(child: Text('BuyTheWay', style: BText.tiny)),
+                  ]),
+                ),
               ],
             ),
           ),
@@ -233,28 +239,93 @@ class _PurchaseShortcut extends StatelessWidget {
       );
 }
 
-/// "Support" card: title inside the card, rows below.
-class _SupportCard extends StatelessWidget {
-  const _SupportCard({required this.onCustomerService});
 
-  final VoidCallback onCustomerService;
+/// 0..1 — photo plus the five profile details.
+double _completeness(BuyerStore store) {
+  final p = store.profile;
+  if (p == null) return 0;
+  final filled = [
+    store.avatarUrl != null,
+    p.firstName.isNotEmpty,
+    p.lastName.isNotEmpty,
+    (p.contactNo ?? '').isNotEmpty,
+    (p.sex ?? '').isNotEmpty,
+    p.birthday != null,
+  ].where((v) => v).length;
+  return filled / 6;
+}
+
+/// Teal account header: photo, name, email, member-since and a prompt to
+/// finish the profile. Tapping it opens Personal Information.
+class _AccountHero extends StatelessWidget {
+  const _AccountHero({required this.name, required this.email, required this.avatarUrl, required this.memberSince, required this.completeness, required this.onTap});
+
+  final String name;
+  final String email;
+  final String? avatarUrl;
+  final DateTime? memberSince;
+  final double? completeness;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final incomplete = completeness != null && completeness! < 1;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: DriverColors.heroGradient),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Row(children: [
+              Container(
+                width: 70,
+                height: 70,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: DriverColors.primarySurface, border: Border.all(color: Colors.white, width: 3), boxShadow: softShadow(0.2)),
+                child: avatarUrl != null ? NetImage(avatarUrl, fallbackIcon: Icons.person_rounded) : const Icon(Icons.person_rounded, size: 34, color: DriverColors.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.88))),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 6, children: [
+                    if (memberSince != null) _HeroChip(icon: Icons.verified_user_outlined, label: 'Since ${SettingsFormat.dateShort(memberSince!)}'),
+                    if (incomplete) _HeroChip(icon: Icons.edit_note_rounded, label: 'Profile ${(completeness! * 100).round()}% complete'),
+                  ]),
+                ]),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: DriverColors.border)),
-        clipBehavior: Clip.antiAlias,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Text('Support', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
-          ),
-          SettingsNavTile(
-            icon: Icons.headset_mic_outlined,
-            title: 'Customer Service',
-            subtitle: 'Questions about an order or your account',
-            onTap: onCustomerService,
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
         ]),
       );
 }

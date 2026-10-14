@@ -668,13 +668,14 @@ class QtyStepper extends StatelessWidget {
   }
 }
 
-/// Square checkbox in brand color, 44px tap target.
+/// Checkbox in brand color, 44px tap target. [round] draws a check circle.
 class BCheck extends StatelessWidget {
-  const BCheck({super.key, required this.value, required this.onChanged, this.semanticLabel});
+  const BCheck({super.key, required this.value, required this.onChanged, this.semanticLabel, this.round = false});
 
   final bool value;
   final ValueChanged<bool> onChanged;
   final String? semanticLabel;
+  final bool round;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -688,15 +689,16 @@ class BCheck extends StatelessWidget {
             height: 44,
             child: Center(
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                width: 18,
-                height: 18,
+                duration: const Duration(milliseconds: 140),
+                width: round ? 22 : 18,
+                height: round ? 22 : 18,
                 decoration: BoxDecoration(
                   color: value ? BColors.brand : Colors.white,
-                  border: Border.all(color: value ? BColors.brand : BColors.faint, width: 1.4),
-                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: value ? BColors.brand : BColors.faint, width: round ? 1.6 : 1.4),
+                  shape: round ? BoxShape.circle : BoxShape.rectangle,
+                  borderRadius: round ? null : BorderRadius.circular(3),
                 ),
-                child: value ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: value ? Icon(Icons.check_rounded, size: round ? 15 : 14, color: Colors.white) : null,
               ),
             ),
           ),

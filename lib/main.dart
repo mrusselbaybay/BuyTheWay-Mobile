@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'BuyTheWay',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _NoScrollbarBehavior(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -36,4 +37,13 @@ class MyApp extends StatelessWidget {
       },
     );
   }
+}
+
+/// Hides the scrollbars the desktop / web targets draw by default, so every
+/// scrollable looks the same as on a phone.
+class _NoScrollbarBehavior extends MaterialScrollBehavior {
+  const _NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
 }

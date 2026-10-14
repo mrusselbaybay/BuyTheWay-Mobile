@@ -41,6 +41,8 @@ dependencies:
   # In-app document preview (e.g. the courier's resignation letter) instead
   # of handing off to an external browser
   webview_flutter: ^4.13.1
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:

@@ -7,15 +7,12 @@ import '../widgets/buyer_widgets.dart';
 
 const _ratingLabels = ['', 'Terrible', 'Poor', 'Okay', 'Good', 'Amazing'];
 
-/// Write or edit a product rating. Pass [reviewId] to edit an existing one
-/// (otherwise [orderItemId] creates a new review). Resolves true on save.
+/// Write a rating for a delivered order item. Resolves true on save.
 Future<bool> showReviewSheet(
   BuildContext context, {
   required String productName,
-  String? orderItemId,
-  String? reviewId,
+  required String orderItemId,
   int initialRating = 0,
-  String? initialComment,
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -25,22 +22,18 @@ Future<bool> showReviewSheet(
     builder: (_) => _ReviewSheet(
       productName: productName,
       orderItemId: orderItemId,
-      reviewId: reviewId,
       initialRating: initialRating,
-      initialComment: initialComment,
     ),
   );
   return saved ?? false;
 }
 
 class _ReviewSheet extends StatefulWidget {
-  const _ReviewSheet({required this.productName, this.orderItemId, this.reviewId, required this.initialRating, this.initialComment});
+  const _ReviewSheet({required this.productName, required this.orderItemId, required this.initialRating});
 
   final String productName;
-  final String? orderItemId;
-  final String? reviewId;
+  final String orderItemId;
   final int initialRating;
-  final String? initialComment;
 
   @override
   State<_ReviewSheet> createState() => _ReviewSheetState();
@@ -49,7 +42,7 @@ class _ReviewSheet extends StatefulWidget {
 class _ReviewSheetState extends State<_ReviewSheet> {
   final store = BuyerStore.instance;
   late int rating = widget.initialRating;
-  late final comment = TextEditingController(text: widget.initialComment);
+  final comment = TextEditingController();
   bool saving = false;
 
   @override
@@ -62,11 +55,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
     setState(() => saving = true);
     final text = comment.text.trim().isEmpty ? null : comment.text.trim();
     try {
-      if (widget.reviewId != null) {
-        await store.api.updateReview(widget.reviewId!, rating, text);
-      } else {
-        await store.api.createReview(widget.orderItemId!, rating, text);
-      }
+      await store.api.createReview(widget.orderItemId, rating, text);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -83,7 +72,7 @@ class _ReviewSheetState extends State<_ReviewSheet> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.reviewId != null ? 'Edit your rating' : 'Rate this product', style: BText.title),
+            const Text('Rate this product', style: BText.title),
             const SizedBox(height: 4),
             Text(widget.productName, maxLines: 2, overflow: TextOverflow.ellipsis, style: BText.small),
             const SizedBox(height: 16),

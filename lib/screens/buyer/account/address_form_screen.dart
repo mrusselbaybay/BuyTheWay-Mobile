@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../services/api_service.dart';
 import '../buyer_models.dart';
 import '../buyer_store.dart';
+import '../../driver/driver_theme.dart';
 import '../buyer_theme.dart';
 import '../widgets/buyer_widgets.dart';
+import 'address_pin_picker.dart';
+import 'settings_kit.dart';
 
 const _regions = ['Luzon', 'Visayas', 'Mindanao'];
 const _labels = ['Home', 'Work', 'Other'];
@@ -54,6 +58,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   late bool makeDefault = widget.initial?.isDefault ?? store.addresses.isEmpty;
 
   List<_Place> provinces = [];
+  late LatLng? pin = widget.initial?.hasPin == true ? LatLng(widget.initial!.lat!, widget.initial!.lng!) : null;
+  bool pinCleared = false;
   bool saving = false;
   bool showErrors = false;
 
@@ -83,6 +89,67 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     return provinces.where((p) => p.islandGroup == null || p.islandGroup == group).toList();
   }
 
+  /// A pin must never silently point at the old area.
+  void _clearPin() {
+    if (pin != null) pinCleared = true;
+    pin = null;
+  }
+
+  Future<void> _pinOnMap() async {
+    final picked = await showAddressPinPicker(
+      context,
+      initial: pin,
+      street: [houseNo.text.trim(), street.text.trim()].where((e) => e.isNotEmpty).join(' '),
+      barangay: barangay,
+      municipality: city?.name ?? '',
+      province: province?.name ?? '',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        pin = picked;
+        pinCleared = false;
+      });
+    }
+  }
+
+  Widget _pinSection() {
+    final ready = city != null && province != null;
+    final missing = showErrors && pin == null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _heading(Icons.pin_drop_outlined, 'Pin your exact location'),
+      if (pin != null)
+        AddressPinPreview(pin: pin!, onTap: _pinOnMap)
+      else
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: ready ? _pinOnMap : null,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: missing ? DriverColors.error : (ready ? DriverColors.primary : DriverColors.border), width: ready || missing ? 1.4 : 1)),
+              child: Row(children: [
+                IconTile(Icons.map_outlined, size: 40, color: ready ? DriverColors.primary : DriverColors.textSecondary),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(ready ? 'Pin on map' : 'Pin on map (choose your city first)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: ready ? DriverColors.textPrimary : DriverColors.textSecondary)),
+                    const SizedBox(height: 2),
+                    const Text('Required — so the rider finds you without calling.', style: DriverText.caption),
+                  ]),
+                ),
+                if (ready) const Icon(Icons.chevron_right_rounded, color: DriverColors.textSecondary),
+              ]),
+            ),
+          ),
+        ),
+      if (pinCleared && pin == null)
+        const Padding(padding: EdgeInsets.only(top: 8), child: Text('You changed the area, so the old pin was cleared. Pin it again.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: DriverColors.warning))),
+      if (missing) const Padding(padding: EdgeInsets.only(top: 6), child: Text('Pin your exact location on the map.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: DriverColors.error))),
+    ]);
+  }
+
   Future<void> _pickProvince() async {
     final picked = await _pickPlace('Province', () async => _provincesForRegion);
     if (picked == null) return;
@@ -90,6 +157,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
       if (picked.code != province?.code) {
         city = null;
         barangay = '';
+        _clearPin();
       }
       province = picked;
       final group = picked.islandGroup;
@@ -103,7 +171,10 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     final picked = await _pickPlace('City / Municipality', () async => (await _api.getMunicipalities(provinceCode: p.code)).map(_Place.from).toList());
     if (picked == null) return;
     setState(() {
-      if (picked.code != city?.code) barangay = '';
+      if (picked.code != city?.code) {
+        barangay = '';
+        _clearPin();
+      }
       city = picked;
     });
   }
@@ -112,7 +183,11 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     final c = city;
     if (c == null) return;
     final picked = await _pickPlace('Barangay', () async => (await _api.getBarangays(municipalityCode: c.code)).map(_Place.from).toList());
-    if (picked != null) setState(() => barangay = picked.name);
+    if (picked == null) return;
+    setState(() {
+      if (picked.name != barangay) _clearPin();
+      barangay = picked.name;
+    });
   }
 
   Future<_Place?> _pickPlace(String title, Future<List<_Place>> Function() load) {
@@ -128,7 +203,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   Future<void> _save() async {
     setState(() => showErrors = true);
     final valid = _formKey.currentState!.validate();
-    if (!valid || region.isEmpty || province == null || city == null || barangay.isEmpty) {
+    if (!valid || region.isEmpty || province == null || city == null || barangay.isEmpty || pin == null) {
       showToast(context, 'Please complete the highlighted fields.', error: true);
       return;
     }
@@ -148,6 +223,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
         'postal_code': postal.text.trim().isEmpty ? null : postal.text.trim(),
         'label': label,
         'is_default': makeDefault,
+        'latitude': pin!.latitude,
+        'longitude': pin!.longitude,
       }, id: widget.initial?.id);
       if (mounted) Navigator.pop(context, saved);
     } catch (e) {
@@ -163,10 +240,20 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
         hintText: hint,
         isDense: true,
         filled: true,
-        fillColor: BColors.surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(BRadius.sm)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(BRadius.sm), borderSide: const BorderSide(color: BColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(BRadius.sm), borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DriverColors.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DriverColors.primary, width: 1.6)),
+      );
+
+  Widget _heading(IconData icon, String title) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          IconTile(icon, size: 30),
+          const SizedBox(width: 10),
+          Text(title, style: DriverText.sectionTitle),
+        ]),
       );
 
   Widget _selectField(String label, String? value, VoidCallback? onTap, {String? disabledHint}) {
@@ -189,19 +276,13 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   Widget build(BuildContext context) {
     final editing = widget.initial != null;
     return Scaffold(
-      backgroundColor: BColors.background,
-      appBar: AppBar(
-        backgroundColor: BColors.surface,
-        surfaceTintColor: BColors.surface,
-        foregroundColor: BColors.ink,
-        title: Text(editing ? 'Edit Address' : 'New Address', style: BText.title),
-      ),
+      backgroundColor: DriverColors.background,
+      appBar: settingsAppBar(editing ? 'Edit Address' : 'New Address'),
       body: Form(
         key: _formKey,
         autovalidateMode: showErrors ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
-        child: ListView(padding: const EdgeInsets.all(14), children: [
-          const Text('Contact', style: BText.section),
-          const SizedBox(height: 10),
+        child: ListView(keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag, padding: const EdgeInsets.all(16), children: [
+          _heading(Icons.person_outline_rounded, 'Contact'),
           TextFormField(
             controller: name,
             textCapitalization: TextCapitalization.words,
@@ -217,8 +298,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             validator: (v) => RegExp(r'^(09\d{9}|\+639\d{9})$').hasMatch((v ?? '').replaceAll(' ', '')) ? null : 'Enter a valid PH mobile number',
           ),
           const SizedBox(height: 20),
-          const Text('Address', style: BText.section),
-          const SizedBox(height: 10),
+          _heading(Icons.location_on_outlined, 'Delivery address'),
           DropdownButtonFormField<String>(
             initialValue: region.isEmpty ? null : region,
             decoration: _dec('Region'),
@@ -259,43 +339,50 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             decoration: _dec('Postal code (optional)'),
           ),
           const SizedBox(height: 20),
-          const Text('Label as', style: BText.section),
-          const SizedBox(height: 8),
+          _pinSection(),
+          const SizedBox(height: 20),
+          _heading(Icons.label_outline_rounded, 'Label as'),
           Wrap(
             spacing: 8,
             children: _labels
                 .map((l) => ChoiceChip(
+                      avatar: Icon(l == 'Home' ? Icons.home_rounded : l == 'Work' ? Icons.work_rounded : Icons.place_rounded, size: 17, color: label == l ? Colors.white : DriverColors.textSecondary),
                       label: Text(l),
                       selected: label == l,
                       showCheckmark: false,
                       onSelected: (_) => setState(() => label = l),
-                      selectedColor: BColors.brandSurface,
-                      backgroundColor: BColors.surface,
-                      side: BorderSide(color: label == l ? BColors.brand : BColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(BRadius.sm)),
-                      labelStyle: TextStyle(color: label == l ? BColors.brand : BColors.ink),
+                      selectedColor: DriverColors.primary,
+                      backgroundColor: Colors.white,
+                      side: BorderSide(color: label == l ? DriverColors.primary : DriverColors.border),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      labelStyle: TextStyle(fontWeight: FontWeight.w700, color: label == l ? Colors.white : DriverColors.textPrimary),
                     ))
                 .toList(),
           ),
           const SizedBox(height: 8),
-          SwitchListTile(
-            value: makeDefault,
-            onChanged: (widget.initial?.isDefault ?? false) ? null : (v) => setState(() => makeDefault = v),
-            activeTrackColor: BColors.brand,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Set as default address', style: TextStyle(fontSize: 14)),
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: DriverColors.border)),
+            child: SwitchListTile(
+              value: makeDefault,
+              onChanged: (widget.initial?.isDefault ?? false) ? null : (v) => setState(() => makeDefault = v),
+              activeTrackColor: DriverColors.primary,
+              secondary: const IconTile(Icons.star_outline_rounded),
+              title: const Text('Set as default address', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              subtitle: const Text('Used first at checkout', style: DriverText.caption),
+            ),
           ),
         ]),
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: DriverColors.border))),
+          child: FilledButton(
             onPressed: saving ? null : _save,
-            style: BButtons.brand(height: 48),
+            style: FilledButton.styleFrom(backgroundColor: DriverColors.primary, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
             child: saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                : const Text('Save Address'),
+                : const Text('Save Address', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           ),
         ),
       ),

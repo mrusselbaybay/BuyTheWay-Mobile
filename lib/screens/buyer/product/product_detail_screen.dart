@@ -37,11 +37,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<Review> topReviews = [];
   bool descriptionExpanded = false;
   int galleryIndex = 0;
+  String? followStatusFor;
+  bool? isFollowing;
+  bool followBusy = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (product?.sellerId != null) _loadFollow(product!.sellerId!);
+  }
+
+  Future<void> _loadFollow(String sellerId) async {
+    if (followStatusFor == sellerId) return;
+    followStatusFor = sellerId;
+    try {
+      final following = await store.api.followsStore(sellerId);
+      if (mounted && product?.sellerId == sellerId) {
+        setState(() => isFollowing = following);
+      }
+    } catch (_) {
+      followStatusFor = null;
+    }
+  }
+
+  Future<void> _toggleFollow(String sellerId) async {
+    if (followBusy || isFollowing == null) return;
+    setState(() => followBusy = true);
+    try {
+      if (isFollowing!) {
+        await store.api.unfollowStore(sellerId);
+        if (mounted) setState(() => isFollowing = false);
+      } else {
+        final following = await store.api.followStore(sellerId);
+        if (mounted) setState(() => isFollowing = following);
+      }
+    } catch (e) {
+      if (mounted) showToast(context, store.handleError(e), error: true);
+    } finally {
+      if (mounted) setState(() => followBusy = false);
+    }
   }
 
   /// Renders instantly from the list item, then refreshes stock/price and
@@ -58,6 +93,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               notFound = true;
             } else {
               product = fresh;
+              if (fresh.sellerId != null) _loadFollow(fresh.sellerId!);
             }
           });
         } catch (e) {
@@ -270,6 +306,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   if (p.category != null) Text(p.category!, style: BText.tiny),
                 ]),
               ),
+              if (p.sellerId != null)
+                IconButton(
+                  tooltip: isFollowing == true ? 'Unfollow store' : 'Follow store',
+                  onPressed: isFollowing == null || followBusy ? null : () => _toggleFollow(p.sellerId!),
+                  icon: Icon(isFollowing == true ? Icons.favorite : Icons.favorite_border, color: BColors.brand),
+                ),
               if (p.sellerId != null)
                 OutlinedButton(
                   style: BButtons.outline(height: 34, color: BColors.cta),

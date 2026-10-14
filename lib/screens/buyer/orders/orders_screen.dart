@@ -10,6 +10,7 @@ import '../widgets/buyer_widgets.dart';
 import 'order_actions.dart';
 import 'order_detail_screen.dart';
 import 'return_request_screen.dart';
+import 'review_sheet.dart';
 
 /// (tab label, filter). Status tabs filter on the raw order status, the
 /// return tab on returnState — same split as the web Orders page.
@@ -113,22 +114,31 @@ class _OrdersScreenState extends State<OrdersScreen> {
         child: Scaffold(
           backgroundColor: BColors.background,
           body: Column(children: [
-            ColoredBox(
-              color: BColors.surface,
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [BColors.brandSurface, BColors.surface]),
+              ),
               child: SafeArea(
                 bottom: false,
                 child: Column(children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(pushed ? 4 : 16, 10, 16, 6),
+                  SizedBox(
+                    height: 48,
                     child: Row(children: [
                       if (pushed)
                         IconButton(
                           tooltip: 'Back',
                           onPressed: () => Navigator.of(context).maybePop(),
                           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: BColors.ink),
-                        ),
-                      Expanded(child: _OrderSearchField(controller: _searchCtrl, onChanged: (v) => _query.value = v.trim().toLowerCase())),
+                        )
+                      else
+                        const SizedBox(width: 16),
+                      const Expanded(child: Text('My Orders', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: BColors.ink))),
+                      SizedBox(width: pushed ? 48 : 16),
                     ]),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+                    child: _OrderSearchField(controller: _searchCtrl, onChanged: (v) => _query.value = v.trim().toLowerCase()),
                   ),
                   const _StatusTabBar(),
                 ]),
@@ -183,9 +193,11 @@ class _OrderSearchField extends StatelessWidget {
                     ),
             ),
             filled: true,
-            fillColor: BColors.brandSurface,
+            fillColor: Colors.white,
             contentPadding: EdgeInsets.zero,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: BColors.brand, width: 1.5)),
           ),
         ),
       );
@@ -195,22 +207,45 @@ class _StatusTabBar extends StatelessWidget {
   const _StatusTabBar();
 
   @override
-  Widget build(BuildContext context) => TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 14),
-        labelColor: BColors.brand,
-        unselectedLabelColor: BColors.muted,
-        labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(color: BColors.brand, width: 2),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: BColors.divider,
-        tabs: [for (final (label, _) in orderTabs) Tab(height: 46, text: label)],
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: BuyerStore.instance,
+        builder: (context, _) {
+          final orders = BuyerStore.instance.orders;
+          return TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelColor: BColors.brand,
+            unselectedLabelColor: BColors.muted,
+            labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            indicator: const UnderlineTabIndicator(
+              borderSide: BorderSide(color: BColors.brand, width: 3),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: BColors.divider,
+            tabs: [
+              for (final (label, filter) in orderTabs)
+                Tab(
+                  height: 46,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(label),
+                    // Counts only on the actionable tabs, not All / Cancelled.
+                    if (label != 'All' && label != 'Cancelled' && orders.where(filter).isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(999)),
+                        child: Text('${orders.where(filter).length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ],
+                  ]),
+                ),
+            ],
+          );
+        },
       );
 }
 
@@ -390,9 +425,9 @@ class OrderCard extends StatelessWidget {
                 ]),
                 const SizedBox(height: 14),
                 _OrderActions(order: o),
-                if (o.status == OrderStatus.delivered && !returned) ...[
+                if (o.status == OrderStatus.delivered && !returned && o.items.any((i) => !i.reviewed)) ...[
                   const SizedBox(height: 12),
-                  _QuickReview(item: o.items.first),
+                  _QuickReview(item: o.items.firstWhere((i) => !i.reviewed)),
                 ],
               ]),
             ),
@@ -711,20 +746,21 @@ class _CartButton extends StatelessWidget {
       );
 }
 
-/// Quick star rating (UI only for now — not submitted).
-class _QuickReview extends StatefulWidget {
+/// Rate a purchase right from the card: tapping a star opens the review
+/// sheet with that rating selected.
+class _QuickReview extends StatelessWidget {
   const _QuickReview({required this.item});
 
   final OrderItem item;
 
-  @override
-  State<_QuickReview> createState() => _QuickReviewState();
-}
-
-class _QuickReviewState extends State<_QuickReview> {
-  late int _rating = widget.item.reviewRating ?? 0;
-
-  static const _labels = ['Tap to rate', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+  Future<void> _rate(BuildContext context, int stars) async {
+    HapticFeedback.selectionClick();
+    final saved = await showReviewSheet(context, productName: item.name, orderItemId: item.id, initialRating: stars);
+    if (saved && context.mounted) {
+      showToast(context, 'Thanks for your review!');
+      BuyerStore.instance.loadOrders();
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Container(
@@ -733,35 +769,20 @@ class _QuickReviewState extends State<_QuickReview> {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Quick review', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.brandDark)),
+              const Text('Rate your purchase', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: BColors.brandDark)),
               const SizedBox(height: 1),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                child: Text(_labels[_rating], key: ValueKey(_rating), style: TextStyle(fontSize: 12, color: _rating > 0 ? BColors.warning : BColors.brand)),
-              ),
+              Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: BColors.brand)),
             ]),
           ),
           for (var i = 1; i <= 5; i++)
             Semantics(
               button: true,
-              label: '$i star${i == 1 ? '' : 's'}',
-              selected: i <= _rating,
+              label: 'Rate $i star${i == 1 ? '' : 's'}',
               excludeSemantics: true,
               child: InkResponse(
                 radius: 20,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _rating = i);
-                },
-                child: SizedBox(
-                  width: 36,
-                  height: 40,
-                  child: AnimatedScale(
-                    scale: i <= _rating ? 1.08 : 1,
-                    duration: const Duration(milliseconds: 160),
-                    child: Icon(i <= _rating ? Icons.star_rounded : Icons.star_outline_rounded, size: 27, color: i <= _rating ? BColors.star : BColors.faint),
-                  ),
-                ),
+                onTap: () => _rate(context, i),
+                child: const SizedBox(width: 34, height: 40, child: Icon(Icons.star_outline_rounded, size: 26, color: BColors.star)),
               ),
             ),
         ]),

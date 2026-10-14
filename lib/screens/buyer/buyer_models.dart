@@ -197,6 +197,7 @@ class CartItem {
   String? variation;
   int quantity;
   String seller;
+  String? sellerId;
   String? image;
   double? oldPrice;
   int? maxStock;
@@ -215,6 +216,7 @@ class CartItem {
     this.variation,
     required this.quantity,
     required this.seller,
+    this.sellerId,
     this.image,
     this.oldPrice,
     this.maxStock,
@@ -256,6 +258,7 @@ class CartItem {
         'variation': variation,
         'quantity': quantity,
         'seller': seller,
+        'sellerId': sellerId,
         'image': image,
         'oldPrice': oldPrice,
         'maxStock': maxStock,
@@ -275,6 +278,7 @@ class CartItem {
         variation: _s(j['variation']),
         quantity: _i(j['quantity'], 1).clamp(1, 9999),
         seller: _s(j['seller']) ?? 'BuyTheWay Seller',
+        sellerId: _s(j['sellerId']),
         image: _s(j['image']),
         oldPrice: _dn(j['oldPrice']),
         maxStock: j['maxStock'] is num ? (j['maxStock'] as num).toInt() : null,
@@ -302,6 +306,8 @@ class Address {
   final String label;
   final bool isDefault;
   final bool isComplete;
+  final double? lat; // map pin
+  final double? lng;
 
   const Address({
     required this.id,
@@ -319,7 +325,11 @@ class Address {
     required this.label,
     required this.isDefault,
     required this.isComplete,
+    this.lat,
+    this.lng,
   });
+
+  bool get hasPin => lat != null && lng != null;
 
   String get formatted => [
         [houseNo, line1].whereType<String>().where((s) => s.isNotEmpty).join(' '),
@@ -345,6 +355,8 @@ class Address {
         label: _s(j['label']) ?? 'Home',
         isDefault: j['isDefault'] == true,
         isComplete: j['isComplete'] != false,
+        lat: j['pin'] is Map ? _dn((j['pin'] as Map)['lat']) : null,
+        lng: j['pin'] is Map ? _dn((j['pin'] as Map)['lng']) : null,
       );
 }
 
@@ -389,6 +401,22 @@ class Coupon {
   final bool runningLow;
   final DateTime? expiresAt;
   final String status;
+  final String type; // discount | shipping
+  final String scope; // product | shop
+  final String discountType; // percentage | fixed
+  final double? discountValue;
+  final double minSpend;
+  final double? maxDiscount;
+  final bool stackable;
+  final String? sellerId;
+  final String? shopName;
+  final int productsCount;
+  final String source; // seller | platform
+  final List<String> categories;
+  final bool autoApplied; // BuyTheWay voucher applied at checkout without claiming
+
+  bool get isShipping => type == 'shipping';
+  bool get isPlatform => source == 'platform';
 
   const Coupon({
     required this.id,
@@ -402,6 +430,19 @@ class Coupon {
     this.runningLow = false,
     this.expiresAt,
     this.status = 'active',
+    this.type = 'discount',
+    this.scope = 'shop',
+    this.discountType = 'fixed',
+    this.discountValue,
+    this.minSpend = 0,
+    this.maxDiscount,
+    this.stackable = true,
+    this.sellerId,
+    this.shopName,
+    this.productsCount = 0,
+    this.source = 'seller',
+    this.categories = const [],
+    this.autoApplied = false,
   });
 
   factory Coupon.fromJson(Map<String, dynamic> j) => Coupon(
@@ -416,18 +457,19 @@ class Coupon {
         runningLow: j['runningLow'] == true,
         expiresAt: _date(j['expiresAt']),
         status: _s(j['status']) ?? 'active',
-      );
-}
-
-class CouponQuote {
-  final String? best;
-  final List<Coupon> options;
-
-  const CouponQuote({this.best, this.options = const []});
-
-  factory CouponQuote.fromJson(Map<String, dynamic> j) => CouponQuote(
-        best: _s(j['best']),
-        options: _maps(j['options']).map(Coupon.fromJson).toList(),
+        type: _s(j['type']) ?? 'discount',
+        scope: _s(j['scope']) ?? 'shop',
+        discountType: _s(j['discountType']) ?? 'fixed',
+        discountValue: _dn(j['discountValue']),
+        minSpend: _dn(j['minSpend']) ?? 0,
+        maxDiscount: _dn(j['maxDiscount']),
+        stackable: j['stackable'] != false,
+        sellerId: _s(j['sellerId']),
+        shopName: _s(j['shopName']),
+        productsCount: j['productsCount'] is num ? (j['productsCount'] as num).toInt() : 0,
+        source: _s(j['source']) ?? 'seller',
+        autoApplied: j['autoApplied'] == true,
+        categories: j['categories'] is List ? (j['categories'] as List).map((e) => '$e').toList() : const [],
       );
 }
 

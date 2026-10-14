@@ -29,6 +29,8 @@ class BuyerStore extends ChangeNotifier {
   static final BuyerStore instance = BuyerStore._();
 
   static const _cartKey = 'buytheway_buyer_cart';
+  static const _cartMergedKey = 'buytheway_cart_merged';
+  static const _cartPendingKey = 'buytheway_cart_pending';
   static const _recentSearchKey = 'buytheway_recent_searches';
 
   final BuyerApiService api = BuyerApiService();
@@ -58,6 +60,7 @@ class BuyerStore extends ChangeNotifier {
   String? token;
   String displayName = '';
   String email = '';
+  bool? emailVerified;
 
   // ---------------- Session ----------------
 
@@ -67,6 +70,8 @@ class BuyerStore extends ChangeNotifier {
     token = prefs.getString('auth_token');
     api.token = token;
     _cart = _readCart(prefs);
+    _cartMerged = prefs.getBool(_cartMergedKey) ?? false;
+    _cartPending = prefs.getBool(_cartPendingKey) ?? false;
     recentSearches = prefs.getStringList(_recentSearchKey) ?? [];
     initialized = true;
     sessionExpired = token == null || token!.isEmpty;
@@ -78,6 +83,7 @@ class BuyerStore extends ChangeNotifier {
     unawaited(refreshChatUnread());
     _unreadTimer = Timer.periodic(const Duration(seconds: 45), (_) => refreshChatUnread());
     unawaited(loadWishlist());
+    unawaited(refreshCart());
     unawaited(loadAddresses());
     unawaited(loadOrders());
   }
@@ -89,6 +95,7 @@ class BuyerStore extends ChangeNotifier {
       final meta = user['user_metadata'] is Map ? user['user_metadata'] as Map : const {};
       final name = '${meta['first_name'] ?? ''} ${meta['last_name'] ?? ''}'.trim();
       email = '${user['email'] ?? ''}';
+      emailVerified = user['email_confirmed_at'] != null;
       displayName = name.isNotEmpty ? name : (email.isNotEmpty ? email.split('@').first : 'Shopper');
       notifyListeners();
     } on ApiException catch (e) {
@@ -117,6 +124,15 @@ class BuyerStore extends ChangeNotifier {
     final current = token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    // The cart lives on the account now; don't leave it for the next person on this device.
+    _pushTimer?.cancel();
+    _persistTimer?.cancel();
+    await prefs.remove(_cartKey);
+    await prefs.remove(_cartMergedKey);
+    await prefs.remove(_cartPendingKey);
+    _cart = [];
+    _cartMerged = false;
+    _cartPending = false;
     if (current != null) {
       unawaited(ApiService().logout(current).catchError((_) {}));
     }
@@ -126,6 +142,7 @@ class BuyerStore extends ChangeNotifier {
     sessionExpired = false;
     displayName = '';
     email = '';
+    emailVerified = null;
     favorites = {};
     addresses = [];
     orders = [];
@@ -200,15 +217,121 @@ class BuyerStore extends ChangeNotifier {
   }
 
   Timer? _persistTimer;
+  Timer? _pushTimer;
+  bool _cartMerged = false; // this device's cart has been folded into the account's
+  bool _cartPending = false; // local edits not yet saved to the account
+  int _cartVersion = 0; // bumped on every local edit
 
-  /// Debounced so rapid +/- taps don't each hit disk.
+  /// True while the cart is being synced with the account; [cartSyncError] is
+  /// the reason the last sync failed (null when it worked).
+  bool cartSyncing = false;
+  String? cartSyncError;
+
+  /// Called after every local edit: saves on-device (debounced so rapid
+  /// +/- taps don't each hit disk) and queues a save to the account.
   void _cartChanged() {
+    _cartVersion++;
     notifyListeners();
+    _persistCartLocally();
+    _scheduleCartPush();
+  }
+
+  void _persistCartLocally() {
     _persistTimer?.cancel();
     _persistTimer = Timer(const Duration(milliseconds: 300), () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_cartKey, jsonEncode(_cart.map((e) => e.toJson()).toList()));
     });
+  }
+
+  /// A cart line as the server stores it. Inline (data:) or huge image URLs
+  /// are left out; the line re-fetches its image when validated.
+  Map<String, dynamic> _cartLineJson(CartItem item) {
+    final json = item.toJson();
+    final image = json['image'];
+    if (image is String && (image.startsWith('data:') || image.length > 2000)) json['image'] = null;
+    return json;
+  }
+
+  Future<void> _setCartPending(bool value) async {
+    _cartPending = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_cartPendingKey, value);
+  }
+
+  Future<void> _markCartMerged() async {
+    _cartMerged = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_cartMergedKey, true);
+  }
+
+  void _scheduleCartPush() {
+    // Before the first merge the account's cart (e.g. from the website)
+    // mustn't be overwritten by this device's.
+    if (!_cartMerged || token == null || token!.isEmpty || sessionExpired) return;
+    unawaited(_setCartPending(true));
+    _pushTimer?.cancel();
+    _pushTimer = Timer(const Duration(milliseconds: 800), _pushCart);
+  }
+
+  Future<void> _pushCart() async {
+    final version = _cartVersion;
+    try {
+      await api.saveCart(_cart.map(_cartLineJson).toList());
+      if (version == _cartVersion) await _setCartPending(false);
+    } catch (e) {
+      handleError(e); // stays pending; retried on the next edit or launch
+    }
+  }
+
+  /// Brings this device's cart in line with the account's: the first time
+  /// the two are merged, afterwards the account's copy wins.
+  Future<void> _pullCart() async {
+    if (token == null || token!.isEmpty || sessionExpired) return;
+    final version = _cartVersion;
+    cartSyncError = null;
+    try {
+      final firstTime = !_cartMerged;
+      final remote = firstTime ? await api.mergeCart(_cart.map(_cartLineJson).toList()) : await api.fetchCart();
+      if (firstTime) await _markCartMerged();
+      if (!firstTime && version != _cartVersion) {
+        _scheduleCartPush(); // edited while loading: keep the local edits and save them
+        return;
+      }
+      _applyRemoteCart(remote);
+    } catch (e) {
+      cartSyncError = handleError(e);
+      debugPrint('Cart sync failed: $e');
+    }
+  }
+
+  void _applyRemoteCart(List<Map<String, dynamic>> remote) {
+    final known = {for (final i in _cart) '${i.productId}|${i.variantId ?? ''}': i.cartId};
+    var n = 0;
+    _cart = [
+      for (final line in remote) CartItem.fromJson({...line, 'cartId': known['${line['productId']}|${line['variantId'] ?? ''}'] ?? '${DateTime.now().microsecondsSinceEpoch}${n++}'}),
+    ];
+    notifyListeners();
+    _persistCartLocally();
+  }
+
+  /// Syncs with the account (saving unsynced edits first), then re-checks
+  /// every line against the live catalog.
+  Future<void> refreshCart() async {
+    if (cartSyncing) return;
+    cartSyncing = true;
+    notifyListeners();
+    try {
+      if (_cartMerged && _cartPending) {
+        await _pushCart();
+      } else {
+        await _pullCart();
+      }
+    } finally {
+      cartSyncing = false;
+      notifyListeners();
+    }
+    await validateCart();
   }
 
   int get cartCount => _cart.fold(0, (sum, i) => sum + i.quantity);
@@ -255,6 +378,7 @@ class BuyerStore extends ChangeNotifier {
         variation: variant?.label,
         quantity: quantity,
         seller: product.seller,
+        sellerId: product.sellerId,
         image: variant?.image ?? product.primaryImage,
         oldPrice: product.oldPrice,
         maxStock: _ceiling(product, variant),
@@ -392,6 +516,7 @@ class BuyerStore extends ChangeNotifier {
         item
           ..name = product.name
           ..seller = product.seller
+          ..sellerId = product.sellerId ?? item.sellerId
           ..oldPrice = product.oldPrice;
         if (item.variantId != null) {
           final variant = product.variants.where((v) => v.id == item.variantId).firstOrNull;
