@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../auth/auth_screen.dart';
+import '../../remittances/seller_remittances_screen.dart';
 import '../../driver/driver_theme.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../buyer_models.dart';
@@ -113,6 +114,13 @@ class _AccountScreenState extends State<AccountScreen> {
                 const SettingsSectionLabel('Account'),
                 const SizedBox(height: 8),
                 SettingsGroupCard(children: [
+                  if (store.canSell && store.token != null)
+                    SettingsNavTile(
+                      icon: Icons.currency_exchange_rounded,
+                      title: 'Seller Remittances',
+                      subtitle: 'Confirm courier payments and settle fees',
+                      onTap: () => _push(context, SellerRemittancesScreen(buyerToken: store.token!)),
+                    ),
                   SettingsNavTile(
                     icon: Icons.badge_outlined,
                     title: 'Personal Information',

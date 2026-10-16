@@ -19,7 +19,7 @@ class DriverNavBar extends StatelessWidget {
     this.isCourier = false,
   });
 
-  /// 0 Home, 1 Deliveries, 2 Earnings, 3 Chat, 4 Account.
+  /// 0 Home, 1 Deliveries, 2 Remittances/Earnings, 3 Chat, 4 Account.
   final int currentIndex;
   final ValueChanged<int> onTap;
   final int unreadChats;
@@ -63,7 +63,7 @@ class DriverNavBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: _DriverNavItem(icon: Icons.assignment_turned_in_rounded, label: 'Deliveries', selected: currentIndex == 1, onTap: () => _handleTap(1))),
-                    Expanded(child: _DriverNavItem(icon: isCourier ? Icons.receipt_long_rounded : Icons.account_balance_wallet_rounded, label: isCourier ? 'Payslips' : 'Earnings', selected: currentIndex == 2, onTap: () => _handleTap(2))),
+                    Expanded(child: _DriverNavItem(icon: isCourier ? Icons.currency_exchange_rounded : Icons.account_balance_wallet_rounded, label: isCourier ? 'Remittances' : 'Earnings', selected: currentIndex == 2, onTap: () => _handleTap(2))),
                     const SizedBox(width: 64),
                     Expanded(
                       child: _DriverNavItem(

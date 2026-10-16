@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
-import '../earnings/driver_payslip_screen.dart';
+import '../../../services/remittance_api_service.dart';
+import '../../remittances/remittances_screen.dart';
 import '../auth/driver_login_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
@@ -190,6 +191,17 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
             const SizedBox(height: 8),
             SettingsGroupCard(children: [
               SettingsNavTile(
+                icon: Icons.currency_exchange_rounded,
+                title: 'Remittances',
+                subtitle: 'View courier contributions and remittance history',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => RemittancesScreen(
+                    accessToken: widget.accessToken,
+                    role: RemittanceRole.courier,
+                  ),
+                )),
+              ),
+              SettingsNavTile(
                 icon: Icons.badge_outlined,
                 title: 'Personal Information',
                 subtitle: 'Name, contact number, birthday',
@@ -207,15 +219,6 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                 subtitle: '${a.vehicleType} · ${a.plateNumber}',
                 onTap: _openVehicleDocuments,
               ),
-              if (a.role == 'courier')
-                SettingsNavTile(
-                  icon: Icons.receipt_long_outlined,
-                  title: 'My payslips',
-                  subtitle: 'Released salary statements · MOCK-UP',
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => DriverPayslipScreen(accessToken: widget.accessToken),
-                  )),
-                ),
               if (a.role == 'courier')
                 SettingsNavTile(
                   icon: Icons.storefront_rounded,

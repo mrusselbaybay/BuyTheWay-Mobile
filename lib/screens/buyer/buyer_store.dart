@@ -61,6 +61,7 @@ class BuyerStore extends ChangeNotifier {
   String displayName = '';
   String email = '';
   bool? emailVerified;
+  bool canSell = false;
 
   // ---------------- Session ----------------
 
@@ -95,6 +96,7 @@ class BuyerStore extends ChangeNotifier {
       final name = '${meta['first_name'] ?? ''} ${meta['last_name'] ?? ''}'.trim();
       email = '${user['email'] ?? ''}';
       emailVerified = user['email_confirmed_at'] != null;
+      canSell = (user['roles'] as List? ?? const []).contains('seller');
       displayName = name.isNotEmpty ? name : (email.isNotEmpty ? email.split('@').first : 'Shopper');
       notifyListeners();
     } on ApiException catch (e) {
@@ -120,6 +122,7 @@ class BuyerStore extends ChangeNotifier {
     _unreadTimer = null;
     chatUnread = 0;
     profile = null;
+    canSell = false;
     final current = token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');

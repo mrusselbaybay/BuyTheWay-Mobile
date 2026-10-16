@@ -289,7 +289,7 @@ class BuyerApiService {
 
   // ---------------- Checkout ----------------
 
-  Future<(List<ShippingOption>, int)> shippingOptions(List<String> productIds, {String? addressId}) async {
+  Future<(List<ShippingOption>, int, List<CheckoutPaymentMethod>)> shippingOptions(List<String> productIds, {String? addressId}) async {
     final query = [
       ...productIds.map((id) => 'product_ids[]=${Uri.encodeQueryComponent(id)}'),
       if (addressId != null) 'address_id=${Uri.encodeQueryComponent(addressId)}',
@@ -297,7 +297,8 @@ class BuyerApiService {
     final body = await _send('GET', '/buyer/checkout/shipping-options', query: query);
     final data = body['data'] is Map ? Map<String, dynamic>.from(body['data']) : <String, dynamic>{};
     final count = data['sellerCount'] is num ? (data['sellerCount'] as num).toInt() : 1;
-    return (_list(data['options']).map(ShippingOption.fromJson).toList(), count < 1 ? 1 : count);
+    final paymentMethods = _list(data['paymentMethods']).map(CheckoutPaymentMethod.fromJson).toList();
+    return (_list(data['options']).map(ShippingOption.fromJson).toList(), count < 1 ? 1 : count, paymentMethods);
   }
 
   /// Creates one order per seller; returns the created order references.

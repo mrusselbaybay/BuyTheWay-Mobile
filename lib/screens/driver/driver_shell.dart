@@ -11,12 +11,13 @@ import 'deliveries/driver_deliveries_screen.dart';
 import 'driver_models.dart';
 import 'driver_theme.dart';
 import 'earnings/driver_earnings_screen.dart';
-import 'earnings/driver_payslip_screen.dart';
 import 'history/driver_history_screen.dart';
 import 'home/deliver_order_screen.dart';
 import 'home/delivery_request_details_screen.dart';
 import 'home/driver_home_screen.dart';
 import 'home/pickup_order_screen.dart';
+import '../../services/remittance_api_service.dart';
+import '../remittances/remittances_screen.dart';
 import 'settings/driver_settings_screen.dart';
 import 'widgets/driver_nav_bar.dart';
 import 'widgets/driver_shared_widgets.dart';
@@ -489,7 +490,10 @@ class _DriverShellState extends State<DriverShell> {
         controller: _chatController!,
       ),
       account.role == 'courier'
-          ? DriverPayslipScreen(accessToken: accessToken)
+          ? RemittancesScreen(
+              accessToken: accessToken,
+              role: RemittanceRole.courier,
+            )
           : DriverEarningsScreen(
               todayEarnings: _todayEarnings,
               availableBalance: _availableBalance,

@@ -33,6 +33,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Address? address;
 
   List<ShippingOption> shippingOptions = [];
+  CheckoutPaymentMethod? codMethod;
   int sellerCount = 1;
   String shippingMethod = 'standard';
   final Set<String> _collapsed = {};
@@ -86,12 +87,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
     try {
       final ids = items.map((i) => i.productId).toSet().toList();
-      final (options, count) = await store.api.shippingOptions(ids, addressId: addressId);
+      final (options, count, paymentMethods) = await store.api.shippingOptions(ids, addressId: addressId);
       if (!mounted) return;
       final before = shippingMethod;
       setState(() {
         shippingOptions = options.where((o) => o.id != 'same_day').toList();
         sellerCount = count;
+        codMethod = paymentMethods.where((method) => method.id == paymentMethod).firstOrNull;
         if (!options.any((o) => o.id == shippingMethod && o.available)) shippingMethod = 'standard';
       });
       if (before != shippingMethod) _loadVouchers();
@@ -210,6 +212,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!a.isComplete) return 'Complete this address (province, city, barangay).';
     if (loadingShipping) return 'Loading shipping options…';
     if (shippingError != null || selectedShipping == null) return 'Shipping options unavailable — tap retry.';
+    if (codMethod?.available == false) return codMethod?.unavailableReason ?? 'COD is currently unavailable. Please choose another payment method.';
     return '';
   }
 
@@ -665,7 +668,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  /// Cash on delivery is the only payment method (no payment provider is active).
+  /// Cash on delivery remains visible, but the server can disable it for an
+  /// overdue seller remittance.
   Widget _paymentPanel() => _card(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -677,22 +681,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: BColors.brandSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: BColors.brand, width: 1.4)),
+            decoration: BoxDecoration(color: codMethod?.available == false ? BColors.background : BColors.brandSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: codMethod?.available == false ? BColors.faint : BColors.brand, width: 1.4)),
             child: Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: BColors.brand, borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: codMethod?.available == false ? BColors.faint : BColors.brand, borderRadius: BorderRadius.circular(6)),
                 child: const Text('COD', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Colors.white)),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Cash on delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                  Text('Cash on delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: codMethod?.available == false ? BColors.faint : BColors.ink)),
                   SizedBox(height: 2),
                   Text('Pay the courier when your parcel arrives.', style: BText.tiny),
+                  if (codMethod?.available == false) ...[
+                    const SizedBox(height: 4),
+                    Text(codMethod?.unavailableReason ?? 'COD is currently unavailable.', style: const TextStyle(fontSize: 11.5, color: BColors.error, fontWeight: FontWeight.w700)),
+                  ],
                 ]),
               ),
-              const Icon(Icons.check_circle_rounded, color: BColors.brand),
+              Icon(Icons.check_circle_rounded, color: codMethod?.available == false ? BColors.faint : BColors.brand),
             ]),
           ),
         ]),

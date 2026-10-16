@@ -78,9 +78,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/account_screen.dart": {
-    "mtime": 1791988107.5025709,
-    "seen": 1791988150.7212029,
-    "ast_hash": "f510ff2893c0456a81d04bd8902eea43",
+    "mtime": 1792119535.1869369,
+    "seen": 1792119874.7075522,
+    "ast_hash": "28ded91fc3cdec718fa21dd02f005fee",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/address_form_screen.dart": {
@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_models.dart": {
-    "mtime": 1791986630.12817,
-    "seen": 1791988087.8555555,
-    "ast_hash": "4ca18b86686873445debadf79e26b3e4",
+    "mtime": 1792129349.0867758,
+    "seen": 1792129394.5701106,
+    "ast_hash": "f99cc9d56a3f4aa713616c3c0f947017",
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_shell.dart": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_store.dart": {
-    "mtime": 1791988107.4995713,
-    "seen": 1791988150.7212422,
-    "ast_hash": "24153d4f4fe6207770dba2e745372d77",
+    "mtime": 1792119535.1839404,
+    "seen": 1792119874.7075977,
+    "ast_hash": "86f4ce5e64a301ae721944954d154512",
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_theme.dart": {
@@ -192,15 +192,15 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/chat/chat_thread_screen.dart": {
-    "mtime": 1791036397.115826,
-    "seen": 1791944481.7263198,
-    "ast_hash": "03ff217e2708baf2d761fd4575adf36d",
+    "mtime": 1791993446.1551876,
+    "seen": 1792119874.7076297,
+    "ast_hash": "5fa7ebeac40a21d9f5a2e94c1458f8b9",
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/checkout_screen.dart": {
-    "mtime": 1791976744.6377184,
-    "seen": 1791988087.8555868,
-    "ast_hash": "99c3b92f5780cc386f91ddce53606904",
+    "mtime": 1792129349.1503875,
+    "seen": 1792129394.5701818,
+    "ast_hash": "2f69af4602d2695cff1172165b7082c0",
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/order_placed_screen.dart": {
@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/order_detail_screen.dart": {
-    "mtime": 1791976188.6302583,
-    "seen": 1791988087.855597,
-    "ast_hash": "d3723e90423cbcc552e1f98d1ba7d8ae",
+    "mtime": 1791994574.203601,
+    "seen": 1792119874.7076445,
+    "ast_hash": "1a008ce7203b03bc08121cfeb20a5357",
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/orders_screen.dart": {
@@ -246,9 +246,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/product/product_detail_screen.dart": {
-    "mtime": 1791975533.0370195,
-    "seen": 1791988087.8556077,
-    "ast_hash": "7a5fd80261e0514304fe0c24561fa075",
+    "mtime": 1792129349.1909447,
+    "seen": 1792129394.570238,
+    "ast_hash": "bfc6c10675e31900f1bd49474c7f1440",
     "semantic_hash": ""
   },
   "lib/screens/buyer/product/reviews_screen.dart": {
@@ -264,15 +264,15 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/buyer_nav_bar.dart": {
-    "mtime": 1791963762.3919814,
-    "seen": 1791988087.8556142,
-    "ast_hash": "1860dc0e0a18e41ed909d8d61ec6045d",
+    "mtime": 1791992579.5437872,
+    "seen": 1792119874.7076719,
+    "ast_hash": "ad1def72d433f174a79395109a048a80",
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/buyer_widgets.dart": {
-    "mtime": 1791986634.6925337,
-    "seen": 1791988087.8556166,
-    "ast_hash": "67a379b5fcb9d31e976e175574ae1a43",
+    "mtime": 1791992317.6812117,
+    "seen": 1792119874.7076735,
+    "ast_hash": "28d18e6b53aa4bf1b2e4b6628e121d21",
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/product_pager.dart": {
@@ -348,15 +348,15 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/assigned_delivery_detail_screen.dart": {
-    "mtime": 1791392346.7628083,
-    "seen": 1791944481.7263763,
-    "ast_hash": "f2e115908d2baabc00119814c42601c6",
+    "mtime": 1792119535.1939442,
+    "seen": 1792119874.707717,
+    "ast_hash": "fe98602ac65b1b83b0783709e08d6600",
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/driver_deliveries_screen.dart": {
-    "mtime": 1791392160.618364,
-    "seen": 1791944481.726378,
-    "ast_hash": "f04965a76c3bf69d6b3c59f098e5b06a",
+    "mtime": 1792119535.1889415,
+    "seen": 1792119874.7077217,
+    "ast_hash": "d326a06b47aaf6eb00a893bf41743073",
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/failed_attempt_sheet.dart": {
@@ -372,15 +372,15 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_models.dart": {
-    "mtime": 1791392160.6113398,
-    "seen": 1791944481.7263834,
-    "ast_hash": "2e5a5d8e14047ad9720a888ace6b8fa5",
+    "mtime": 1792119535.1919465,
+    "seen": 1792119874.707729,
+    "ast_hash": "d2b4363515cafb3096aa8cac9642bd3d",
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_shell.dart": {
-    "mtime": 1791388470.9585707,
-    "seen": 1791944481.726385,
-    "ast_hash": "7dca3761f88ebf6d29d8cb66b843bc5b",
+    "mtime": 1792125251.7584908,
+    "seen": 1792125295.765284,
+    "ast_hash": "f09b29572d34393543f9178af4aea18d",
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_theme.dart": {
@@ -450,9 +450,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_settings_screen.dart": {
-    "mtime": 1791386263.0622156,
-    "seen": 1791944481.7264054,
-    "ast_hash": "fa1bec93db4ba0f1cd05b3759e7021f0",
+    "mtime": 1792125251.7625349,
+    "seen": 1792125295.7653172,
+    "ast_hash": "23ccd5a432f05ab05f71e6bcfb366a70",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_vehicle_documents_screen.dart": {
@@ -468,9 +468,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/widgets/driver_nav_bar.dart": {
-    "mtime": 1791388576.9583366,
-    "seen": 1791944481.7264109,
-    "ast_hash": "6014bb33e98b6eb2e9a5da3da1fe6eb4",
+    "mtime": 1792125251.7605214,
+    "seen": 1792125295.765326,
+    "ast_hash": "8a7998d173b35479ca1b7e0e66c6e8d0",
     "semantic_hash": ""
   },
   "lib/screens/driver/widgets/driver_shared_widgets.dart": {
@@ -552,9 +552,9 @@
     "semantic_hash": ""
   },
   "lib/services/buyer_api_service.dart": {
-    "mtime": 1791987135.5680428,
-    "seen": 1791988087.855759,
-    "ast_hash": "b8e8f0c6a33bc14d15a7c6a388dc548c",
+    "mtime": 1792129349.1257763,
+    "seen": 1792129394.5705109,
+    "ast_hash": "05457cdbb3591fa0fd5d567003b154c9",
     "semantic_hash": ""
   },
   "lib/widgets/brand_logo.dart": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/catalog/store_screen.dart": {
-    "mtime": 1791987439.0731566,
-    "seen": 1791988087.8555794,
-    "ast_hash": "1814503228ff97e76acba27df28e831c",
+    "mtime": 1791994010.9206004,
+    "seen": 1792119874.7076206,
+    "ast_hash": "56a4e796368e4a671f088385cd4a34de",
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/voucher_quote.dart": {
@@ -1143,6 +1143,72 @@
     "mtime": 1791945437.547764,
     "seen": 1791988087.8558035,
     "ast_hash": "2fd8baf078d5fc552bd6601d104ce017",
+    "semantic_hash": ""
+  },
+  "lib/screens/buyer/chat/chat_assistant.dart": {
+    "mtime": 1791993431.8970826,
+    "seen": 1792119874.7076235,
+    "ast_hash": "34955a9bfc0bdc8885c3a4e45302e72d",
+    "semantic_hash": ""
+  },
+  "lib/screens/buyer/orders/parcel_tracking.dart": {
+    "mtime": 1791990512.3907647,
+    "seen": 1792119874.707649,
+    "ast_hash": "64243f25c8fabe283c4fdb1cd4e696a6",
+    "semantic_hash": ""
+  },
+  "lib/screens/buyer/orders/report_delivered_sheet.dart": {
+    "mtime": 1791994690.4987452,
+    "seen": 1792119874.7076514,
+    "ast_hash": "65a2b046bc72c029306ed32a156cc300",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/remittance_action_screen.dart": {
+    "mtime": 1792119894.1505735,
+    "seen": 1792120077.5217834,
+    "ast_hash": "7db0c5bfdb7b78a10861c46c1c70d88e",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/remittance_detail_screen.dart": {
+    "mtime": 1792119894.1515765,
+    "seen": 1792120077.5217872,
+    "ast_hash": "bdf1cf682d59c2d96004f20ac7b43cfc",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/remittance_format.dart": {
+    "mtime": 1792119703.91377,
+    "seen": 1792119874.7077982,
+    "ast_hash": "10916f101b474fd7d6857e6330f64274",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/remittance_record_card.dart": {
+    "mtime": 1792119995.016194,
+    "seen": 1792120077.5217924,
+    "ast_hash": "35983207fe32c4be53eab7dcc4214c56",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/remittances_screen.dart": {
+    "mtime": 1792120100.9420073,
+    "seen": 1792120114.6611586,
+    "ast_hash": "a68dd9e15d3f6b99b9de70cd86ad45e6",
+    "semantic_hash": ""
+  },
+  "lib/screens/remittances/seller_remittances_screen.dart": {
+    "mtime": 1792119894.1535752,
+    "seen": 1792120077.5217974,
+    "ast_hash": "04b411df11abc1934da37edd582d24c1",
+    "semantic_hash": ""
+  },
+  "lib/services/remittance_api_service.dart": {
+    "mtime": 1792119898.219831,
+    "seen": 1792120077.521813,
+    "ast_hash": "f3d86d1e130c30ff5701df0ebee88dd9",
+    "semantic_hash": ""
+  },
+  "test/remittances_test.dart": {
+    "mtime": 1792119991.7457695,
+    "seen": 1792120077.521873,
+    "ast_hash": "3356ab649abb397cade4d6bbd612ee9e",
     "semantic_hash": ""
   }
 }

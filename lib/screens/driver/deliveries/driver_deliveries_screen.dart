@@ -7,6 +7,8 @@ import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
 import 'assigned_delivery_detail_screen.dart';
+import '../../../services/remittance_api_service.dart';
+import '../../remittances/remittances_screen.dart';
 
 /// "Mission Control" redesign of the Deliveries tab — deliveries the
 /// logistics team has assigned to this driver, the new occupant of the
@@ -161,12 +163,19 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
             DriverGradientHeader(
               title: 'Deliveries',
               subtitle: "Mission control for today's run",
-              trailing: IconButton(
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  tooltip: 'Remittances',
+                  icon: const Icon(Icons.currency_exchange_rounded, color: Colors.white),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemittancesScreen(accessToken: widget.accessToken, role: RemittanceRole.courier))),
+                ),
+                IconButton(
                 onPressed: widget.onOpenHistory,
                 tooltip: 'History',
                 icon: const Icon(Icons.history_rounded, color: Colors.white),
                 style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.15)),
               ),
+              ]),
             ),
             Expanded(
               child: RefreshIndicator(

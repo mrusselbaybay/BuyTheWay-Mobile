@@ -9,6 +9,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/remittance_api_service.dart';
+import '../../remittances/remittances_screen.dart';
 import '../chat/driver_chat_controller.dart';
 import '../chat/driver_delivery_message_screen.dart';
 import '../driver_models.dart';
@@ -623,6 +625,15 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 ],
               ),
             ),
+            if (d.financialFlow == 'manual' && d.paymentMethod == 'cod' && d.status == AssignedDeliveryStatus.delivered && !d.isReturn && !d.isTransfer)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: SizedBox(width: double.infinity, child: FilledButton.icon(
+                  icon: const Icon(Icons.currency_exchange_rounded),
+                  label: const Text('Remit COD to seller'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemittancesScreen(accessToken: widget.accessToken, role: RemittanceRole.courier, orderNumber: d.orderNumber))),
+                )),
+              ),
             Expanded(child: _buildBody(context, d)),
             _buildActionBar(context, d),
           ],

@@ -393,6 +393,30 @@ class ShippingOption {
       );
 }
 
+class CheckoutPaymentMethod {
+  final String id;
+  final String name;
+  final String? description;
+  final bool available;
+  final String? unavailableReason;
+
+  const CheckoutPaymentMethod({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.available,
+    this.unavailableReason,
+  });
+
+  factory CheckoutPaymentMethod.fromJson(Map<String, dynamic> j) => CheckoutPaymentMethod(
+        id: '${j['id']}',
+        name: _s(j['name']) ?? '${j['id']}',
+        description: _s(j['description']),
+        available: j['available'] != false,
+        unavailableReason: _s(j['unavailableReason']),
+      );
+}
+
 /// A coupon — either a claimable product coupon or a wallet entry. For
 /// wallet entries [id] is the buyer_coupons id the checkout payload needs.
 class Coupon {

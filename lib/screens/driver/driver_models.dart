@@ -220,6 +220,8 @@ class AssignedDelivery {
 
   final String id;
   final String orderNumber;
+  final String financialFlow;
+  final String paymentMethod;
   final String? trackingNumber;
   final String customerName;
   final String? customerContactNo;
@@ -283,6 +285,8 @@ class AssignedDelivery {
     this.earningIsEstimate = true,
     required this.id,
     required this.orderNumber,
+    this.financialFlow = '',
+    this.paymentMethod = '',
     this.trackingNumber,
     required this.customerName,
     this.customerContactNo,
@@ -338,6 +342,8 @@ class AssignedDelivery {
       earningIsEstimate: json['earning_is_estimate'] != false,
       id: str(json['id']),
       orderNumber: str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
+      financialFlow: str(json['financial_flow']),
+      paymentMethod: str(json['payment_method']),
       trackingNumber: str(json['tracking_number']).isEmpty ? null : str(json['tracking_number']),
       customerName: str(json['customer_name']).isEmpty ? 'Customer' : str(json['customer_name']),
       customerContactNo: str(json['customer_contact_no']).isEmpty ? null : str(json['customer_contact_no']),
