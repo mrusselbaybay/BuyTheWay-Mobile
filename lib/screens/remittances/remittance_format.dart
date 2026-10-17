@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 String remittanceMoney(dynamic value) {
   final cents = remittanceCents(value);
   final amount = cents.abs();
@@ -34,4 +36,28 @@ int? parseRemittancePesos(String input) {
   final parts = text.split('.');
   return int.parse(parts.first) * 100 +
       (parts.length == 1 ? 0 : int.parse(parts[1].padRight(2, '0')));
+}
+
+/// GCash transaction numbers: 13 digits shown as "0000 000 000000".
+String remittanceReferenceDigits(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  return digits.length > 13 ? digits.substring(0, 13) : digits;
+}
+
+class TransactionNumberFormatter extends TextInputFormatter {
+  const TransactionNumberFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final d = remittanceReferenceDigits(newValue.text);
+    final parts = [
+      d.substring(0, d.length.clamp(0, 4)),
+      if (d.length > 4) d.substring(4, d.length.clamp(4, 7)),
+      if (d.length > 7) d.substring(7),
+    ];
+    final text = parts.join(' ');
+    return TextEditingValue(
+        text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
 }

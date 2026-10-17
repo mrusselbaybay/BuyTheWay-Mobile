@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_service.dart';
 
-enum RemittanceRole { courier, seller }
+enum RemittanceRole { courier, seller, logistics }
 
 class RemittancePageData {
   const RemittancePageData(this.items, this.page, this.lastPage);
@@ -94,6 +94,13 @@ class RemittanceApiService {
 
   Future<Map<String, dynamic>> summary() async => Map<String, dynamic>.from(
       (await _send('GET', '$_base/summary'))['data'] as Map);
+
+  /// Latest rows of the courier's own earnings ledger (`GET /courier/earnings`).
+  Future<List<Map<String, dynamic>>> recentEarnings() async {
+    final data = (await _send('GET', '/courier/earnings'))['data'];
+    final rows = data is Map ? data['data'] : null;
+    return rows is List ? rows.whereType<Map>().map((r) => Map<String, dynamic>.from(r)).toList() : const [];
+  }
 
   Future<RemittancePageData> records(String tab,
       {int page = 1, String search = '', String status = ''}) async {
@@ -194,6 +201,55 @@ class RemittanceApiService {
       RemittancePageData.fromJson(await _send(
           'GET', '$_base/history/${Uri.encodeComponent(id)}',
           query: {'page': '$page'}));
+
+  Future<String?> paymentQrUrl() async {
+    final url = (await _send('GET', '$_base/payment-qr'))['data'];
+    final value = url is Map ? url['qr_url'] : null;
+    return value == null || '$value'.isEmpty ? null : '$value';
+  }
+
+  /// Uploads the already-cropped PNG; resolves to the new QR url.
+  Future<String?> uploadPaymentQr(Uint8List png) async {
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('${ApiService.baseUrl}$_base/payment-qr'))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      })
+      ..files.add(http.MultipartFile.fromBytes('qr', png, filename: 'qr.png'));
+    try {
+      final response =
+          await http.Response.fromStream(await _client.send(request))
+              .timeout(const Duration(seconds: 45));
+      final data = _decode(response)['data'];
+      final value = data is Map ? data['qr_url'] : null;
+      return value == null ? null : '$value';
+    } on TimeoutException {
+      throw ApiException(
+          message: 'The upload timed out. Please try again.', statusCode: 408);
+    } on http.ClientException {
+      throw ApiException(
+          message: 'Could not upload the QR code. Check your connection.',
+          statusCode: 0);
+    }
+  }
+
+  Future<void> removePaymentQr() async {
+    try {
+      final response = await _client
+          .put(Uri.parse('${ApiService.baseUrl}$_base/payment-qr'),
+              headers: _headers, body: jsonEncode({'path': null}))
+          .timeout(const Duration(seconds: 30));
+      _decode(response);
+    } on TimeoutException {
+      throw ApiException(
+          message: 'The request timed out. Please try again.', statusCode: 408);
+    } on http.ClientException {
+      throw ApiException(
+          message: 'Could not remove the QR code. Check your connection.',
+          statusCode: 0);
+    }
+  }
 
   Future<String> sellerSession() async =>
       '${(await _send('POST', '/account/remittance-session'))['access_token']}';

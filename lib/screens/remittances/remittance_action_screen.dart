@@ -132,13 +132,13 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
         case 'cod':
           await widget.api.submitCod(
               collectionId: '${widget.row['id']}',
-              reference: _reference.text.trim(),
+              reference: remittanceReferenceDigits(_reference.text),
               proofPath: _proofPath!);
         case 'payment':
           await widget.api.submitPayment(
               obligationIds: widget.obligationIds ?? ['${widget.row['id']}'],
               cents: parseRemittancePesos(_amount.text)!,
-              reference: _reference.text.trim(),
+              reference: remittanceReferenceDigits(_reference.text),
               proofPath: _proofPath!);
         case 'dispute':
           await widget.api
@@ -163,6 +163,70 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
         });
       }
     }
+  }
+
+  Widget _proofCard() {
+    final isImage =
+        _bytes != null && !(_filename ?? '').toLowerCase().endsWith('.pdf');
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: _busy ? null : _pickProof,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: const Color(0xFFEAF4EE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: _bytes == null
+                    ? const Color(0xFF9CC4B3)
+                    : const Color(0xFF176450),
+                width: 1.5)),
+        child: _bytes == null
+            ? const Column(children: [
+                CircleAvatar(
+                    backgroundColor: Color(0xFF176450),
+                    child: Icon(Icons.upload_file, color: Colors.white)),
+                SizedBox(height: 8),
+                Text('Tap to attach your receipt',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(height: 4),
+                Text(
+                    'Screenshot or PDF showing the amount and transaction number · JPG, PNG, WebP or PDF · max 5 MB',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: DriverColors.textSecondary, fontSize: 12)),
+              ])
+            : Row(children: [
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: isImage
+                        ? Image.memory(_bytes!,
+                            width: 64, height: 64, fit: BoxFit.cover)
+                        : Container(
+                            width: 64,
+                            height: 64,
+                            color: const Color(0xFFFBEAE6),
+                            child: const Icon(Icons.picture_as_pdf,
+                                color: Color(0xFF9A4236)))),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(_filename ?? 'Receipt',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                          '${(_bytes!.length / 1048576).toStringAsFixed(2)} MB · tap to replace',
+                          style: const TextStyle(
+                              color: DriverColors.textSecondary, fontSize: 12)),
+                    ])),
+                const Icon(Icons.check_circle, color: Color(0xFF176450)),
+              ]),
+      ),
+    );
   }
 
   @override
@@ -194,6 +258,8 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
                         InteractiveViewer(
                             child: Image.network('$qr',
                                 height: 240,
+                                webHtmlElementStrategy:
+                                    WebHtmlElementStrategy.fallback,
                                 semanticLabel: 'Seller GCash QR code',
                                 loadingBuilder: (context, child, progress) =>
                                     progress == null
@@ -214,23 +280,44 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
                       Text(
                           'Recipient: ${widget.recipient?['name'] ?? remittanceName(widget.row['company'])}',
                           style: const TextStyle(fontWeight: FontWeight.w700)),
-                      if (account != null) ...[
-                        Text('${account['account_name'] ?? ''}'),
-                        SelectableText('GCash: ${account['number'] ?? ''}')
-                      ] else
-                        const Text(
-                            'Payment account is not configured. Confirm the recipient’s account before transferring.',
-                            style: TextStyle(color: DriverColors.warning)),
+                      if (account?['account_name'] != null)
+                        Text('${account!['account_name']}'),
+                      if (account?['number'] != null)
+                        SelectableText('GCash: ${account!['number']}'),
+                      const SizedBox(height: 12),
+                      if (account?['qr_url'] != null)
+                        Center(
+                            child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border:
+                                        Border.all(color: DriverColors.border)),
+                                child: InteractiveViewer(
+                                    child: Image.network(
+                                        '${account!['qr_url']}',
+                                        height: 220,
+                                        semanticLabel:
+                                            'Recipient GCash QR code',
+                                        errorBuilder: (_, __, ___) => const Text(
+                                            'QR could not load. Refresh and try again.')))))
+                      else
+                        Text(
+                            account?['number'] != null
+                                ? 'They have not uploaded a QR code yet. Send to the GCash number above.'
+                                : 'Payment account is not configured. Confirm the recipient’s account before transferring.',
+                            style:
+                                const TextStyle(color: DriverColors.warning)),
                       const SizedBox(height: 16),
                       TextFormField(
                           controller: _amount,
-                          enabled: !_busy,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
+                          readOnly: true,
                           decoration: InputDecoration(
-                              labelText: 'Amount in pesos',
+                              labelText: 'Amount to send (pesos)',
                               helperText:
-                                  'Up to ${remittanceMoney(_maximum)}. Partial payments are supported.',
+                                  'Fixed to the full balance of ${remittanceMoney(_maximum)}.',
+                              prefixIcon: const Icon(Icons.lock_outline),
                               border: const OutlineInputBorder()),
                           validator: (text) {
                             final cents = parseRemittancePesos(text ?? '');
@@ -263,12 +350,20 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
                       TextFormField(
                           controller: _reference,
                           enabled: !_busy,
-                          maxLength: 100,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: const [TransactionNumberFormatter()],
                           decoration: const InputDecoration(
                               labelText: 'Transaction number',
+                              hintText: '0000 000 000000',
+                              helperText:
+                                  '13 digits from your GCash receipt. Numbers only.',
+                              prefixIcon: Icon(Icons.tag),
                               border: OutlineInputBorder()),
-                          validator: (value) => (value ?? '').trim().isEmpty
-                              ? 'Enter the GCash transaction number.'
+                          validator: (value) => remittanceReferenceDigits(
+                                          value ?? '')
+                                      .length !=
+                                  13
+                              ? 'Enter all 13 digits of the transaction number.'
                               : null),
                     ],
                     if (_transfer || widget.action == 'dispute') ...[
@@ -279,14 +374,7 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
                               : 'Supporting evidence (optional)',
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                          onPressed: _busy ? null : _pickProof,
-                          icon: const Icon(Icons.attach_file),
-                          label: Text(_filename ?? 'Choose screenshot or PDF',
-                              overflow: TextOverflow.ellipsis)),
-                      const Text('JPG, PNG, WebP or PDF. Maximum 5 MB.',
-                          style: TextStyle(
-                              color: DriverColors.textSecondary, fontSize: 12)),
+                      _proofCard(),
                     ],
                     if (!_transfer) ...[
                       const SizedBox(height: 16),

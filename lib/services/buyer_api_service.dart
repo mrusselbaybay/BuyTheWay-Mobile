@@ -379,6 +379,21 @@ class BuyerApiService {
 
   Future<void> setPrimaryPaymentMethod(String id) => _send('PUT', '/buyer/payment-methods/${Uri.encodeComponent(id)}/primary');
 
+  // ---------------- Refund payment QR ----------------
+
+  String? _qrUrl(Object? data) {
+    final value = data is Map ? data['qr_url'] : null;
+    return value == null || '$value'.isEmpty ? null : '$value';
+  }
+
+  Future<String?> paymentQr() async => _qrUrl((await _send('GET', '/buyer/payment-qr'))['data']);
+
+  /// Uploads the already-cropped PNG; resolves to the new QR url.
+  Future<String?> uploadPaymentQr(List<int> png) async =>
+      _qrUrl((await _multipart('/buyer/payment-qr', 'qr', png, 'qr.png'))['data']);
+
+  Future<void> removePaymentQr() => _send('PUT', '/buyer/payment-qr', body: {'path': null});
+
   // ---------------- Reviews ----------------
 
   Future<List<MyReview>> myReviews() async {

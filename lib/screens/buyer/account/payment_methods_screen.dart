@@ -4,6 +4,7 @@ import '../../driver/driver_theme.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../buyer_models.dart';
 import '../buyer_store.dart';
+import '../widgets/buyer_payment_qr_card.dart';
 import '../widgets/buyer_widgets.dart';
 import 'settings_kit.dart';
 
@@ -84,6 +85,11 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       ]),
       const SizedBox(height: 10),
       const SettingsInfoNote('Only cash on delivery is available right now. Card and e-wallet payments are coming later.'),
+      kSettingsGap,
+      const SettingsSectionLabel('Refund GCash QR'),
+      const BuyerPaymentQrCard(),
+      const SizedBox(height: 8),
+      const Padding(padding: EdgeInsets.only(left: 4), child: Text('Only the seller of an order with an open refund or return can see your QR.', style: DriverText.caption)),
       if (list.isNotEmpty) ...[
         kSettingsGap,
         const SettingsSectionLabel('Previously saved'),

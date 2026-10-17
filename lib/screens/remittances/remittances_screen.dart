@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/remittance_api_service.dart';
 import '../driver/driver_theme.dart';
+import '../driver/widgets/driver_shared_widgets.dart';
 import 'remittance_action_screen.dart';
 import 'remittance_detail_screen.dart';
 import 'remittance_format.dart';
@@ -188,12 +189,12 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               maxCents: maxCents,
             )));
     if (!mounted || changed != true) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(action == 'verify'
+    DriverTopNotification.show(context,
+        message: action == 'verify'
             ? 'Receipt confirmed.'
             : ['cod', 'payment'].contains(action)
                 ? 'Proof submitted. Awaiting recipient verification.'
-                : 'Saved.')));
+                : 'Saved.');
     await _load();
   }
 
@@ -212,38 +213,96 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
   }
 
   Widget _summaryView() {
-    final first = _seller
+    final primary = _seller
         ? _summary['outstanding_cents']
         : _summary['manual_cod_owed_cents'];
-    final second =
+    final secondary =
         _seller ? _summary['exposure_cents'] : _summary['available_cents'];
+    final owes = remittanceCents(primary) > 0;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(
-          _seller
-              ? 'Confirm incoming payments and settle your fees.'
-              : 'Send collected COD to the seller, then track confirmation here.',
-          style:
-              const TextStyle(color: DriverColors.textSecondary, height: 1.4)),
-      const SizedBox(height: 16),
-      Row(children: [
-        Expanded(
-            child:
-                _figure(_seller ? 'Outstanding fees' : 'COD to remit', first)),
-        const SizedBox(width: 12),
-        Expanded(
-            child: _figure(
-                _seller ? 'COD exposure' : 'Available earnings', second)),
-      ]),
-      if (_seller) ...[
-        const SizedBox(height: 10),
-        Text(
-            'COD limit: ${_summary['limit_cents'] == null ? 'Not configured' : remittanceMoney(_summary['limit_cents'])}'),
-        if (_summary['next_deadline'] != null)
-          Text('Next settlement due: ${_summary['next_deadline']}'),
-        if (_summary['period_start'] != null)
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: DriverColors.heroGradient),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+                color: DriverColors.primary.withOpacity(0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8))
+          ],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(
+                _seller
+                    ? Icons.receipt_long_rounded
+                    : Icons.account_balance_wallet_rounded,
+                size: 16,
+                color: Colors.white70),
+            const SizedBox(width: 6),
+            Text(_seller ? 'Outstanding fees' : 'COD to remit',
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600)),
+            const Spacer(),
+            if (!_seller)
+              _heroPill(owes ? 'Action needed' : 'All settled',
+                  owes ? Icons.schedule_rounded : Icons.check_circle_rounded),
+          ]),
+          const SizedBox(height: 6),
+          Text(remittanceMoney(primary),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 34,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
           Text(
-              'Period: ${_summary['period_start']} – ${_summary['period_end']}',
-              style: const TextStyle(color: DriverColors.textSecondary)),
+              _seller
+                  ? 'Confirm incoming payments and settle your fees.'
+                  : 'Send collected COD to the seller, then track confirmation here.',
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12.5,
+                  height: 1.35)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              Expanded(
+                  child: Text(_seller ? 'COD exposure' : 'Available earnings',
+                      style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600))),
+              Text(remittanceMoney(secondary),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
+            ]),
+          ),
+        ]),
+      ),
+      if (_seller) ...[
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          _infoChip(Icons.speed_rounded,
+              'COD limit ${_summary['limit_cents'] == null ? 'not set' : remittanceMoney(_summary['limit_cents'])}'),
+          if (_summary['next_deadline'] != null)
+            _infoChip(Icons.event_rounded, 'Due ${_summary['next_deadline']}'),
+          if (_summary['period_start'] != null)
+            _infoChip(Icons.date_range_rounded,
+                '${_summary['period_start']} – ${_summary['period_end']}'),
+        ]),
         if (_summary['cod_eligible'] == false || _summary['warning'] == true)
           Container(
               margin: const EdgeInsets.only(top: 12),
@@ -251,33 +310,60 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               decoration: BoxDecoration(
                   color: DriverColors.warningSurface,
                   borderRadius: BorderRadius.circular(12)),
-              child: Text(
-                  '${_summary['reason'] ?? 'You are approaching your COD balance limit.'} Existing orders can continue normally.')),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 18, color: DriverColors.warning),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        '${_summary['reason'] ?? 'You are approaching your COD balance limit.'} Existing orders can continue normally.',
+                        style: const TextStyle(fontSize: 12.5, height: 1.35))),
+              ])),
       ] else
-        const Padding(
-            padding: EdgeInsets.only(top: 10),
-            child: Text(
-                'Logistics pays your courier earnings separately from COD remittances.',
-                style: TextStyle(color: DriverColors.textSecondary))),
+        Padding(
+            padding: const EdgeInsets.only(top: 10, left: 4),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 14, color: DriverColors.textSecondary),
+              const SizedBox(width: 6),
+              const Expanded(
+                  child: Text(
+                      'Logistics pays your courier earnings separately from COD remittances.',
+                      style: DriverText.caption)),
+            ])),
     ]);
   }
 
-  Widget _figure(String label, dynamic cents) => Container(
-        padding: const EdgeInsets.all(16),
+  Widget _heroPill(String text, IconData icon) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(text,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700)),
+        ]),
+      );
+
+  Widget _infoChip(IconData icon, String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: DriverColors.border)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: DriverColors.primary),
+          const SizedBox(width: 6),
+          Text(text,
               style: const TextStyle(
-                  color: DriverColors.textSecondary, fontSize: 12)),
-          const SizedBox(height: 6),
-          Text(remittanceMoney(cents),
-              style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: DriverColors.primaryDark))
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: DriverColors.textPrimary)),
         ]),
       );
 
@@ -302,62 +388,129 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
-                  if (_summary.isNotEmpty) _summaryView(),
-                  const SizedBox(height: 16),
-                  SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                          children: _tabs.entries
-                              .map((entry) => Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                      label: Text(entry.value),
-                                      selected: _tab == entry.key,
-                                      onSelected: (_) =>
-                                          _changeTab(entry.key))))
-                              .toList())),
+                  if (_summary.isNotEmpty) ...[
+                    _summaryView(),
+                    const SizedBox(height: 20),
+                  ],
+                  SizedBox(
+                      height: 40,
+                      child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          children: _tabs.entries.map((entry) {
+                            final active = _tab == entry.key;
+                            return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Material(
+                                    color: active
+                                        ? DriverColors.primary
+                                        : Colors.white,
+                                    shape: StadiumBorder(
+                                        side: BorderSide(
+                                            color: active
+                                                ? DriverColors.primary
+                                                : DriverColors.border)),
+                                    child: InkWell(
+                                        customBorder: const StadiumBorder(),
+                                        onTap: () => _changeTab(entry.key),
+                                        child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16),
+                                            child: Center(
+                                                child: Text(entry.value,
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: active
+                                                            ? Colors.white
+                                                            : DriverColors
+                                                                .textSecondary)))))));
+                          }).toList())),
                   const SizedBox(height: 12),
-                  TextField(
-                      controller: _search,
-                      maxLength: 100,
-                      decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          labelText: 'Search order or reference',
-                          counterText: '',
-                          border: OutlineInputBorder()),
-                      onChanged: (_) {
-                        _debounce?.cancel();
-                        _debounce =
-                            Timer(const Duration(milliseconds: 400), () {
-                          _page = 1;
-                          _load(refreshSummary: false);
-                        });
-                      }),
-                  if (_statuses.isNotEmpty)
-                    Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey('$_tab:$_status'),
-                          isExpanded: true,
+                  Row(children: [
+                    Expanded(
+                        child: TextField(
+                            controller: _search,
+                            maxLength: 100,
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.search_rounded,
+                                    color: DriverColors.textSecondary),
+                                hintText: 'Search order or reference',
+                                counterText: '',
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                        color: DriverColors.border)),
+                                focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                        color: DriverColors.primary,
+                                        width: 1.5))),
+                            onChanged: (_) {
+                              _debounce?.cancel();
+                              _debounce =
+                                  Timer(const Duration(milliseconds: 400), () {
+                                _page = 1;
+                                _load(refreshSummary: false);
+                              });
+                            })),
+                    if (_statuses.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                          tooltip: 'Filter by status',
                           initialValue: _status,
-                          decoration: const InputDecoration(
-                              labelText: 'Status',
-                              border: OutlineInputBorder()),
-                          items: [
-                            DropdownMenuItem(
-                                value: '',
-                                child: Text(_tab == 'gcash'
-                                    ? 'Awaiting verification'
-                                    : 'All statuses')),
-                            ..._statuses.map((s) => DropdownMenuItem(
-                                value: s, child: Text(remittanceLabel(s))))
-                          ],
-                          onChanged: (value) {
-                            _status = value ?? '';
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                          onSelected: (value) {
+                            _status = value;
                             _page = 1;
                             _load(refreshSummary: false);
                           },
-                        )),
+                          itemBuilder: (_) => [
+                                PopupMenuItem(
+                                    value: '',
+                                    child: Text(_tab == 'gcash'
+                                        ? 'Awaiting verification'
+                                        : 'All statuses')),
+                                ..._statuses.map((s) => PopupMenuItem(
+                                    value: s, child: Text(remittanceLabel(s))))
+                              ],
+                          child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                  color: _status.isEmpty
+                                      ? Colors.white
+                                      : DriverColors.primarySurface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                      color: _status.isEmpty
+                                          ? DriverColors.border
+                                          : DriverColors.primary)),
+                              child: Icon(Icons.tune_rounded,
+                                  color: _status.isEmpty
+                                      ? DriverColors.textSecondary
+                                      : DriverColors.primary))),
+                    ],
+                  ]),
+                  if (_status.isNotEmpty)
+                    Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: InputChip(
+                                label: Text(remittanceLabel(_status)),
+                                onDeleted: () {
+                                  _status = '';
+                                  _page = 1;
+                                  _load(refreshSummary: false);
+                                }))),
                   const SizedBox(height: 16),
                   if (_selection.isNotEmpty && !_loading)
                     Padding(
@@ -370,26 +523,42 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                   if (_loading)
                     const _RemittanceSkeleton()
                   else if (_error != null)
-                    Column(children: [
-                      const Icon(Icons.cloud_off_outlined, size: 40),
-                      const SizedBox(height: 12),
-                      Text(_error!, textAlign: TextAlign.center),
-                      TextButton(onPressed: _load, child: const Text('Retry'))
-                    ])
+                    Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(children: [
+                          const Icon(Icons.cloud_off_rounded,
+                              size: 44, color: DriverColors.textSecondary),
+                          const SizedBox(height: 12),
+                          Text(_error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: DriverColors.textSecondary,
+                                  height: 1.4)),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Retry'))
+                        ]))
                   else if (_rows.isEmpty)
                     Padding(
                         padding: const EdgeInsets.symmetric(vertical: 36),
                         child: Column(children: [
-                          const Icon(Icons.receipt_long_outlined,
-                              size: 44, color: DriverColors.textSecondary),
-                          const SizedBox(height: 12),
+                          Container(
+                              width: 72,
+                              height: 72,
+                              decoration: const BoxDecoration(
+                                  color: DriverColors.primarySurface,
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.receipt_long_rounded,
+                                  size: 32, color: DriverColors.primary)),
+                          const SizedBox(height: 14),
                           Text(
                               _tab == 'collections'
                                   ? 'No COD collections found'
                                   : 'No ${_tabs[_tab]!.toLowerCase()} found',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 8),
+                              style: DriverText.sectionTitle),
+                          const SizedBox(height: 6),
                           Text(
                               _tab == 'collections'
                                   ? 'Only COD cash recorded for your delivered parcels appears here. GCash orders do not require a courier remittance.'

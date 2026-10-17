@@ -19,12 +19,14 @@ import 'package:image_picker/image_picker.dart';
 
 const double _viewport = 280;
 const double _outputSize = 480;
+const double _qrOutputSize = 720;
 const double _maxZoom = 4;
 
 /// Opens the system picker (camera or gallery), then the cropper.
 /// Resolves to the cropped PNG bytes, or null if the user backed out of
 /// either step.
-Future<Uint8List?> pickAndCropImage(BuildContext context) async {
+Future<Uint8List?> pickAndCropImage(BuildContext context,
+    {bool qr = false}) async {
   final source = await _askImageSource(context);
   if (source == null) return null;
 
@@ -42,15 +44,20 @@ Future<Uint8List?> pickAndCropImage(BuildContext context) async {
   final bytes = await picked.readAsBytes();
   if (!context.mounted) return null;
 
-  return showImageCropper(context, bytes);
+  return showImageCropper(context, bytes, qr: qr);
 }
 
 /// Shows the cropper for already-loaded image [bytes].
-Future<Uint8List?> showImageCropper(BuildContext context, Uint8List bytes) {
+///
+/// With [qr] the frame is a square box (not a circle) that starts with the
+/// whole picture visible and can be zoomed out, and the export is padded
+/// with white — a QR code must never be cut off.
+Future<Uint8List?> showImageCropper(BuildContext context, Uint8List bytes,
+    {bool qr = false}) {
   return showDialog<Uint8List>(
     context: context,
     barrierColor: Colors.black.withOpacity(0.72),
-    builder: (_) => _ImageCropDialog(bytes: bytes),
+    builder: (_) => _ImageCropDialog(bytes: bytes, qr: qr),
   );
 }
 
@@ -95,9 +102,10 @@ Future<ImageSource?> _askImageSource(BuildContext context) {
 }
 
 class _ImageCropDialog extends StatefulWidget {
-  const _ImageCropDialog({required this.bytes});
+  const _ImageCropDialog({required this.bytes, this.qr = false});
 
   final Uint8List bytes;
+  final bool qr;
 
   @override
   State<_ImageCropDialog> createState() => _ImageCropDialogState();
@@ -140,7 +148,8 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
       }
       setState(() {
         _image = frame.image;
-        _baseScale = math.max(
+        final fit = widget.qr ? math.min<double> : math.max<double>;
+        _baseScale = fit(
           _viewport / frame.image.width,
           _viewport / frame.image.height,
         );
@@ -149,7 +158,8 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _decodeError = "That file couldn't be opened as an image.");
+      setState(
+          () => _decodeError = "That file couldn't be opened as an image.");
     }
   }
 
@@ -173,7 +183,8 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     setState(() {
-      _zoom = (_zoomAtGestureStart * details.scale).clamp(1.0, _maxZoom);
+      _zoom = (_zoomAtGestureStart * details.scale)
+          .clamp(widget.qr ? 0.5 : 1.0, _maxZoom);
       _offset = _clamp(_offset + details.focalPointDelta);
     });
   }
@@ -201,17 +212,32 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      canvas.drawImageRect(
-        image,
-        Rect.fromLTWH(sourceX, sourceY, sourceSize, sourceSize),
-        const Rect.fromLTWH(0, 0, _outputSize, _outputSize),
-        Paint()..filterQuality = FilterQuality.high,
-      );
+      if (widget.qr) {
+        // Place the whole picture where it sits in the frame, on white.
+        const out = _qrOutputSize / _viewport;
+        canvas.drawRect(const Rect.fromLTWH(0, 0, _qrOutputSize, _qrOutputSize),
+            Paint()..color = Colors.white);
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          Rect.fromLTWH(
+              (_viewport / 2 - _displayWidth / 2 + _offset.dx) * out,
+              (_viewport / 2 - _displayHeight / 2 + _offset.dy) * out,
+              _displayWidth * out,
+              _displayHeight * out),
+          Paint()..filterQuality = FilterQuality.high,
+        );
+      } else {
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(sourceX, sourceY, sourceSize, sourceSize),
+          const Rect.fromLTWH(0, 0, _outputSize, _outputSize),
+          Paint()..filterQuality = FilterQuality.high,
+        );
+      }
       final picture = recorder.endRecording();
-      final cropped = await picture.toImage(
-        _outputSize.round(),
-        _outputSize.round(),
-      );
+      final side = (widget.qr ? _qrOutputSize : _outputSize).round();
+      final cropped = await picture.toImage(side, side);
       picture.dispose();
 
       final data = await cropped.toByteData(format: ui.ImageByteFormat.png);
@@ -247,13 +273,15 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Adjust your photo',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            Text(
+              widget.qr ? 'Crop your QR code' : 'Adjust your photo',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(
-              'Drag to reposition, pinch or use the slider to zoom.',
+              widget.qr
+                  ? 'Keep the whole QR code inside the square. Drag to move, pinch or use the slider to zoom.'
+                  : 'Drag to reposition, pinch or use the slider to zoom.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
             ),
@@ -298,7 +326,7 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Use photo'),
+                        : Text(widget.qr ? 'Use this QR' : 'Use photo'),
                   ),
                 ),
               ],
@@ -314,9 +342,9 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
     return SizedBox(
       width: _viewport,
       height: _viewport,
-      child: ClipOval(
+      child: _frameClip(
         child: Container(
-          color: const Color(0xFF0F172A),
+          color: widget.qr ? Colors.white : const Color(0xFF0F172A),
           child: image == null
               ? const Center(
                   child: SizedBox(
@@ -346,6 +374,15 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
     );
   }
 
+  Widget _frameClip({required Widget child}) => widget.qr
+      ? DecoratedBox(
+          decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF176450), width: 2),
+              borderRadius: BorderRadius.circular(10)),
+          child:
+              ClipRRect(borderRadius: BorderRadius.circular(8), child: child))
+      : ClipOval(child: child);
+
   Widget _zoomRow(ThemeData theme) {
     return Row(
       children: [
@@ -353,9 +390,10 @@ class _ImageCropDialogState extends State<_ImageCropDialog> {
         Expanded(
           child: Slider(
             value: _zoom,
-            min: 1,
+            min: widget.qr ? 0.5 : 1,
             max: _maxZoom,
-            onChanged: _image == null || _exporting ? null : _onZoomSliderChanged,
+            onChanged:
+                _image == null || _exporting ? null : _onZoomSliderChanged,
           ),
         ),
         Icon(Icons.image_rounded, size: 21, color: Colors.grey.shade500),

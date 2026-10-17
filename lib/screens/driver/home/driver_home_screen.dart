@@ -78,42 +78,53 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return '${h}h ${m.toString().padLeft(2, '0')}m';
   }
 
+  String get _greeting {
+    final h = DateTime.now().hour;
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DriverColors.background,
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: DriverColors.primary,
-          onRefresh: widget.onRefreshRequests,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: _header(context)),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
-                sliver: SliverToBoxAdapter(
+      body: RefreshIndicator(
+        color: DriverColors.primary,
+        edgeOffset: MediaQuery.of(context).padding.top,
+        onRefresh: widget.onRefreshRequests,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _header(context)),
+            SliverToBoxAdapter(
+              child: Transform.translate(
+                offset: const Offset(0, -44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _earningsCard(context),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+              sliver: SliverToBoxAdapter(
+                child: Transform.translate(
+                  offset: const Offset(0, -24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _quickStatsGrid(),
-                      const SizedBox(height: 20),
-                      _earningsCard(context),
                       if (widget.activeDelivery != null) ...[
-                        const SizedBox(height: 20),
                         _activeDeliveryCard(context, widget.activeDelivery!),
+                        const SizedBox(height: 24),
                       ],
-                      const SizedBox(height: 22),
-                      DriverSectionHeader(title: widget.isOnline ? 'Available requests' : 'Go online to see requests'),
+                      DriverSectionHeader(title: widget.isOnline ? 'Available requests' : 'Requests'),
                       const SizedBox(height: 12),
                       _requestsSection(),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -121,160 +132,118 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   Widget _header(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: DriverColors.primaryGradient),
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: DriverColors.primary.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))],
+      padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 68),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: DriverColors.heroGradient),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.2), border: Border.all(color: Colors.white.withOpacity(0.4))),
-                child: Text(widget.account.avatarInitial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.account.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-                    Row(
-                      children: [
-                        const Icon(Icons.star_rounded, size: 13, color: Color(0xFFFCD34D)),
-                        const SizedBox(width: 3),
-                        Text('${widget.account.rating} rating', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11.5, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              _statusToggle(),
-            ],
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.18), border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5)),
+            child: Text(widget.account.avatarInitial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 19)),
           ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(child: _headerStat(Icons.local_shipping_rounded, '${widget.completedToday}', 'Deliveries')),
-              Expanded(child: _headerStat(Icons.payments_rounded, '₱${widget.todayEarnings.toStringAsFixed(0)}', 'Today')),
-              Expanded(child: _headerStat(Icons.timer_rounded, _elapsedLabel, widget.isOnline ? 'Online' : 'Offline')),
-            ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_greeting, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12.5, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(widget.account.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+              ],
+            ),
           ),
+          _statusToggle(),
         ],
       ),
     );
   }
 
   Widget _statusToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: widget.isOnline ? Colors.white.withOpacity(0.22) : Colors.black.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(20),
+    final online = widget.isOnline;
+    return Semantics(
+      label: online ? 'You are online' : 'You are offline',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: online ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: online ? const Color(0xFF6EE7B7) : Colors.white54)),
+            const SizedBox(width: 6),
+            Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.isOnline ? const Color(0xFF6EE7B7) : Colors.white54)),
-          const SizedBox(width: 5),
-          Text(widget.isOnline ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerStat(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 17),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
-      ],
-    );
-  }
-
-  Widget _quickStatsGrid() {
-    final stats = [
-      ('${widget.completedToday}', 'Deliveries today', Icons.inventory_2_rounded, DriverColors.primary),
-      ('${widget.account.rating}', 'Rating', Icons.star_rounded, const Color(0xFFF59E0B)),
-      (_elapsedLabel, 'Hours online', Icons.schedule_rounded, const Color(0xFF8B5CF6)),
-      ('94%', 'Acceptance rate', Icons.thumb_up_rounded, const Color(0xFFEC4899)),
-    ];
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.7,
-      children: stats.map((s) {
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))]),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: s.$4.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-                child: Icon(s.$3, size: 22, color: s.$4),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(s.$1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: DriverColors.textPrimary)),
-                    Text(s.$2, style: const TextStyle(fontSize: 11.5, color: DriverColors.textSecondary, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 
   Widget _earningsCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text("TODAY'S EARNINGS", style: DriverText.label),
+          const SizedBox(height: 4),
+          Text('₱${widget.todayEarnings.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 32, height: 1.1, color: DriverColors.textPrimary)),
+          if (todayBreakdown.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 14,
+              runSpacing: 2,
+              children: todayBreakdown
+                  .map((line) => Text.rich(TextSpan(children: [
+                        TextSpan(text: '${line.label} ', style: DriverText.caption),
+                        TextSpan(text: '₱${line.amount.toStringAsFixed(0)}', style: DriverText.caption.copyWith(color: DriverColors.textPrimary, fontWeight: FontWeight.w700)),
+                      ])))
+                  .toList(),
+            ),
+          ],
+          const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Divider(height: 1, color: DriverColors.border)),
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet_rounded, color: DriverColors.primary, size: 18),
-              const SizedBox(width: 8),
-              const Text("Today's earnings", style: DriverText.sectionTitle),
-              const Spacer(),
-              Text('₱${widget.todayEarnings.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: DriverColors.primaryDark)),
+              _miniStat(Icons.inventory_2_rounded, '${widget.completedToday}', 'Deliveries'),
+              _miniStat(Icons.schedule_rounded, _elapsedLabel, widget.isOnline ? 'Online' : 'Offline'),
+              _miniStat(Icons.star_rounded, '${widget.account.rating}', 'Rating', color: const Color(0xFFF59E0B)),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: todayBreakdown
-                .map(
-                  (line) => Expanded(
-                    child: Column(
-                      children: [
-                        Text('₱${line.amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: DriverColors.textPrimary)),
-                        Text(line.label, style: DriverText.caption),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStat(IconData icon, String value, String label, {Color color = DriverColors.primary}) {
+    return Expanded(
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: DriverColors.textPrimary)),
+                Text(label, style: DriverText.caption.copyWith(fontSize: 10.5)),
+              ],
+            ),
           ),
         ],
       ),

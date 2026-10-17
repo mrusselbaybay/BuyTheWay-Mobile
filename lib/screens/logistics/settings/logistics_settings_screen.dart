@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/remittance_api_service.dart';
 import '../../driver/driver_theme.dart';
+import '../../remittances/payment_qr_screen.dart';
 import '../../driver/settings/driver_change_password_sheet.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
@@ -75,6 +77,25 @@ class LogisticsSettingsScreen extends StatelessWidget {
                 onTap: () {},
               ),
               const SizedBox(height: 26),
+
+              const SettingsSectionLabel('Payments'),
+              const SizedBox(height: 8),
+              SettingsGroupCard(
+                children: [
+                  SettingsNavTile(
+                    icon: Icons.qr_code_2_rounded,
+                    title: 'Payment QR',
+                    subtitle: 'Let sellers pay your delivery fees by GCash',
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => PaymentQrScreen(
+                        accessToken: accessToken,
+                        role: RemittanceRole.logistics,
+                      ),
+                    )),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
 
               const SettingsSectionLabel('Security'),
               const SizedBox(height: 8),

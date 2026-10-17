@@ -222,6 +222,9 @@ class AssignedDelivery {
   final String orderNumber;
   final String financialFlow;
   final String paymentMethod;
+
+  /// Cash to collect at the door (COD forward legs only), in centavos.
+  final int codAmountCents;
   final String? trackingNumber;
   final String customerName;
   final String? customerContactNo;
@@ -287,6 +290,7 @@ class AssignedDelivery {
     required this.orderNumber,
     this.financialFlow = '',
     this.paymentMethod = '',
+    this.codAmountCents = 0,
     this.trackingNumber,
     required this.customerName,
     this.customerContactNo,
@@ -344,6 +348,7 @@ class AssignedDelivery {
       orderNumber: str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
       financialFlow: str(json['financial_flow']),
       paymentMethod: str(json['payment_method']),
+      codAmountCents: (json['cod_amount_cents'] as num?)?.toInt() ?? 0,
       trackingNumber: str(json['tracking_number']).isEmpty ? null : str(json['tracking_number']),
       customerName: str(json['customer_name']).isEmpty ? 'Customer' : str(json['customer_name']),
       customerContactNo: str(json['customer_contact_no']).isEmpty ? null : str(json['customer_contact_no']),

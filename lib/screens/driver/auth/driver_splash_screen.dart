@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/common.dart';
 import '../driver_shell.dart';
-import 'driver_login_screen.dart';
+import '../../auth/auth_screen.dart';
 
 /// Brand splash — logo scale/fade in, then either continues straight into
 /// [DriverShell] (a still-valid saved session) or advances to
@@ -32,7 +32,7 @@ class _DriverSplashScreenState extends State<DriverSplashScreen> with SingleTick
   Future<void> _resolveSession() async {
     if (!mounted) return;
 
-    Widget destination = const DriverLoginScreen();
+    Widget destination = const AuthScreen(portal: AuthPortal.partner);
     final prefs = await SharedPreferences.getInstance();
     final rememberMe = prefs.getBool('remember_me') ?? true;
     final token = rememberMe ? prefs.getString('auth_token') : null;

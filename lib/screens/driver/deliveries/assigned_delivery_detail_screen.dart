@@ -1154,25 +1154,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
               SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 onPressed: _submitting || _capturing ? null : _failAttempt,
                 icon: const Icon(Icons.warning_amber_rounded),
-                label: const Text('Failed Delivery Attempt'),
+                label: const Text('Failed Attempt'),
                 style: OutlinedButton.styleFrom(foregroundColor: DriverColors.warning, minimumSize: const Size.fromHeight(48)),
               )),
-            if (!_hasPhoto && !_submitting)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline_rounded, size: 14, color: DriverColors.textSecondary),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        d.hasConfirmationQr ? "Scan or attach the parcel's QR code above to enable this button" : 'Attach a photo above to enable this button',
-                        style: DriverText.caption,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            if (d.canMarkFailed) const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

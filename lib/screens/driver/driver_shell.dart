@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
-import 'auth/driver_login_screen.dart';
+import '../auth/auth_screen.dart';
 import 'chat/driver_chat_controller.dart';
 import 'chat/driver_chat_list_screen.dart';
 import 'deliveries/driver_deliveries_screen.dart';
@@ -14,6 +14,7 @@ import 'earnings/driver_earnings_screen.dart';
 import 'history/driver_history_screen.dart';
 import 'home/deliver_order_screen.dart';
 import 'home/delivery_request_details_screen.dart';
+import 'home/courier_home_screen.dart';
 import 'home/driver_home_screen.dart';
 import 'home/pickup_order_screen.dart';
 import '../../services/remittance_api_service.dart';
@@ -224,7 +225,7 @@ class _DriverShellState extends State<DriverShell> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const DriverLoginScreen()), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner)), (route) => false);
   }
 
   /// Pending debounced availability write (see [_setOnline]).
@@ -467,7 +468,21 @@ class _DriverShellState extends State<DriverShell> {
     }
 
     final pages = [
-      DriverHomeScreen(
+      if (account.role == 'courier')
+        CourierHomeScreen(
+          account: account,
+          accessToken: accessToken,
+          isOnline: _isOnline,
+          deliveries: _assignedDeliveries,
+          loading: _loadingDeliveries,
+          error: _deliveriesError,
+          controller: _chatController!,
+          onRefresh: _loadDeliveries,
+          onOpenDeliveries: () => setState(() => _tabIndex = 1),
+          onOpenRemittances: () => setState(() => _tabIndex = 2),
+        )
+      else
+        DriverHomeScreen(
         isOnline: _isOnline,
         shiftStart: _shiftStart,
         account: account,
