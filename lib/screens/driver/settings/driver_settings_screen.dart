@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/push_service.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../remittances/payment_qr_screen.dart';
 import '../../remittances/remittances_screen.dart';
@@ -9,7 +10,7 @@ import '../../auth/auth_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../work/driver_work_screen.dart';
-import 'driver_change_password_sheet.dart';
+import '../../../widgets/sign_in_methods_section.dart';
 import 'driver_deactivate_account_dialog.dart';
 import 'driver_profile_info_screen.dart';
 import 'driver_vehicle_documents_screen.dart';
@@ -105,10 +106,6 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
         builder: (_) => DriverWorkScreen(accessToken: widget.accessToken)));
   }
 
-  void _openChangePassword() {
-    showChangePasswordSheet(context, api: _api, email: widget.account.email);
-  }
-
   void _pickLanguage() {
     showDialog<String>(
       context: context,
@@ -131,6 +128,7 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
   // ==================== Sign out / deactivate ====================
 
   Future<void> _signOut() async {
+    await PushService.instance.unregister(authToken: widget.accessToken); // before the session is cleared
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
@@ -290,15 +288,10 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                   ),
               ]),
               const SizedBox(height: 22),
-              const SettingsSectionLabel('Security'),
+              const SignInMethodsSection(),
+              const SettingsSectionLabel('Availability'),
               const SizedBox(height: 8),
               SettingsGroupCard(children: [
-                SettingsNavTile(
-                  icon: Icons.lock_outline_rounded,
-                  title: 'Change Password',
-                  subtitle: 'Update your account password',
-                  onTap: _openChangePassword,
-                ),
                 SettingsOptimisticSwitchTile(
                   icon: Icons.delivery_dining_rounded,
                   title: 'Go online',

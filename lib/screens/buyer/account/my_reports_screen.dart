@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../services/poller.dart';
 import '../../driver/driver_theme.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../buyer_store.dart';
@@ -111,10 +112,86 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
   bool loading = false;
   String? error;
 
+  final _scroll = ScrollController();
+  ModalRoute<dynamic>? _route;
+  List<Map<String, dynamic>> _queuedNew = const [];
+
+  /// Silent 60s refresh of the current page only: updates reports in place,
+  /// and holds brand-new ones behind an "N new" pill while the list is
+  /// scrolled so rows don't shift under the finger.
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final current = state;
+      final result = await _buyer.api.myReports(state: current, page: 1);
+      if (!isActive() || !mounted || current != state || loading || _route?.isCurrent == false) {
+        return;
+      }
+      _mergeFresh(result);
+    },
+    interval: const Duration(seconds: 60),
+    shouldSkip: () => loading || _route?.isCurrent == false,
+    onError: _buyer.handleError,
+  );
+
+  String _fingerprint(Map<String, dynamic> r) => '${r['status']}|${r['step']}|${r['updatedAt']}|${r['statusLabel']}';
+
+  void _mergeFresh(({List<Map<String, dynamic>> items, int lastPage, int open, int closed}) result) {
+    final index = {for (var i = 0; i < reports.length; i++) '${reports[i]['id']}': i};
+    final updates = <int, Map<String, dynamic>>{};
+    final added = <Map<String, dynamic>>[];
+    for (final fresh in result.items) {
+      final at = index['${fresh['id']}'];
+      if (at == null) {
+        added.add(fresh);
+      } else if (_fingerprint(reports[at]) != _fingerprint(fresh)) {
+        updates[at] = fresh;
+      }
+    }
+    final countsChanged = result.open != openCount || result.closed != closedCount;
+    if (updates.isEmpty && !countsChanged && added.isEmpty) return;
+    final queued = {for (final r in _queuedNew) '${r['id']}'};
+    final newOnes = added.where((r) => !queued.contains('${r['id']}')).toList();
+    final atTop = reports.isEmpty || !_scroll.hasClients || _scroll.offset <= 24;
+    setState(() {
+      updates.forEach((i, r) => reports[i] = r);
+      openCount = result.open;
+      closedCount = result.closed;
+      if (added.isEmpty) return;
+      if (atTop) {
+        reports.insertAll(0, added);
+        _queuedNew = const [];
+      } else if (newOnes.isNotEmpty) {
+        _queuedNew = [..._queuedNew, ...newOnes];
+      }
+    });
+  }
+
+  void _showQueued() {
+    setState(() {
+      reports.insertAll(0, _queuedNew.where((r) => !reports.any((e) => '${e['id']}' == '${r['id']}')));
+      _queuedNew = const [];
+    });
+    if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    _poller.start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    _poller.stop();
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load({bool reset = false}) async {
@@ -129,7 +206,9 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
       if (mounted) {
         setState(() {
           if (reset) reports.clear();
-          reports.addAll(result.items);
+          _queuedNew = const [];
+          final have = {for (final r in reports) '${r['id']}'};
+          reports.addAll(result.items.where((r) => !have.contains('${r['id']}')));
           page = next;
           lastPage = result.lastPage;
           openCount = result.open;
@@ -149,6 +228,7 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
       state = value;
       page = 0;
       reports.clear();
+      _queuedNew = const [];
     });
     _load();
   }
@@ -186,10 +266,12 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: DriverColors.background,
         appBar: settingsAppBar('My Reports', centerTitle: true, backgroundColor: DriverColors.primarySurface),
-        body: RefreshIndicator(
+        body: Stack(children: [
+          RefreshIndicator(
           color: DriverColors.primary,
           onRefresh: () => _load(reset: true),
           child: CustomScrollView(
+            controller: _scroll,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
@@ -236,6 +318,32 @@ class _BuyerReportsScreenState extends State<BuyerReportsScreen> {
             ],
           ),
         ),
+          if (_queuedNew.isNotEmpty)
+            Positioned(
+              top: 10,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  color: DriverColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                  elevation: 3,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _showQueued,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text('${_queuedNew.length} new', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ]),
       );
 }
 

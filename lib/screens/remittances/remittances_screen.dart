@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
+import '../../services/poller.dart';
 import '../../services/remittance_api_service.dart';
 import '../driver/driver_theme.dart';
 import '../driver/widgets/driver_shared_widgets.dart';
@@ -19,11 +21,15 @@ class RemittancesScreen extends StatefulWidget {
       required this.role,
       this.orderNumber = '',
       this.revokeOnClose = false,
+      this.active = true,
       this.api});
   final String accessToken;
   final RemittanceRole role;
   final String orderNumber;
   final bool revokeOnClose;
+
+  /// False while this screen is a hidden tab: background refresh pauses.
+  final bool active;
   final RemittanceApiService? api;
   @override
   State<RemittancesScreen> createState() => _RemittancesScreenState();
@@ -46,6 +52,94 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
   String _status = '';
   Map<String, dynamic> _summary = {};
   List<Map<String, dynamic>> _rows = [];
+
+  // ---- Background refresh ----
+  // Re-reads the summary and the current tab/page/filters every 45s. Rows are
+  // merged by id (unchanged rows keep their object); when the list is scrolled
+  // and rows join/leave, they wait behind an "N updated" pill. While an action
+  // screen (proof upload, verify, dispute) is open the poll keeps running, but
+  // only to tell that screen — through [_watched] — if its record changed; the
+  // form itself is never touched.
+  final _scroll = ScrollController();
+  ModalRoute<dynamic>? _route;
+  bool _actionOpen = false;
+  String? _watchedId;
+  final ValueNotifier<Map<String, dynamic>?> _watched = ValueNotifier(null);
+  List<Map<String, dynamic>>? _heldRows;
+  int _heldLastPage = 1;
+
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final generation = _generation;
+      final result = await Future.wait<Object>([
+        _api.summary(),
+        _api.records(_tab, page: _page, search: _search.text.trim(), status: _status),
+      ]);
+      // _load() bumps the generation: a poll that began before the user changed
+      // tab/page/filter/search (or finished an action) is dropped.
+      if (!isActive() || !mounted || generation != _generation || _loading) return;
+      final records = result[1] as RemittancePageData;
+      _mergeRemote(result[0] as Map<String, dynamic>, records.items, records.lastPage);
+    },
+    interval: const Duration(seconds: 45),
+    shouldSkip: () => _loading || !widget.active || (_route?.isCurrent == false && !_actionOpen),
+  );
+
+  /// Seam for push/realtime (e.g. a remittance verdict notification).
+  Future<void> refreshNow() => _poller.refreshNow();
+
+  String _fp(Object? value) => jsonEncode(value, toEncodable: (o) => '$o').replaceAll(RegExp(r'"[^"]*url[^"]*":"[^"]*",?'), '');
+
+  void _mergeRemote(Map<String, dynamic> summary, List<Map<String, dynamic>> fresh, int lastPage) {
+    final summaryChanged = _fp(summary) != _fp(_summary);
+    final byId = {for (final r in _rows) '${r['id']}': r};
+    final sameShape = fresh.length == _rows.length && [for (var i = 0; i < fresh.length; i++) '${fresh[i]['id']}' == '${_rows[i]['id']}'].every((e) => e);
+    final scrolled = _scroll.hasClients && _scroll.offset > 24;
+    final hold = !sameShape && _rows.isNotEmpty && fresh.isNotEmpty && scrolled;
+    final base = hold ? _rows : fresh;
+    final freshById = {for (final r in fresh) '${r['id']}': r};
+    final next = <Map<String, dynamic>>[];
+    for (final r in base) {
+      final f = hold ? freshById['${r['id']}'] : r;
+      if (f == null) {
+        next.add(r);
+        continue;
+      }
+      final old = byId['${f['id']}'];
+      next.add(old != null && _fp(old) == _fp(f) ? old : f);
+    }
+    final rowsChanged = next.length != _rows.length || [for (var i = 0; i < next.length; i++) identical(next[i], _rows[i])].any((e) => !e);
+    final heldChanged = hold != (_heldRows != null) || (hold && _heldRows!.length != fresh.length);
+
+    // Tell an open action screen whether its record moved.
+    if (_watchedId != null) {
+      final latest = freshById[_watchedId];
+      if (_fp(latest) != _fp(_watched.value) && (latest != null || _watched.value != null)) {
+        _watched.value = latest ?? const {'__missing': true};
+      }
+    }
+    if (!summaryChanged && !rowsChanged && !heldChanged && lastPage == _lastPage) return;
+    setState(() {
+      if (summaryChanged) _summary = summary;
+      _rows = next;
+      _heldRows = hold ? fresh : null;
+      _heldLastPage = lastPage;
+      if (!hold) _lastPage = lastPage;
+      _selection.removeWhere((id) => !next.any((r) => '${r['id']}' == id));
+    });
+  }
+
+  void _applyHeld() {
+    final held = _heldRows;
+    if (held == null) return;
+    setState(() {
+      _rows = held;
+      _lastPage = _heldLastPage;
+      _heldRows = null;
+      _selection.removeWhere((id) => !held.any((r) => '${r['id']}' == id));
+    });
+    if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  }
 
   Map<String, String> get _tabs => _seller
       ? const {
@@ -88,10 +182,26 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
   void initState() {
     super.initState();
     _load();
+    _poller.start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void didUpdateWidget(covariant RemittancesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _poller.refreshIfStale();
   }
 
   @override
   void dispose() {
+    _poller.stop();
+    _scroll.dispose();
+    _watched.dispose();
     _generation++;
     _debounce?.cancel();
     _search.dispose();
@@ -108,6 +218,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       _loading = true;
       _error = null;
       _selection.clear();
+      _heldRows = null;
     });
     try {
       final result = await Future.wait<Object>([
@@ -176,9 +287,13 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
         .whereType<Map>()
         .where((r) => r['key'] == row['recipient_key'])
         .firstOrNull;
+    _watchedId = '${row['id']}';
+    _watched.value = null;
+    _actionOpen = true;
     final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(
         builder: (_) => RemittanceActionScreen(
               api: _api,
+              latest: _watched,
               action: action,
               tab: _tab,
               row: row,
@@ -188,6 +303,8 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               obligationIds: ids,
               maxCents: maxCents,
             )));
+    _actionOpen = false;
+    _watchedId = null;
     if (!mounted || changed != true) return;
     DriverTopNotification.show(context,
         message: action == 'verify'
@@ -382,9 +499,11 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 icon: const Icon(Icons.refresh_rounded))
           ]),
       body: SafeArea(
-          child: RefreshIndicator(
+          child: Stack(children: [
+            RefreshIndicator(
               onRefresh: _load,
               child: ListView(
+                controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -618,7 +737,33 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                         ]),
                   const SizedBox(height: 24),
                 ],
-              ))),
+              )),
+            if (_heldRows != null)
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Material(
+                    color: DriverColors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 3,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: _applyHeld,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text('Updated', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ])),
     );
   }
 }

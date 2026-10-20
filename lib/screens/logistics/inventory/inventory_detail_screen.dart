@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/poller.dart';
 import '../../driver/deliveries/qr_scan_screen.dart';
 import '../../driver/driver_theme.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
@@ -22,7 +23,13 @@ class InventoryDetailScreen extends StatefulWidget {
   final String parcelId;
   final String accessToken;
 
-  const InventoryDetailScreen({super.key, required this.parcelId, required this.accessToken});
+  /// Scan flow open / finished — the shell holds its list poll meanwhile.
+  final ValueChanged<bool>? onScanActive;
+
+  /// Scan confirmed: lets the shell move the parcel to Inventory right away.
+  final ValueChanged<InventoryParcel>? onScanned;
+
+  const InventoryDetailScreen({super.key, required this.parcelId, required this.accessToken, this.onScanActive, this.onScanned});
 
   @override
   State<InventoryDetailScreen> createState() => _InventoryDetailScreenState();
@@ -35,11 +42,72 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   bool _loading = true;
   String? _error;
   bool _scanning = false;
+  bool _scanFlowOpen = false;
+  bool _notFound = false;
+  int _epoch = 0;
+  InventoryParcel? _updated; // newer server copy, shown behind a "Reload" banner
+  ModalRoute<dynamic>? _route;
+
+  // Only this parcel is polled while the screen is on top (the shell holds its
+  // list poll). A change made elsewhere never replaces what the rider is
+  // looking at: it raises a banner and disables the scan until reloaded.
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final epoch = _epoch;
+      try {
+        final response = await _api.getInventoryDetail(parcelAssignmentId: widget.parcelId, accessToken: widget.accessToken);
+        final data = response['data'];
+        if (data is! Map || !isActive() || !mounted || epoch != _epoch || _scanning || _scanFlowOpen) return;
+        final fresh = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
+        final current = _parcel;
+        if (current == null || _fingerprint(current) == _fingerprint(fresh)) {
+          if (_updated != null) setState(() => _updated = null);
+          return;
+        }
+        if (_updated == null || _fingerprint(_updated!) != _fingerprint(fresh)) setState(() => _updated = fresh);
+      } on ApiException catch (e) {
+        if (e.statusCode == 404 && isActive() && mounted) {
+          _poller.stop();
+          setState(() => _notFound = true);
+          return;
+        }
+        rethrow;
+      }
+    },
+    interval: const Duration(seconds: 30),
+    shouldSkip: () => _loading || _scanning || _scanFlowOpen || _notFound || _parcel == null || _route?.isCurrent == false,
+  );
+
+  String _fingerprint(InventoryParcel p) =>
+      [p.status, p.inventoryScannedAt, p.forInventoryAt, p.courier?.id, p.hubName, p.transferToCompanyName, p.trackingNumber, p.confirmationToken, p.items.length].join('|');
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _load().then((_) {
+      if (mounted && _parcel != null) _poller.start();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    _poller.stop();
+    super.dispose();
+  }
+
+  void _reloadUpdated() {
+    final fresh = _updated;
+    if (fresh == null) return;
+    setState(() {
+      _parcel = fresh;
+      _updated = null;
+    });
   }
 
   Future<void> _load() async {
@@ -54,13 +122,18 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       if (!mounted) return;
       setState(() {
         _parcel = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
+        _updated = null;
         _loading = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.message;
+        if (e.statusCode == 404) {
+          _notFound = true;
+        } else {
+          _error = e.message;
+        }
       });
     } catch (_) {
       if (!mounted) return;
@@ -86,10 +159,26 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       return;
     }
 
-    final result = await Navigator.of(context).push<QrScanResult>(
-      MaterialPageRoute(builder: (_) => QrScanScreen(title: 'Scan to confirm inventory', expectedToken: expectedToken)),
-    );
-    if (result == null || !mounted) return;
+    if (_scanning || _scanFlowOpen || _updated != null) return;
+    _scanFlowOpen = true;
+    _epoch++;
+    widget.onScanActive?.call(true);
+    final QrScanResult? result;
+    try {
+      result = await Navigator.of(context).push<QrScanResult>(
+        MaterialPageRoute(builder: (_) => QrScanScreen(title: 'Scan to confirm inventory', expectedToken: expectedToken)),
+      );
+    } catch (_) {
+      _scanFlowOpen = false;
+      widget.onScanActive?.call(false);
+      rethrow;
+    }
+    if (result == null || !mounted) {
+      _scanFlowOpen = false;
+      _epoch++;
+      widget.onScanActive?.call(false);
+      return;
+    }
 
     setState(() => _scanning = true);
     try {
@@ -100,9 +189,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       );
       final data = response['data'];
       if (data is! Map) throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+      final scanned = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
+      widget.onScanned?.call(scanned);
       if (!mounted) return;
       setState(() {
-        _parcel = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
+        _parcel = scanned;
         _scanning = false;
       });
       DriverTopNotification.show(context, message: 'Parcel scanned into inventory.');
@@ -119,6 +210,10 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       if (!mounted) return;
       setState(() => _scanning = false);
       _toast('Could not confirm this scan. Please try again.', isError: true);
+    } finally {
+      _scanFlowOpen = false;
+      _epoch++;
+      widget.onScanActive?.call(false);
     }
   }
 
@@ -196,6 +291,23 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: DriverColors.primary));
     }
+    if (_notFound) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.search_off_rounded, size: 44, color: DriverColors.textSecondary),
+              const SizedBox(height: 12),
+              const Text('This parcel is no longer available', textAlign: TextAlign.center, style: DriverText.body),
+              const SizedBox(height: 14),
+              ElevatedButton(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white), child: const Text('Back to inventory')),
+            ],
+          ),
+        ),
+      );
+    }
 
     final parcel = _parcel;
     if (parcel == null) {
@@ -222,6 +334,21 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_updated != null) ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sync_problem_rounded, size: 18, color: DriverColors.warning),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Updated elsewhere', style: DriverText.caption)),
+                    TextButton(onPressed: _reloadUpdated, child: const Text('Reload')),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (parcel.isPending) ...[
               Container(
                 padding: const EdgeInsets.all(14),
@@ -338,11 +465,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _scanning ? null : _scanQr,
+            onPressed: _scanning || _updated != null ? null : _scanQr,
             icon: _scanning
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
                 : const Icon(Icons.qr_code_scanner_rounded),
-            label: Text(_scanning ? 'Confirming…' : 'Scan QR to confirm'),
+            label: Text(_scanning ? 'Confirming…' : (_updated != null ? 'Updated elsewhere — reload first' : 'Scan QR to confirm')),
             style: DriverButtonStyle.primary(DriverColors.primary),
           ),
         ),

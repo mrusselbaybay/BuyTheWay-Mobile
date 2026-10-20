@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../services/api_service.dart';
+import '../../../services/poller.dart';
 import '../buyer_models.dart';
 import '../buyer_store.dart';
 import '../buyer_theme.dart';
@@ -13,6 +15,7 @@ import '../widgets/success_popup.dart';
 import 'parcel_tracking.dart';
 import 'report_delivered_sheet.dart';
 import 'return_request_screen.dart';
+import 'return_tracking_sheet.dart';
 
 /// Order details, in three moods that follow the order:
 /// in progress (stepper + tracking), delivered (refund / reorder) and
@@ -32,10 +35,58 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _busy = false;
   final Set<String> _reportedItemIds = {};
 
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final epoch = store.orderEpoch;
+      final Order fresh;
+      try {
+        fresh = await store.api.order(order.number);
+      } on ApiException catch (e) {
+        if (e.statusCode == 404 && isActive() && mounted) {
+          _poller.stop();
+          setState(() => _gone = true);
+          return;
+        }
+        rethrow;
+      }
+      // A cancel/receive that ran meanwhile owns the newer state.
+      if (!isActive() || !mounted || _busy || epoch != store.orderEpoch || store.orderMutationActive) return;
+      if (_sameOrder(order, fresh)) return;
+      setState(() => order = fresh);
+      store.replaceOrder(fresh);
+    },
+    interval: const Duration(seconds: 20),
+    // Final orders never change again; actions in flight own the screen, and
+    // so does any route pushed on top (return form, report sheet, …).
+    shouldSkip: () => _busy || _gone || _route?.isCurrent == false || BuyerStore.isFinalOrder(order),
+    onError: store.handleError,
+  );
+
+  bool _gone = false; // 404: the order no longer exists
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  bool _sameOrder(Order a, Order b) =>
+      a.status == b.status && a.returnState == b.returnState && a.receivedAt == b.receivedAt && a.paymentStatus == b.paymentStatus && a.trackingNumber == b.trackingNumber && a.courierName == b.courierName && a.history.length == b.history.length;
+
   @override
   void initState() {
     super.initState();
+    store.orderDetailsOpened();
     _refresh();
+    _poller.start();
+  }
+
+  @override
+  void dispose() {
+    _poller.stop();
+    store.orderDetailsClosed();
+    super.dispose();
   }
 
   /// Shows the cached order immediately, then pulls the latest status.
@@ -46,7 +97,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       setState(() => order = fresh);
       store.replaceOrder(fresh);
     } catch (e) {
-      if (mounted) showToast(context, store.handleError(e), error: true);
+      if (e is ApiException && e.statusCode == 404 && mounted) {
+        _poller.stop();
+        setState(() => _gone = true);
+      } else if (mounted) {
+        showToast(context, store.handleError(e), error: true);
+      }
     }
   }
 
@@ -112,6 +168,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_gone) {
+      return Scaffold(
+        backgroundColor: BColors.background,
+        appBar: AppBar(backgroundColor: BColors.background, surfaceTintColor: BColors.background, elevation: 0, foregroundColor: BColors.ink),
+        body: EmptyState(
+          icon: Icons.receipt_long_outlined,
+          title: 'This order is no longer available',
+          message: 'It may have been removed. Your other orders are unaffected.',
+          actionLabel: 'Back to orders',
+          onAction: () => Navigator.of(context).maybePop(),
+        ),
+      );
+    }
     final bottom = _BottomBar(
       order: order,
       busy: _busy,
@@ -514,7 +583,6 @@ class _ItemBlock extends StatelessWidget {
     final o = state.order;
     final tags = <(String, Color)>[
       if (item.couponCode != null && item.couponDiscount > 0) ('${item.couponCode} −${pesoCompact(item.couponDiscount)}', BColors.brand),
-      if (item.returnStatus != null) ('Return ${item.returnStatus!.toLowerCase()}', BColors.warning),
       if (item.reviewRating != null) ('★ ${item.reviewRating} rated', BColors.star),
     ];
     final closed = o.status == OrderStatus.cancelled || o.returnState != null;
@@ -564,20 +632,9 @@ class _ItemBlock extends StatelessWidget {
           ),
         ]),
       ),
-      if (o.returnState != null) ...[
+      if (item.returnRequest case final r?) ...[
         const SizedBox(height: 12),
-        Row(children: [
-          Icon(o.returnState == 'returned' ? Icons.check_circle_rounded : Icons.autorenew_rounded,
-              size: 18, color: o.returnState == 'returned' ? BColors.success : BColors.warning),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              o.returnState == 'returned' ? 'Refund completed' : 'Return in progress',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: BColors.ink),
-            ),
-          ),
-          if (item.returnResolution != null) Flexible(child: Text(item.returnResolution!, maxLines: 1, overflow: TextOverflow.ellipsis, style: BText.small)),
-        ]),
+        _ReturnSummary(request: r, onTap: () => showReturnTrackingSheet(context, item)),
       ],
       if (state._delivered || closed) ...[
         const SizedBox(height: 12),
@@ -800,6 +857,46 @@ class _TimelineSheet extends StatelessWidget {
         ),
         Expanded(child: OrderTimelineList(events: events, controller: controller)),
       ]),
+    );
+  }
+}
+
+/// Tappable one-line status of an item's return / refund request; opens the
+/// full tracking sheet. A rejected request is tinted so the buyer notices it.
+class _ReturnSummary extends StatelessWidget {
+  const _ReturnSummary({required this.request, required this.onTap});
+
+  final ReturnRequestInfo request;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = returnBadge(request);
+    final rejected = request.state == 'rejected';
+    return Material(
+      color: badge.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(children: [
+            Icon(rejected ? Icons.error_outline_rounded : Icons.assignment_return_outlined, size: 20, color: badge.color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${request.isReturn ? 'Return' : 'Refund'} request · ${badge.label}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: badge.color)),
+                const SizedBox(height: 1),
+                Text(rejected ? "Tap to see the seller's reason" : 'Submitted ${formatDate(request.submittedAt)}', style: BText.tiny),
+              ]),
+            ),
+            Text('Track', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: badge.color)),
+            Icon(Icons.chevron_right_rounded, size: 20, color: badge.color),
+          ]),
+        ),
+      ),
     );
   }
 }

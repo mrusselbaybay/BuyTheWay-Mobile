@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../driver_models.dart';
 import '../driver_theme.dart';
+import '../notifications/driver_notification_bell.dart';
 import '../widgets/driver_shared_widgets.dart';
 
 class DriverHomeScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class DriverHomeScreen extends StatefulWidget {
   final ValueChanged<DeliveryRequest> onOpenRequest;
   final VoidCallback onContinueActiveDelivery;
   final Future<void> Function() onRefreshRequests;
+  final int unreadNotifications;
+  final VoidCallback onOpenNotifications;
 
   const DriverHomeScreen({
     super.key,
@@ -32,6 +35,8 @@ class DriverHomeScreen extends StatefulWidget {
     required this.onOpenRequest,
     required this.onContinueActiveDelivery,
     required this.onRefreshRequests,
+    required this.unreadNotifications,
+    required this.onOpenNotifications,
   });
 
   @override
@@ -158,6 +163,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
           _statusToggle(),
+          const SizedBox(width: 4),
+          DriverNotificationBell(unread: widget.unreadNotifications, onTap: widget.onOpenNotifications),
         ],
       ),
     );

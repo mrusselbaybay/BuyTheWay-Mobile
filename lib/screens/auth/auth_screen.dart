@@ -17,7 +17,6 @@
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/brand_logo.dart';
@@ -25,6 +24,8 @@ import '../../widgets/common.dart';
 import '../../widgets/solid_ui.dart';
 import '../../widgets/password_strength_meter.dart';
 import '../../services/api_service.dart';
+import '../../services/google_auth_service.dart';
+import '../../services/push_service.dart';
 
 // Constants
 
@@ -904,22 +905,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ==================== Authentication Methods ====================
 
-  /// Web OAuth client ID from BuyTheWay - Web's .env (GOOGLE_CLIENT_ID) —
-  /// this is the same client Supabase's Google provider already trusts, so
-  /// it doubles as the `serverClientId` the native SDK needs to mint an
-  /// id_token Supabase can verify.
-  static const String _googleServerClientId =
-      '968790382765-ueq74oaa6njkt297sqvgfn831g2vmnbs.apps.googleusercontent.com';
-
-  static final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  static bool _googleSignInInitialized = false;
-
-  Future<void> _ensureGoogleSignInInitialized() async {
-    if (_googleSignInInitialized) return;
-    await _googleSignIn.initialize(serverClientId: _googleServerClientId);
-    _googleSignInInitialized = true;
-  }
-
   Future<void> _handleGoogleAuth() async {
     setState(() {
       errorMsg = '';
@@ -928,15 +913,11 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      await _ensureGoogleSignInInitialized();
-      final googleUser = await _googleSignIn.authenticate();
-      final idToken = googleUser.authentication.idToken;
+      final idToken = await GoogleAuthService.instance.pickIdToken();
 
+      // Cancelled the account chooser: nothing to report.
       if (idToken == null) {
-        setState(() {
-          errorMsg = 'Google sign-in failed. Please try again.';
-          isSubmitting = false;
-        });
+        setState(() => isSubmitting = false);
         return;
       }
 
@@ -1006,15 +987,6 @@ class _AuthScreenState extends State<AuthScreen> {
       });
 
       _handleRoleBasedNavigation(role);
-    } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) {
-        setState(() => isSubmitting = false);
-        return;
-      }
-      setState(() {
-        errorMsg = 'Google sign-in failed. Please try again.';
-        isSubmitting = false;
-      });
     } on ApiException catch (e) {
       setState(() {
         errorMsg = e.errors != null ? e.errors!.values.join('\n') : e.message;
@@ -1550,6 +1522,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> logout() async {
     if (_authToken != null) {
+      await PushService.instance.unregister(authToken: _authToken); // needs the session, so before the logout call
       try {
         await _api.logout(_authToken!);
       } catch (e) {

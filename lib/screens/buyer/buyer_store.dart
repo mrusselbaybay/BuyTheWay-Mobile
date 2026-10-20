@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
 import '../../services/buyer_api_service.dart';
+import '../../services/poller.dart';
+import '../../services/push_service.dart';
 import 'buyer_models.dart';
 
 /// Outcome of an add-to-cart, carrying the user-facing message.
@@ -78,14 +80,19 @@ class BuyerStore extends ChangeNotifier {
     sessionExpired = token == null || token!.isEmpty;
     notifyListeners();
     if (sessionExpired) return;
+    unawaited(PushService.instance.register(token));
 
     unawaited(_loadUser());
     unawaited(loadProfile());
     unawaited(refreshChatUnread());
-    _unreadTimer = Timer.periodic(const Duration(seconds: 45), (_) => refreshChatUnread());
+    chatPoller.start();
+    unawaited(refreshNotifUnread());
+    notifPoller.start();
     unawaited(loadWishlist());
     unawaited(refreshCart());
     unawaited(loadOrders());
+    ordersPoller.start();
+    cartPoller.start();
   }
 
   Future<void> _loadUser() async {
@@ -118,12 +125,17 @@ class BuyerStore extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    _unreadTimer?.cancel();
-    _unreadTimer = null;
+    ordersPoller.stop();
+    cartPoller.stop();
+    chatPoller.stop();
+    notifPoller.stop();
     chatUnread = 0;
+    notifUnread = 0;
     profile = null;
     canSell = false;
     final current = token;
+    // Before the session is cleared: the server needs it to drop this phone's push token.
+    unawaited(PushService.instance.unregister(authToken: current));
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     // The cart lives on the account now; don't leave it for the next person on this device.
@@ -157,7 +169,56 @@ class BuyerStore extends ChangeNotifier {
 
   BuyerProfile? profile;
   int chatUnread = 0;
-  Timer? _unreadTimer;
+
+  /// Header/tab chat badge: 45s, paused in the background, backs off on
+  /// failures. Only writes (and notifies) when the count actually changes.
+  late final Poller chatPoller = Poller(
+    (isActive) async {
+      final count = await api.unreadMessages();
+      if (!isActive() || sessionExpired || token == null) return;
+      _setChatUnread(count);
+    },
+    interval: const Duration(seconds: 45),
+    shouldSkip: () => sessionExpired || token == null,
+    onError: handleError,
+  );
+
+  void _setChatUnread(int count) {
+    final next = count < 0 ? 0 : count;
+    if (next == chatUnread) return;
+    chatUnread = next;
+    notifyListeners();
+  }
+
+  // ---------------- Notification bell ----------------
+
+  int notifUnread = 0;
+
+  /// Bell badge: 45s, paused in the background, backs off on failures.
+  late final Poller notifPoller = Poller(
+    (isActive) async {
+      final count = await api.unreadNotifications();
+      if (!isActive() || sessionExpired || token == null) return;
+      setNotifUnread(count);
+    },
+    interval: const Duration(seconds: 45),
+    shouldSkip: () => sessionExpired || token == null,
+    onError: handleError,
+  );
+
+  void setNotifUnread(int count) {
+    final next = count < 0 ? 0 : count;
+    if (next == notifUnread) return;
+    notifUnread = next;
+    notifyListeners();
+  }
+
+  Future<void> refreshNotifUnread() async {
+    if (sessionExpired || token == null) return;
+    try {
+      setNotifUnread(await api.unreadNotifications());
+    } catch (_) {}
+  }
 
   String? get avatarUrl => profile?.avatarUrl;
 
@@ -174,11 +235,7 @@ class BuyerStore extends ChangeNotifier {
   Future<void> refreshChatUnread() async {
     if (sessionExpired || token == null) return;
     try {
-      final count = await api.unreadMessages();
-      if (count != chatUnread) {
-        chatUnread = count;
-        notifyListeners();
-      }
+      _setChatUnread(await api.unreadMessages());
     } catch (_) {}
   }
 
@@ -491,10 +548,19 @@ class BuyerStore extends ChangeNotifier {
 
   /// Re-checks every line against the live catalog and tags it with a
   /// status the cart shows inline — never removes anything by itself.
-  Future<void> validateCart() async {
-    if (_cart.isEmpty || validatingCart) return;
-    validatingCart = true;
-    notifyListeners();
+  ///
+  /// [silent] (background poll): no "checking" state, and the cart is only
+  /// touched/saved when a line actually changed. Returns how many lines
+  /// changed status, stock or price.
+  Future<int> validateCart({bool silent = false, bool Function()? isActive}) async {
+    if (_cart.isEmpty || validatingCart) return 0;
+    String fingerprint(CartItem i) => '${i.status}|${i.maxStock}|${i.serverPrice}';
+    final before = {for (final i in _cart) i.cartId: fingerprint(i)};
+    if (!silent) {
+      validatingCart = true;
+      notifyListeners();
+    }
+    var changed = 0;
     try {
       final ids = _cart.map((i) => i.productId).toSet().toList();
       final results = await Future.wait(ids.map((id) async {
@@ -505,6 +571,11 @@ class BuyerStore extends ChangeNotifier {
         }
       }));
       final byId = Map.fromEntries(results);
+      if (isActive != null && !isActive()) return 0;
+      // Nothing could be checked (offline / server down): let the poller back off.
+      if (silent && results.isNotEmpty && results.every((e) => identical(e.value, _unknown))) {
+        throw ApiException(message: 'Cart check unavailable');
+      }
 
       for (final item in _cart) {
         final product = byId[item.productId];
@@ -548,11 +619,52 @@ class BuyerStore extends ChangeNotifier {
           item.status = 'ok';
         }
       }
+      changed = _cart.where((i) => before.containsKey(i.cartId) && before[i.cartId] != fingerprint(i)).length;
+      return changed;
     } finally {
-      validatingCart = false;
-      _cartChanged();
+      if (!silent) validatingCart = false;
+      if (!silent || changed > 0) _cartChanged();
     }
   }
+
+  /// Background cart check (every 60s while the Cart tab is showing, never
+  /// during checkout or for a signed-out session). Lines are flagged in place,
+  /// never removed; [cartChangedNotice] lets the Cart screen say so once.
+  bool _cartTabActive = false; // CartScreen validates itself when the tab opens
+  set cartTabActive(bool value) => _cartTabActive = value;
+
+  int _checkoutsOpen = 0;
+  int _standaloneCarts = 0; // pushed CartScreen routes (the tab is covered then)
+  String? cartChangedNotice;
+
+  void standaloneCartOpened() => _standaloneCarts++;
+  void standaloneCartClosed() => _standaloneCarts = _standaloneCarts > 0 ? _standaloneCarts - 1 : 0;
+
+  void checkoutOpened() => _checkoutsOpen++;
+  void checkoutClosed() => _checkoutsOpen = _checkoutsOpen > 0 ? _checkoutsOpen - 1 : 0;
+
+  late final Poller cartPoller = Poller(
+    (isActive) async {
+      final changed = await validateCart(silent: true, isActive: isActive);
+      if (changed > 0 && isActive()) {
+        cartChangedNotice = changed == 1
+            ? 'An item in your cart changed price or availability.'
+            : '$changed items in your cart changed price or availability.';
+        notifyListeners();
+      }
+    },
+    interval: const Duration(seconds: 60),
+    // Also held while a quantity edit/undo is still being saved or pushed.
+    shouldSkip: () =>
+        sessionExpired ||
+        !(_cartTabActive || _standaloneCarts > 0) ||
+        _checkoutsOpen > 0 ||
+        cartSyncing ||
+        validatingCart ||
+        (_persistTimer?.isActive ?? false) ||
+        (_pushTimer?.isActive ?? false),
+    onError: handleError,
+  );
 
   static const Product _unknown = Product(id: '', name: '', price: 0, seller: '');
 
@@ -660,6 +772,74 @@ class BuyerStore extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Silent background refresh (30s while the Orders tab or an order's details
+  // are showing): swaps in only the orders that changed, keeping the others'
+  // identity, never touching loading/error state. Held while a cancel/receive
+  // is in flight, and a response that started before one finished is dropped,
+  // so it can't revert the optimistic update.
+  bool _ordersTabActive = false;
+  set ordersTabActive(bool value) {
+    if (value == _ordersTabActive) return;
+    _ordersTabActive = value;
+    if (value) scheduleMicrotask(ordersPoller.refreshIfStale);
+  }
+
+  int _orderDetailsOpen = 0;
+  int _orderMutations = 0;
+  int _orderEpoch = 0;
+
+  void orderDetailsOpened() => _orderDetailsOpen++;
+  void orderDetailsClosed() => _orderDetailsOpen = _orderDetailsOpen > 0 ? _orderDetailsOpen - 1 : 0;
+
+  /// Bumped whenever a cancel/receive starts or ends; a poll that began under
+  /// an older epoch must not be applied.
+  int get orderEpoch => _orderEpoch;
+  bool get orderMutationActive => _orderMutations > 0;
+
+  Future<T> guardOrderMutation<T>(Future<T> Function() action) async {
+    _orderMutations++;
+    _orderEpoch++;
+    try {
+      return await action();
+    } finally {
+      _orderMutations--;
+      _orderEpoch++;
+    }
+  }
+
+  /// No further change expected: cancelled, or received with no return open.
+  static bool isFinalOrder(Order o) =>
+      o.status == OrderStatus.cancelled || (o.status == OrderStatus.delivered && o.receivedAt != null && o.returnState == null);
+
+  String _orderFingerprint(Order o) =>
+      '${o.status}|${o.returnState}|${o.receivedAt}|${o.paymentStatus}|${o.trackingNumber}|${o.courierName}|${o.total}|${o.history.length}|${o.items.length}';
+
+  int _finalOrderTicks = 0;
+
+  late final Poller ordersPoller = Poller(
+    (isActive) async {
+      // Everything is final: only look for brand-new orders, every 4th tick.
+      if (orders.isNotEmpty && orders.every(isFinalOrder) && ++_finalOrderTicks % 4 != 0) return;
+      final epoch = _orderEpoch;
+      final fetched = await api.orders();
+      if (!isActive() || epoch != _orderEpoch || _orderMutations > 0 || loadingOrders) return;
+      if (fetched.isEmpty && orders.isNotEmpty) return; // never wipe good data
+      final existing = {for (final o in orders) o.orderId: o};
+      final merged = [
+        for (final order in fetched)
+          if (existing[order.orderId] case final old? when _orderFingerprint(old) == _orderFingerprint(order)) old else order,
+      ];
+      final same = merged.length == orders.length && [for (var i = 0; i < merged.length; i++) identical(merged[i], orders[i])].every((e) => e);
+      if (same) return;
+      orders = merged;
+      _ordersLoaded = true;
+      notifyListeners();
+    },
+    interval: const Duration(seconds: 30),
+    shouldSkip: () => sessionExpired || !(_ordersTabActive || _orderDetailsOpen > 0) || loadingOrders || _orderMutations > 0,
+    onError: handleError,
+  );
 
   void replaceOrder(Order updated) {
     final index = orders.indexWhere((o) => o.orderId == updated.orderId);

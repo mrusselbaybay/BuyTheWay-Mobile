@@ -10,6 +10,7 @@ import '../chat/driver_chat_controller.dart';
 import '../deliveries/assigned_delivery_detail_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
+import '../notifications/driver_notification_bell.dart';
 import '../widgets/driver_shared_widgets.dart';
 
 // ---- Visual tokens for this screen ----
@@ -45,6 +46,8 @@ class CourierHomeScreen extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenDeliveries;
   final VoidCallback onOpenRemittances;
+  final int unreadNotifications;
+  final VoidCallback onOpenNotifications;
 
   const CourierHomeScreen({
     super.key,
@@ -58,6 +61,8 @@ class CourierHomeScreen extends StatefulWidget {
     required this.onRefresh,
     required this.onOpenDeliveries,
     required this.onOpenRemittances,
+    required this.unreadNotifications,
+    required this.onOpenNotifications,
   });
 
   @override
@@ -309,6 +314,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                   ]),
                 ),
                 _onlinePill(online),
+                const SizedBox(width: 4),
+                DriverNotificationBell(unread: widget.unreadNotifications, onTap: widget.onOpenNotifications),
               ]),
               const SizedBox(height: 16),
               Row(children: [

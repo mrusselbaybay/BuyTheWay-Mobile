@@ -4,7 +4,25 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/poller.dart';
 import 'chat_models.dart';
+
+/// Swaps the optimistic ("Sending…") message for the server's copy, never leaving two copies:
+/// if the background poll already delivered the confirmed message, the local one is dropped.
+@visibleForTesting
+void settleSentMessage(List<ChatMessage> list, String localId, ChatMessage real) {
+  final delivered = list.any((m) => m.id == real.id);
+  final index = list.indexWhere((m) => m.localId == localId);
+  if (index != -1) {
+    if (delivered) {
+      list.removeAt(index);
+    } else {
+      list[index] = real;
+    }
+  } else if (!delivered) {
+    list.add(real);
+  }
+}
 
 /// Owns every piece of chat state for the driver/courier app — the inbox
 /// list, the per-conversation message cache, pagination, search, and the
@@ -54,11 +72,21 @@ class DriverChatController extends ChangeNotifier {
   final Map<String, int> messagesAppendedTick = {};
 
   // ---- Poll lifecycle ----
-  Timer? _metaPollTimer;
-  Timer? _messagePollTimer;
+  // Both polls run on [Poller]: paused in the background, resumed with a
+  // refresh, exponential backoff on failures, stopped on 401/403.
+  late final Poller _metaPoller = Poller(
+    (isActive) => _refreshConversationsSilently(),
+    interval: _metaPollInterval,
+  );
+  late final Poller _messagePoller = Poller(
+    (isActive) {
+      final id = _activeConversationId;
+      return id == null ? Future<void>.value() : _pollNewMessages(id);
+    },
+    interval: _messagePollInterval,
+  );
   String? _activeConversationId;
   bool _inboxActive = false;
-  bool _appVisible = true;
   int _localIdSequence = 0;
 
   // The server re-signs a fresh temporary URL for the same attachment on
@@ -189,30 +217,28 @@ class DriverChatController extends ChangeNotifier {
   /// pull-to-refresh's "already have data" path. Merges in place onto
   /// existing [ChatConversation] instances where possible so a row that
   /// hasn't changed doesn't visually flicker.
+  /// Throws on failure: the Poller turns that into a silent backoff.
   Future<void> _refreshConversationsSilently() async {
-    try {
-      final response = await _api.getChatConversations(accessToken: _accessToken, search: _search, page: 1);
-      final rows = (response['data'] as List? ?? [])
-          .map((row) => ChatConversation.fromApi(Map<String, dynamic>.from(row as Map)))
-          .toList();
+    final response = await _api.getChatConversations(accessToken: _accessToken, search: _search, page: 1);
+    final rows = (response['data'] as List? ?? [])
+        .map((row) => ChatConversation.fromApi(Map<String, dynamic>.from(row as Map)))
+        .toList();
 
-      final byId = {for (final c in _conversations) c.id: c};
-      final merged = <ChatConversation>[];
-      for (final fresh in rows) {
-        final existing = byId[fresh.id];
-        if (existing != null) {
-          existing.applyFrom(fresh);
-          merged.add(existing);
-        } else {
-          merged.add(fresh);
-        }
+    final byId = {for (final c in _conversations) c.id: c};
+    final merged = <ChatConversation>[];
+    for (final fresh in rows) {
+      final existing = byId[fresh.id];
+      if (existing != null) {
+        existing.applyFrom(fresh);
+        merged.add(existing);
+      } else {
+        merged.add(fresh);
       }
-      _conversations = merged;
-      conversationsError = null;
-      _safeNotify();
-    } catch (_) {
-      // Silent — a failed background poll shouldn't disturb what's on screen.
     }
+    _conversations = merged;
+    if (_disposed) return;
+    conversationsError = null;
+    _safeNotify();
   }
 
   Future<void> loadMoreConversations() async {
@@ -356,33 +382,19 @@ class DriverChatController extends ChangeNotifier {
     _syncMetaPolling();
   }
 
-  void setAppVisible(bool visible) {
-    if (_appVisible == visible) return;
-    _appVisible = visible;
-    _syncMetaPolling();
-    _syncMessagePolling();
-  }
-
   void _syncMetaPolling() {
-    final shouldPoll = _inboxActive && _appVisible;
-    if (shouldPoll && _metaPollTimer == null) {
-      _metaPollTimer = Timer.periodic(_metaPollInterval, (_) => _refreshConversationsSilently());
-    } else if (!shouldPoll && _metaPollTimer != null) {
-      _metaPollTimer?.cancel();
-      _metaPollTimer = null;
+    if (_inboxActive) {
+      _metaPoller.start();
+    } else {
+      _metaPoller.stop();
     }
   }
 
-  void _syncMessagePolling() {
-    final id = _activeConversationId;
-    if (id == null) return;
-    final shouldPoll = _appVisible;
-    if (shouldPoll && _messagePollTimer == null) {
-      _messagePollTimer = Timer.periodic(_messagePollInterval, (_) => _pollNewMessages(id));
-    } else if (!shouldPoll && _messagePollTimer != null) {
-      _messagePollTimer?.cancel();
-      _messagePollTimer = null;
-    }
+  /// Seam for push/realtime: a notification handler can call this to pull the
+  /// inbox (and the open thread) right away.
+  Future<void> refreshNow() async {
+    await _metaPoller.refreshNow();
+    await _messagePoller.refreshNow();
   }
 
   // ---- Conversation (message thread) lifecycle ----
@@ -394,7 +406,9 @@ class DriverChatController extends ChangeNotifier {
   /// this thread stays open (stop with [closeConversation]).
   Future<void> openConversation(String id) async {
     _activeConversationId = id;
-    _syncMessagePolling();
+    _messagePoller
+      ..stop() // drop any response still in flight for the previous thread
+      ..start();
 
     final cached = _messagesByConversation[id];
     final hadCache = cached != null && cached.isNotEmpty;
@@ -462,43 +476,39 @@ class DriverChatController extends ChangeNotifier {
 
   void closeConversation() {
     _activeConversationId = null;
-    _messagePollTimer?.cancel();
-    _messagePollTimer = null;
+    _messagePoller.stop();
   }
 
   Future<void> _pollNewMessages(String id) async {
     final cached = _messagesByConversation[id];
     final newestId = (cached == null || cached.isEmpty) ? null : cached.last.id;
 
-    try {
-      final response = await _api.getChatMessages(
-        conversationId: id,
-        accessToken: _accessToken,
-        after: newestId,
-      );
-      final rows = (response['data'] as List? ?? [])
-          .map((row) => _stabilizeMessage(ChatMessage.fromApi(Map<String, dynamic>.from(row as Map))))
-          .toList();
-      if (rows.isEmpty) return;
+    final response = await _api.getChatMessages(
+      conversationId: id,
+      accessToken: _accessToken,
+      after: newestId,
+    );
+    final rows = (response['data'] as List? ?? [])
+        .map((row) => _stabilizeMessage(ChatMessage.fromApi(Map<String, dynamic>.from(row as Map))))
+        .toList();
+    if (rows.isEmpty || _activeConversationId != id || _disposed) return;
 
-      final existing = _messagesByConversation[id] ?? [];
-      final existingIds = existing.map((m) => m.id).toSet();
-      final toAppend = rows.where((m) => !existingIds.contains(m.id)).toList();
-      if (toAppend.isEmpty) return;
-      _messagesByConversation[id] = [...existing, ...toAppend];
-      messagesAppendedTick[id] = (messagesAppendedTick[id] ?? 0) + 1;
+    final existing = _messagesByConversation[id] ?? [];
+    final existingIds = existing.map((m) => m.id).toSet();
+    final toAppend = rows.where((m) => !existingIds.contains(m.id)).toList();
+    if (toAppend.isEmpty) return;
+    _messagesByConversation[id] = [...existing, ...toAppend];
+    messagesAppendedTick[id] = (messagesAppendedTick[id] ?? 0) + 1;
 
-      // A reply arrived while this thread is open — mark it read locally
-      // (the next full openConversation()/inbox refresh reconciles with
-      // the server's own read receipt, set when GET .../conversations/{id}
-      // is called again).
-      final conversation = conversationById(id);
-      if (conversation != null) conversation.unreadCount = 0;
+    // A reply arrived while this thread is open — mark it read locally
+    // (the next full openConversation()/inbox refresh reconciles with
+    // the server's own read receipt, set when GET .../conversations/{id}
+    // is called again).
+    final conversation = conversationById(id);
+    if (conversation != null) conversation.unreadCount = 0;
 
-      _safeNotify();
-    } catch (_) {
-      // Silent — next tick retries.
-    }
+    _safeNotify();
+
   }
 
   Future<void> loadOlderMessages(String id) async {
@@ -561,12 +571,7 @@ class DriverChatController extends ChangeNotifier {
         body: trimmed,
       );
       final real = _stabilizeMessage(ChatMessage.fromApi(Map<String, dynamic>.from(response['data'] as Map)));
-      final index = list.indexWhere((m) => m.localId == localId);
-      if (index != -1) {
-        list[index] = real;
-      } else {
-        list.add(real);
-      }
+      settleSentMessage(list, localId, real);
 
       final conversation = conversationById(conversationId);
       if (conversation != null) {
@@ -647,12 +652,7 @@ class DriverChatController extends ChangeNotifier {
         attachmentIds: attachmentIds,
       );
       final real = _stabilizeMessage(ChatMessage.fromApi(Map<String, dynamic>.from(response['data'] as Map)));
-      final index = list.indexWhere((m) => m.localId == localId);
-      if (index != -1) {
-        list[index] = real;
-      } else {
-        list.add(real);
-      }
+      settleSentMessage(list, localId, real);
 
       final conversation = conversationById(conversationId);
       if (conversation != null) {
@@ -707,8 +707,8 @@ class DriverChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _searchDebounce?.cancel();
-    _metaPollTimer?.cancel();
-    _messagePollTimer?.cancel();
+    _metaPoller.stop();
+    _messagePoller.stop();
     super.dispose();
   }
 }

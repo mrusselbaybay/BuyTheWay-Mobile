@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import '../../services/api_service.dart';
+import '../../services/poller.dart';
 import '../../services/remittance_api_service.dart';
 import '../driver/driver_theme.dart';
 import 'remittance_format.dart';
@@ -23,10 +26,49 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
   int _page = 1;
   int _lastPage = 1;
   List<Map<String, dynamic>> _rows = [];
+  ModalRoute<dynamic>? _route;
+
+  /// Silent 60s refresh of the page being viewed; only rebuilds on a change.
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final page = _page;
+      final records = await _fetch();
+      if (!isActive() || !mounted || _loading || page != _page) return;
+      if (jsonEncode(records.items, toEncodable: (o) => '$o') == jsonEncode(_rows, toEncodable: (o) => '$o') && records.lastPage == _lastPage) return;
+      setState(() {
+        _rows = records.items;
+        _lastPage = records.lastPage;
+      });
+    },
+    interval: const Duration(seconds: 60),
+    shouldSkip: () => _loading || _route?.isCurrent == false,
+  );
+
+  Future<RemittancePageData> _fetch() async {
+    if (widget.statement) {
+      final result = await widget.api.statement(widget.id, page: _page);
+      return RemittancePageData.fromJson({'data': result['items']});
+    }
+    return widget.api.history(widget.id, page: _page);
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    _poller.start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    _poller.stop();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -35,13 +77,7 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
       _error = null;
     });
     try {
-      final RemittancePageData records;
-      if (widget.statement) {
-        final result = await widget.api.statement(widget.id, page: _page);
-        records = RemittancePageData.fromJson({'data': result['items']});
-      } else {
-        records = await widget.api.history(widget.id, page: _page);
-      }
+      final records = await _fetch();
       if (mounted) {
         setState(() {
           _rows = records.items;

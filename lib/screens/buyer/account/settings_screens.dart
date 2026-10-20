@@ -3,9 +3,8 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../../services/api_service.dart';
 import '../../driver/driver_theme.dart';
-import '../../driver/settings/driver_change_password_sheet.dart';
+import '../../../widgets/sign_in_methods_section.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../buyer_store.dart';
 import '../catalog/store_screen.dart';
@@ -138,6 +137,7 @@ class _BuyerSecurityScreenState extends State<BuyerSecurityScreen> {
           final verified = _buyer.emailVerified;
           final phone = _buyer.profile?.contactNo;
           return SettingsPage(title: 'Login & Security', children: [
+            const SignInMethodsSection(),
             const SettingsSectionLabel('Sign-in'),
             SettingsGroupCard(children: [
               SettingsNavTile(
@@ -176,19 +176,6 @@ class _BuyerSecurityScreenState extends State<BuyerSecurityScreen> {
                   'Changing your sign-in email and phone verification are not available yet.',
                   style: DriverText.caption),
             ),
-            kSettingsGap,
-            const SettingsSectionLabel('Password'),
-            SettingsGroupCard(children: [
-              SettingsNavTile(
-                icon: Icons.lock_outline_rounded,
-                title: 'Change password',
-                subtitle: 'Confirm with an emailed code first',
-                onTap: _buyer.email.isEmpty
-                    ? null
-                    : () => showChangePasswordSheet(context,
-                        api: ApiService(), email: _buyer.email),
-              ),
-            ]),
             kSettingsGap,
             const SettingsSectionLabel('Other devices'),
             SettingsGroupCard(children: [

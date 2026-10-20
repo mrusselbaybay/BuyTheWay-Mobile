@@ -21,6 +21,15 @@ class LogisticsInventoryScreen extends StatefulWidget {
   final String accessToken;
   final Future<void> Function() onRefresh;
 
+  /// Background refresh can't reach the server: shows a small "Reconnecting…" hint.
+  final bool reconnecting;
+
+  /// A scan is open / finished (holds the shell's poll and invalidates in-flight ones).
+  final ValueChanged<bool>? onScanActive;
+
+  /// A scan was confirmed; the shell moves the parcel locally, then refreshes.
+  final ValueChanged<InventoryParcel>? onScanned;
+
   const LogisticsInventoryScreen({
     super.key,
     required this.pending,
@@ -29,6 +38,9 @@ class LogisticsInventoryScreen extends StatefulWidget {
     required this.error,
     required this.accessToken,
     required this.onRefresh,
+    this.reconnecting = false,
+    this.onScanActive,
+    this.onScanned,
   });
 
   @override
@@ -46,7 +58,14 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
 
   Future<void> _openDetail(InventoryParcel parcel) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => InventoryDetailScreen(parcelId: parcel.id, accessToken: widget.accessToken)),
+      MaterialPageRoute(
+        builder: (_) => InventoryDetailScreen(
+          parcelId: parcel.id,
+          accessToken: widget.accessToken,
+          onScanActive: widget.onScanActive,
+          onScanned: widget.onScanned,
+        ),
+      ),
     );
     if (mounted) await widget.onRefresh();
   }
@@ -87,6 +106,15 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
               ],
             ),
           ),
+          if (widget.reconnecting)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.8, color: DriverColors.textSecondary)),
+                SizedBox(width: 8),
+                Text('Reconnecting…', style: DriverText.caption),
+              ]),
+            ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -122,7 +150,7 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
   }
 }
 
-class _ParcelList extends StatelessWidget {
+class _ParcelList extends StatefulWidget {
   final List<InventoryParcel> parcels;
   final bool loading;
   final String? error;
@@ -146,14 +174,64 @@ class _ParcelList extends StatelessWidget {
   });
 
   @override
+  State<_ParcelList> createState() => _ParcelListState();
+}
+
+class _ParcelListState extends State<_ParcelList> {
+  final _scroll = ScrollController();
+
+  /// What is on screen. Follows the shell's list while at the top; once the
+  /// rider has scrolled down, parcels that join/leave are held back behind an
+  /// "N new" pill so rows don't shift under the finger.
+  List<InventoryParcel> _shown = const [];
+  int _held = 0;
+  int _heldNew = 0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool get _scrolled => _scroll.hasClients && _scroll.offset > 24;
+
+  void _sync(List<InventoryParcel> fresh) {
+    final sameShape = fresh.length == _shown.length && [for (var i = 0; i < fresh.length; i++) fresh[i].id == _shown[i].id].every((e) => e);
+    if (sameShape || _shown.isEmpty || fresh.isEmpty || !_scrolled) {
+      _shown = fresh;
+      _held = 0;
+      _heldNew = 0;
+      return;
+    }
+    final byId = {for (final p in fresh) p.id: p};
+    _shown = [for (final p in _shown) byId[p.id] ?? p]; // refresh rows in place
+    final shownIds = {for (final p in _shown) p.id};
+    _heldNew = fresh.where((p) => !shownIds.contains(p.id)).length;
+    _held = _heldNew + _shown.where((p) => !byId.containsKey(p.id)).length;
+    if (_held == 0) _held = 1; // pure reorder
+  }
+
+  void _applyHeld() {
+    setState(() {
+      _shown = widget.parcels;
+      _held = 0;
+      _heldNew = 0;
+    });
+    if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DriverRefreshable(
-      onRefresh: onRefresh,
+    _sync(widget.parcels);
+    final parcels = _shown;
+    final list = DriverRefreshable(
+      onRefresh: widget.onRefresh,
       child: ListView(
+        controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          if (error != null) ...[
+          if (widget.error != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(12)),
@@ -161,26 +239,54 @@ class _ParcelList extends StatelessWidget {
                 children: [
                   const Icon(Icons.error_outline_rounded, size: 16, color: DriverColors.error),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(error!, style: const TextStyle(fontSize: 12, color: DriverColors.error, fontWeight: FontWeight.w600))),
+                  Expanded(child: Text(widget.error!, style: const TextStyle(fontSize: 12, color: DriverColors.error, fontWeight: FontWeight.w600))),
                 ],
               ),
             ),
             const SizedBox(height: 16),
           ],
-          if (loading) ...[
+          if (widget.loading) ...[
             const DriverCardSkeleton(),
             const DriverCardSkeleton(),
             const DriverCardSkeleton(),
           ] else if (parcels.isEmpty)
-            DriverEmptyState(icon: emptyIcon, title: emptyTitle, subtitle: emptySubtitle)
+            DriverEmptyState(icon: widget.emptyIcon, title: widget.emptyTitle, subtitle: widget.emptySubtitle)
           else
             for (final parcel in parcels) ...[
-              _ParcelCard(parcel: parcel, pendingStyle: pendingStyle, onTap: () => onTap(parcel)),
+              _ParcelCard(key: ValueKey(parcel.id), parcel: parcel, pendingStyle: widget.pendingStyle, onTap: () => widget.onTap(parcel)),
               const SizedBox(height: 10),
             ],
         ],
       ),
     );
+    if (_held == 0) return list;
+    return Stack(children: [
+      list,
+      Positioned(
+        top: 10,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: Material(
+            color: DriverColors.primary,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 3,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _applyHeld,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(_heldNew > 0 ? '$_heldNew new' : '$_held updated', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -189,7 +295,7 @@ class _ParcelCard extends StatelessWidget {
   final bool pendingStyle;
   final VoidCallback onTap;
 
-  const _ParcelCard({required this.parcel, required this.pendingStyle, required this.onTap});
+  const _ParcelCard({super.key, required this.parcel, required this.pendingStyle, required this.onTap});
 
   String _originLabel(InventoryOrigin origin) {
     switch (origin) {

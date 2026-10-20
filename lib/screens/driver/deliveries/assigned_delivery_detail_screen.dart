@@ -9,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/poller.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../remittances/remittances_screen.dart';
 import '../chat/driver_chat_controller.dart';
@@ -60,20 +61,108 @@ class AssignedDeliveryDetailScreen extends StatefulWidget {
   final String accessToken;
   final DriverChatController controller;
 
-  const AssignedDeliveryDetailScreen({super.key, required this.delivery, required this.accessToken, required this.controller});
+  /// Reports true while a pickup/scan/photo/upload is running (and false when it
+  /// ends or this screen closes), so a shell can hold badge updates meanwhile.
+  final ValueChanged<bool>? onBusyChanged;
+
+  const AssignedDeliveryDetailScreen({super.key, required this.delivery, required this.accessToken, required this.controller, this.onBusyChanged});
 
   @override
   State<AssignedDeliveryDetailScreen> createState() => _AssignedDeliveryDetailScreenState();
 }
 
-class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> with WidgetsBindingObserver {
+class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> {
   Timer? _midnightTimer;
+
+  // ---- Background check ----
+  // Polls this delivery only (30s, while the screen is on top and no action or
+  // capture flow is running). A change made elsewhere never replaces what the
+  // rider is looking at: it raises a "Reload" banner and disables the actions
+  // until reloaded. Resume and the midnight re-attempt window go through the
+  // same poller, so there is a single refresh path.
+  AssignedDelivery? _updated;
+  bool _gone = false;
+  bool _inFlowValue = false;
+  bool get _inFlow => _inFlowValue;
+  set _inFlow(bool value) {
+    _inFlowValue = value;
+    _reportBusy();
+  }
+
+  bool _reportedBusy = false;
+  void _reportBusy() {
+    final busy = _submittingValue || _capturingValue || _inFlowValue;
+    if (busy == _reportedBusy) return;
+    _reportedBusy = busy;
+    widget.onBusyChanged?.call(busy);
+  }
+  int _epoch = 0;
+  ModalRoute<dynamic>? _route;
+
+  late final Poller _poller = Poller(
+    (isActive) async {
+      final epoch = _epoch;
+      final response = await _api.getDriverDeliveries(accessToken: widget.accessToken);
+      final match = (response['data'] as List? ?? [])
+          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .where((row) => row.id == widget.delivery.id)
+          .firstOrNull;
+      if (!isActive() || !mounted || epoch != _epoch || _submitting || _capturing || _inFlow) return;
+      if (match == null) {
+        if (!_gone) setState(() => _gone = true);
+        return;
+      }
+      final stale = match.fingerprint != widget.delivery.fingerprint;
+      if (stale && _updated?.fingerprint != match.fingerprint) {
+        setState(() => _updated = match);
+      } else if (!stale && (_updated != null || _gone)) {
+        setState(() {
+          _updated = null;
+          _gone = false;
+        });
+      }
+    },
+    interval: const Duration(seconds: 30),
+    shouldSkip: () => _submitting || _capturing || _inFlow || _route?.isCurrent == false,
+  );
+
+  /// Wraps a capture flow (camera, picker, sheet) so polls stay out of it.
+  Future<void> _flow(Future<void> Function() body) async {
+    _inFlow = true;
+    _epoch++;
+    try {
+      await body();
+    } finally {
+      _inFlow = false;
+      _epoch++;
+    }
+  }
+
+  void _reloadUpdated() {
+    final fresh = _updated;
+    if (fresh == null) return;
+    setState(() {
+      widget.delivery.applyFrom(fresh);
+      _updated = null;
+      _photoBytes = null;
+      _photoFilePath = null;
+      _photoFileName = null;
+      _scannedToken = null;
+    });
+    _scheduleEligibilityRefresh();
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _scheduleEligibilityRefresh();
+    _poller.start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
   }
 
   void _scheduleEligibilityRefresh() {
@@ -83,22 +172,24 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     if (widget.delivery.status != AssignedDeliveryStatus.failedAttempt || retryAt == null || attempt.eligible) return;
     final wait = retryAt.difference(DateTime.now().toUtc());
     if (wait.isNegative) return;
-    _midnightTimer = Timer(wait + const Duration(seconds: 1), _refresh);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_submitting) _refresh();
+    _midnightTimer = Timer(wait + const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() {}); // eligibility is time-based: re-evaluate now
+      _poller.refreshNow();
+    });
   }
 
   @override
   void dispose() {
+    _poller.stop();
     _midnightTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
+    if (_reportedBusy) widget.onBusyChanged?.call(false);
     super.dispose();
   }
 
-  Future<void> _failAttempt() async {
+  Future<void> _failAttempt() => _flow(_failAttemptFlow);
+
+  Future<void> _failAttemptFlow() async {
     final reason = await showModalBottomSheet<(String, String?)>(
       context: context, isScrollControlled: true, useSafeArea: true,
       builder: (_) => const FailedAttemptSheet(),
@@ -157,7 +248,15 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   String? _photoFileName;
   Uint8List? _photoBytes;
   String? _photoFilePath;
-  bool _submitting = false;
+  bool _submittingValue = false;
+
+  /// Any change invalidates a poll already in flight (it started before the action ended).
+  bool get _submitting => _submittingValue;
+  set _submitting(bool value) {
+    _submittingValue = value;
+    _epoch++;
+    _reportBusy();
+  }
   bool _openingPhoto = false;
 
   /// Set only once a scanned/decoded QR value has been checked against
@@ -168,14 +267,21 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   /// True while picking + decoding an attached picture ([_attachPicture])
   /// — disables both capture buttons so a second tap can't race the first.
-  bool _capturing = false;
+  bool _capturingValue = false;
+  bool get _capturing => _capturingValue;
+  set _capturing(bool value) {
+    _capturingValue = value;
+    _reportBusy();
+  }
 
   bool get _hasPhoto => _photoBytes != null || _photoFilePath != null;
 
   /// Legacy path only: attaches any photo of the parcel with no QR
   /// decode/verification — used when this order predates
   /// `confirmation_token` (see [AssignedDelivery.hasConfirmationQr]).
-  Future<void> _pickLegacyPhoto() async {
+  Future<void> _pickLegacyPhoto() => _flow(_pickLegacyPhotoFlow);
+
+  Future<void> _pickLegacyPhotoFlow() async {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb);
       if (result == null || result.files.isEmpty) return;
@@ -206,7 +312,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// that read as "the scanner just doesn't work," this is refused up
   /// front with the same explanation the picture-attach path already
   /// gives on web.
-  Future<void> _scanQr() async {
+  Future<void> _scanQr() => _flow(_scanQrFlow);
+
+  Future<void> _scanQrFlow() async {
     if (kIsWeb) {
       _showProofError("Scanning isn't supported in this preview. Please use the mobile app.");
       return;
@@ -241,7 +349,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// — a plain still photo (no live camera feed) is all that's needed, so a
   /// short-lived controller is created just for the decode and disposed
   /// right after. Only supported on Android/iOS; not available on web.
-  Future<void> _attachPicture() async {
+  Future<void> _attachPicture() => _flow(_attachPictureFlow);
+
+  Future<void> _attachPictureFlow() async {
     final source = await _pickImageSource();
     if (source == null || !mounted) return;
 
@@ -634,8 +744,36 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemittancesScreen(accessToken: widget.accessToken, role: RemittanceRole.courier, orderNumber: d.orderNumber))),
                 )),
               ),
+            if (_updated != null && !_gone)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+                  decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(14)),
+                  child: Row(children: [
+                    const Icon(Icons.sync_problem_rounded, size: 18, color: DriverColors.warning),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('This delivery was updated', style: DriverText.caption)),
+                    TextButton(onPressed: _reloadUpdated, child: const Text('Reload')),
+                  ]),
+                ),
+              ),
+            if (_gone)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+                  decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(14)),
+                  child: Row(children: [
+                    const Icon(Icons.search_off_rounded, size: 18, color: DriverColors.error),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('This delivery is no longer assigned to you', style: DriverText.caption)),
+                    TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back')),
+                  ]),
+                ),
+              ),
             Expanded(child: _buildBody(context, d)),
-            _buildActionBar(context, d),
+            if (_updated != null || _gone) _staleActionBar() else _buildActionBar(context, d),
           ],
         ),
       ),
@@ -652,8 +790,16 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       final rows = (response['data'] as List? ?? [])
           .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)));
       final match = rows.where((row) => row.id == widget.delivery.id).firstOrNull;
-      if (!mounted || match == null) return;
-      setState(() => widget.delivery.applyFrom(match));
+      if (!mounted) return;
+      if (match == null) {
+        setState(() => _gone = true);
+        return;
+      }
+      setState(() {
+        widget.delivery.applyFrom(match);
+        _updated = null;
+        _gone = false;
+      });
       _scheduleEligibilityRefresh();
     } catch (_) {
       if (!mounted) return;
@@ -1084,6 +1230,23 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// always visible without scrolling — nothing renders here once the
   /// delivery is already marked delivered, since there's no further action
   /// to take.
+  /// Actions are off while what's on screen is known to be out of date.
+  Widget _staleActionBar() => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.lock_rounded),
+              label: Text(_gone ? 'Unavailable — no longer assigned' : 'Updated elsewhere — reload first'),
+              style: DriverButtonStyle.primary(DriverColors.primary),
+            ),
+          ),
+        ),
+      );
+
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
     if (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview) {
       final allowed = d.status == AssignedDeliveryStatus.failedAttempt && d.deliveryAttempt.eligible;

@@ -271,3 +271,86 @@ class InventoryParcel {
     );
   }
 }
+
+String? _nStr(dynamic v) {
+  final s = v?.toString().trim();
+  return (s == null || s.isEmpty) ? null : s;
+}
+
+DateTime? _nDate(dynamic v) => (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
+
+/// One item in the staff notification inbox — mirrors
+/// `Api\Logistics\NotificationInboxController::transform` (requested with
+/// `client=mobile`, so only events tagged for the scanner app arrive).
+class LogisticsNotification {
+  final String id;
+  final String type; // parcel | transfer | rider | money | team | account
+  final String title;
+  final String? body;
+
+  /// Where the event lives: `inventory` | `sorting` | `delivery` | `transfer_requests` ...
+  final String? target;
+  final String? orderNumber;
+
+  /// This company's own parcel assignment, when the event is about one parcel.
+  final String? parcelId;
+  final bool read;
+  final DateTime? createdAt;
+
+  const LogisticsNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.body,
+    this.target,
+    this.orderNumber,
+    this.parcelId,
+    this.read = false,
+    this.createdAt,
+  });
+
+  LogisticsNotification copyWith({bool? read}) => LogisticsNotification(
+        id: id,
+        type: type,
+        title: title,
+        body: body,
+        target: target,
+        orderNumber: orderNumber,
+        parcelId: parcelId,
+        read: read ?? this.read,
+        createdAt: createdAt,
+      );
+
+  factory LogisticsNotification.fromApi(Map<String, dynamic> json) => LogisticsNotification(
+        id: '${json['id']}',
+        type: _nStr(json['type']) ?? 'parcel',
+        title: _nStr(json['title']) ?? 'Notification',
+        body: _nStr(json['body']),
+        target: _nStr(json['target']),
+        orderNumber: _nStr(json['orderNumber']),
+        parcelId: _nStr(json['parcelId']),
+        read: json['read'] == true,
+        createdAt: _nDate(json['createdAt']),
+      );
+}
+
+/// One page of the inbox plus the server's unread count for this client.
+class LogisticsNotificationPage {
+  final List<LogisticsNotification> items;
+  final bool hasMore;
+  final int unread;
+
+  const LogisticsNotificationPage({required this.items, required this.hasMore, required this.unread});
+
+  factory LogisticsNotificationPage.fromApi(Map<String, dynamic> body) {
+    final meta = body['meta'] is Map ? Map<String, dynamic>.from(body['meta'] as Map) : <String, dynamic>{};
+    return LogisticsNotificationPage(
+      items: (body['data'] as List? ?? const [])
+          .whereType<Map>()
+          .map((row) => LogisticsNotification.fromApi(Map<String, dynamic>.from(row)))
+          .toList(),
+      hasMore: meta['hasMore'] == true,
+      unread: meta['unread'] is num ? (meta['unread'] as num).toInt() : 0,
+    );
+  }
+}

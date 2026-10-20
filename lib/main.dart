@@ -5,9 +5,13 @@ import 'screens/driver/auth/driver_splash_screen.dart';
 import 'screens/driver/driver_shell.dart';
 import 'screens/logistics/logistics_shell.dart';
 import 'screens/pickup_courier/courier_dashboard.dart';
+import 'services/push_service.dart';
 
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Push setup runs alongside startup; sign-in code waits on it only when it needs it.
+  PushService.instance.init();
   runApp(const MyApp());
 }
 

@@ -26,15 +26,13 @@ class DriverChatListScreen extends StatefulWidget {
   State<DriverChatListScreen> createState() => _DriverChatListScreenState();
 }
 
-class _DriverChatListScreenState extends State<DriverChatListScreen>
-    with WidgetsBindingObserver {
+class _DriverChatListScreenState extends State<DriverChatListScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_onControllerChanged);
     widget.controller.setInboxActive(widget.isActive);
     // `loadingConversations` defaults to true (so the skeleton shows
@@ -65,11 +63,6 @@ class _DriverChatListScreenState extends State<DriverChatListScreen>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    widget.controller.setAppVisible(state == AppLifecycleState.resumed);
-  }
-
   void _onScroll() {
     if (_scrollController.position.pixels >
         _scrollController.position.maxScrollExtent - 200) {
@@ -83,7 +76,6 @@ class _DriverChatListScreenState extends State<DriverChatListScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
     _searchController.dispose();
     _scrollController.dispose();

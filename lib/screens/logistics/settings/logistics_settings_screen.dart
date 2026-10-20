@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../services/api_service.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../driver/driver_theme.dart';
 import '../../remittances/payment_qr_screen.dart';
-import '../../driver/settings/driver_change_password_sheet.dart';
+import '../../../widgets/sign_in_methods_section.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../logistics_models.dart';
@@ -51,8 +50,6 @@ class LogisticsSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final api = ApiService();
-
     return Scaffold(
       backgroundColor: DriverColors.background,
       appBar: AppBar(
@@ -97,19 +94,7 @@ class LogisticsSettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 22),
 
-              const SettingsSectionLabel('Security'),
-              const SizedBox(height: 8),
-              SettingsGroupCard(
-                children: [
-                  SettingsNavTile(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Change Password',
-                    subtitle: 'Update your account password',
-                    onTap: () => showChangePasswordSheet(context, api: api, email: account.email),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
+              const SignInMethodsSection(),
 
               const SettingsSectionLabel('Support'),
               const SizedBox(height: 8),

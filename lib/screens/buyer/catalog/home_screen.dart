@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../account/notifications_screen.dart';
 import '../account/wishlist_screen.dart';
 import '../buyer_models.dart';
 import '../buyer_shell.dart';
@@ -101,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 // Header
 // ============================================================
 
-/// Fixed top bar: search and the wishlist shortcut.
+/// Fixed top bar: search, notifications and the wishlist shortcut.
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader();
 
@@ -126,8 +127,14 @@ class _HomeHeader extends StatelessWidget {
           ListenableBuilder(
             listenable: store,
             builder: (context, _) => Row(mainAxisSize: MainAxisSize.min, children: [
-              // Cart and Chat live in the nav bar; Wishlist is the one
-              // shortcut that has no other home.
+              // Cart and Chat live in the nav bar; Notifications and Wishlist
+              // are the shortcuts that have no other home.
+              _HeaderIconButton(
+                icon: Icons.notifications_none_rounded,
+                tooltip: store.notifUnread > 0 ? 'Notifications, ${store.notifUnread} unread' : 'Notifications',
+                badge: store.notifUnread,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+              ),
               _HeaderIconButton(
                 icon: Icons.favorite_border_rounded,
                 tooltip: store.favorites.isNotEmpty ? 'Wishlist, ${store.favorites.length} saved' : 'Wishlist',

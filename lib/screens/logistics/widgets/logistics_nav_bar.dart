@@ -9,7 +9,10 @@ import '../../driver/driver_theme.dart';
 /// no natural "hero" tab to float a center button over the way the driver
 /// app's Home tab does.
 class LogisticsNavBar extends StatelessWidget {
-  const LogisticsNavBar({super.key, required this.currentIndex, required this.onTap});
+  const LogisticsNavBar({super.key, required this.currentIndex, required this.onTap, this.badges = const {}});
+
+  /// Tab index -> count shown as a badge (hidden at 0).
+  final Map<int, int> badges;
 
   /// 0 Dashboard, 1 Inventory, 2 Settings.
   final int currentIndex;
@@ -46,6 +49,7 @@ class LogisticsNavBar extends StatelessWidget {
                   icon: _items[i].icon,
                   label: _items[i].label,
                   selected: currentIndex == i,
+                  badge: badges[i] ?? 0,
                   onTap: () => _handleTap(i),
                 ),
               ),
@@ -57,7 +61,9 @@ class LogisticsNavBar extends StatelessWidget {
 }
 
 class _LogisticsNavItem extends StatelessWidget {
-  const _LogisticsNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _LogisticsNavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.badge = 0});
+
+  final int badge;
 
   final IconData icon;
   final String label;
@@ -79,7 +85,12 @@ class _LogisticsNavItem extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(color: selected ? DriverColors.primary.withOpacity(0.12) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, size: 22, color: color),
+              child: Badge(
+                isLabelVisible: badge > 0,
+                label: Text(badge > 99 ? '99+' : '$badge'),
+                backgroundColor: DriverColors.warning,
+                child: Icon(icon, size: 22, color: color),
+              ),
             ),
             const SizedBox(height: 4),
             Text(label, style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: color)),

@@ -43,6 +43,9 @@ dependencies:
   webview_flutter: ^4.13.1
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
+  firebase_core: ^5.0.0
+  firebase_messaging: ^17.0.0
+  flutter_local_notifications: ^20.1.0
 
 dev_dependencies:
   flutter_test:

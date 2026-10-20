@@ -33,6 +33,8 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     store.loadAddresses();
+    store.addListener(_onStoreChanged);
+    if (widget.standalone) store.standaloneCartOpened();
     if (widget.standalone || BuyerShell.tab.value == 2) {
       _validate();
     } else {
@@ -42,8 +44,18 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   void dispose() {
+    store.removeListener(_onStoreChanged);
+    if (widget.standalone) store.standaloneCartClosed();
     BuyerShell.tab.removeListener(_onTabChange);
     super.dispose();
+  }
+
+  /// One toast when the background check flags a changed line.
+  void _onStoreChanged() {
+    final notice = store.cartChangedNotice;
+    if (notice == null || !mounted) return;
+    store.cartChangedNotice = null;
+    showToast(context, notice);
   }
 
   void _onTabChange() {

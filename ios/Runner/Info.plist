@@ -49,5 +49,10 @@
 	<string>Camera access is needed to scan or photograph the parcel's confirmation QR code when confirming a pickup or delivery.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access is needed to attach an existing photo of the parcel's confirmation QR code when confirming a pickup or delivery.</string>
+	<!-- Lets a push wake the app in the background (chat/notification pushes). -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

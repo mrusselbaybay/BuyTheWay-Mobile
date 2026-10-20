@@ -489,7 +489,7 @@ class GoogleButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 18, height: 18, child: _GoogleMark()),
+            const SizedBox(width: 18, height: 18, child: GoogleMark()),
             const SizedBox(width: 10),
             Text(label,
                 style: const TextStyle(
@@ -501,8 +501,9 @@ class GoogleButton extends StatelessWidget {
   }
 }
 
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
+/// The Google "G" mark (no asset needed), reused wherever Google is named.
+class GoogleMark extends StatelessWidget {
+  const GoogleMark({super.key});
   @override
   Widget build(BuildContext context) => CustomPaint(painter: _GoogleMarkPainter());
 }

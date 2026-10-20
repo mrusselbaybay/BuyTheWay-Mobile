@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/poller.dart';
 import '../account/addresses_screen.dart';
 import '../buyer_models.dart';
 import '../buyer_store.dart';
@@ -57,9 +58,130 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   List<CartItem> get items => widget.items;
 
+  // ---- Background price/stock check ----
+  // Every 60s (and on app resume) the lines are compared with the live catalog.
+  // Totals never change by themselves: a difference raises a banner the buyer
+  // must acknowledge ("Review updated total") and Place order stays blocked
+  // until then. Voucher validity is re-quoted on acknowledgement and checked
+  // by the server at placement. Paused while placing the order.
+  List<String> staleChanges = [];
+  final Map<String, ({double? price, int? stock, bool unavailable})> _pendingLines = {};
+
+  late final Poller _probe = Poller(
+    (isActive) async {
+      if (staleChanges.isNotEmpty) return;
+      final ids = items.map((i) => i.productId).toSet().toList();
+      final products = await Future.wait(ids.map((id) async {
+        try {
+          return MapEntry<String, Product?>(id, await store.api.product(id));
+        } on ApiException catch (e) {
+          if (e.statusCode == 404) return MapEntry<String, Product?>(id, null);
+          rethrow;
+        }
+      }));
+      // Dropped while the buyer is in a sheet/picker or placing; the next tick re-checks.
+      if (!isActive() || !mounted || placing || _route?.isCurrent == false) return;
+      final byId = Map.fromEntries(products);
+      final list = <String>[];
+      final pending = <String, ({double? price, int? stock, bool unavailable})>{};
+      for (final item in items) {
+        final product = byId[item.productId];
+        if (product == null || (product.status != null && product.status != 'active')) {
+          if (item.status != 'unavailable') {
+            list.add('${item.name}: no longer available');
+            pending[item.cartId] = (price: null, stock: 0, unavailable: true);
+          }
+          continue;
+        }
+        final variant = item.variantId == null ? null : product.variants.where((v) => v.id == item.variantId).firstOrNull;
+        if (item.variantId != null && (variant == null || !variant.isActive)) {
+          list.add('${item.name}: this option is no longer available');
+          pending[item.cartId] = (price: null, stock: 0, unavailable: true);
+          continue;
+        }
+        final price = variant?.price ?? product.price;
+        final stock = variant?.stock ?? product.stock;
+        // Compared with what the buyer was last shown, so an acknowledged
+        // change doesn't raise the banner again.
+        final blocked = stock != null && item.quantity > stock;
+        final wasBlocked = item.status == 'out_of_stock' || item.status == 'insufficient_stock';
+        final knownPrice = item.serverPrice ?? item.price;
+        if (blocked && (!wasBlocked || item.maxStock != stock)) {
+          list.add(stock == 0 ? '${item.name}: out of stock' : '${item.name}: only $stock left in stock');
+          pending[item.cartId] = (price: price, stock: stock, unavailable: false);
+        } else if (!blocked && wasBlocked) {
+          list.add('${item.name}: back in stock');
+          pending[item.cartId] = (price: price, stock: stock, unavailable: false);
+        } else if ((price - knownPrice).abs() > 0.009) {
+          list.add('${item.name}: ${pesoLabel(knownPrice)} → ${pesoLabel(price)} each');
+          pending[item.cartId] = (price: price, stock: stock, unavailable: false);
+        }
+      }
+      if (list.isEmpty) return;
+      setState(() {
+        staleChanges = list;
+        _pendingLines
+          ..clear()
+          ..addAll(pending);
+      });
+    },
+    interval: const Duration(seconds: 60),
+    shouldSkip: () => placing || staleChanges.isNotEmpty || _route?.isCurrent == false,
+    onError: store.handleError,
+  );
+
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  String pesoLabel(double v) => '₱${v.toStringAsFixed(2)}';
+
+  void _reviewChanges() {
+    for (final item in items) {
+      final line = _pendingLines[item.cartId];
+      if (line == null) continue;
+      if (line.unavailable) {
+        item
+          ..status = 'unavailable'
+          ..maxStock = 0;
+        continue;
+      }
+      item
+        ..serverPrice = line.price
+        ..maxStock = line.stock;
+      if (line.stock == 0) {
+        item.status = 'out_of_stock';
+      } else if (line.stock != null && item.quantity > line.stock!) {
+        item.status = 'insufficient_stock';
+      } else if (line.price != null && (line.price! - item.price).abs() > 0.009) {
+        item.status = 'price_changed';
+      } else {
+        item.status = 'ok';
+      }
+    }
+    setState(() {
+      staleChanges = [];
+      _pendingLines.clear();
+    });
+    _loadVouchers();
+  }
+
+  @override
+  void dispose() {
+    _probe.stop();
+    store.checkoutClosed();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
+    store.checkoutOpened();
+    _probe.start();
     address = store.defaultAddress;
     store.loadAddresses().then((_) {
       if (!mounted) return;
@@ -129,23 +251,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         selected: manual.isEmpty ? null : manual,
       );
       if (!mounted || seq != _quoteSeq) return;
+      var dropped = false;
       setState(() {
         voucherQuote = quote;
         for (final entry in quote.sellers.entries) {
           final offer = entry.value;
           final current = selectedVouchers[entry.key];
-          if (!touchedSellers.contains(entry.key) || current == null || !_stillValid(offer.discount, current.discount) || !_stillValid(offer.shipping, current.shipping)) {
+          final stillOk = _stillValid(offer.discount, current?.discount) && _stillValid(offer.shipping, current?.shipping);
+          if (touchedSellers.contains(entry.key) && current != null && !stillOk) dropped = true;
+          if (!touchedSellers.contains(entry.key) || current == null || !stillOk) {
             selectedVouchers[entry.key] = (discount: offer.bestDiscountId, shipping: offer.bestShippingId);
           }
         }
         final platform = quote.platform;
-        if (platform != null && (!platformTouched || !_stillValid(platform.discount, platformDiscount) || !_stillValid(platform.shipping, platformShipping))) {
+        final platformOk = platform == null || (_stillValid(platform.discount, platformDiscount) && _stillValid(platform.shipping, platformShipping));
+        if (platformTouched && !platformOk && (platformDiscount != null || platformShipping != null)) dropped = true;
+        if (platform != null && (!platformTouched || !platformOk)) {
           platformDiscount = platform.bestDiscountId;
           platformShipping = platform.bestShippingId;
           if (platform.exclusive) _clearShopVouchers();
         }
         quotingVouchers = false;
       });
+      if (dropped) showToast(context, 'A voucher you picked is no longer valid and was removed. Totals updated.');
     } catch (_) {
       if (mounted && seq == _quoteSeq) {
         setState(() {
@@ -210,6 +338,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final a = address;
     if (a == null) return 'Add a delivery address to continue.';
     if (!a.isComplete) return 'Complete this address (province, city, barangay).';
+    final flagged = items.where((i) => const ['unavailable', 'variant_unavailable', 'out_of_stock', 'insufficient_stock'].contains(i.status)).firstOrNull;
+    if (flagged != null) return '${flagged.name}: ${flagged.statusMessage ?? 'no longer available.'} Update it in your basket.';
+    if (staleChanges.isNotEmpty) return 'Prices or availability changed — review the update first.';
     if (loadingShipping) return 'Loading shipping options…';
     if (shippingError != null || selectedShipping == null) return 'Shipping options unavailable — tap retry.';
     if (codMethod?.available == false) return codMethod?.unavailableReason ?? 'COD is currently unavailable. Please choose another payment method.';
@@ -271,6 +402,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
+    if (placing) return;
     final a = address!;
     setState(() => placing = true);
     final payload = {
@@ -283,7 +415,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'seller': i.seller,
                 'variation': i.variation,
                 'quantity': i.quantity,
-                'unit_price': i.price,
+                'unit_price': i.effectivePrice,
               })
           .toList(),
       'vouchers': [
@@ -320,16 +452,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final message = store.handleError(e);
       if (!mounted) return;
       setState(() => placing = false);
+      final changed = e is ApiException && (e.statusCode == 409 || e.statusCode == 422);
       showToast(
         context,
-        e is ApiException && e.statusCode == 422 ? message : 'We couldn\'t place your order. Nothing was charged. $message',
+        changed ? message : 'We couldn\'t place your order. Nothing was charged. $message',
         error: true,
       );
+      // Prices/stock moved under us: list what changed (banner), keep the form as is.
+      if (changed) _probe.refreshNow();
       _loadVouchers(); // a voucher may have expired or run out meanwhile
     }
   }
 
   // ---------------- UI ----------------
+
+  Widget _staleBanner() => Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: BColors.warningSurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: BColors.warning.withValues(alpha: 0.35))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.info_outline_rounded, size: 18, color: BColors.warning),
+            SizedBox(width: 8),
+            Expanded(child: Text('Something changed while you were checking out', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: BColors.warning))),
+          ]),
+          const SizedBox(height: 8),
+          for (final change in staleChanges) Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('• $change', style: BText.small)),
+          const SizedBox(height: 6),
+          Align(alignment: Alignment.centerRight, child: TextButton(onPressed: _reviewChanges, child: const Text('Review updated total'))),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -353,6 +505,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         title: const Text('Checkout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       ),
       body: ListView(padding: const EdgeInsets.only(top: 12, bottom: 16), children: [
+        if (staleChanges.isNotEmpty) _staleBanner(),
         _AddressPanel(address: address, loading: address == null && store.loadingAddresses, onTap: _pickAddress),
         for (final entry in groups.entries) _shopPanel(entry.key, entry.value, groups.length),
         if (platformOffer != null) _platformPanel(platformOffer),

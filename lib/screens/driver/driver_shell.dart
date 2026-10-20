@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
+import '../../services/push_service.dart';
+import '../../services/poller.dart';
 import '../auth/auth_screen.dart';
 import 'chat/driver_chat_controller.dart';
 import 'chat/driver_chat_list_screen.dart';
@@ -17,6 +19,7 @@ import 'home/delivery_request_details_screen.dart';
 import 'home/courier_home_screen.dart';
 import 'home/driver_home_screen.dart';
 import 'home/pickup_order_screen.dart';
+import 'notifications/driver_notifications_screen.dart';
 import '../../services/remittance_api_service.dart';
 import '../remittances/remittances_screen.dart';
 import 'settings/driver_settings_screen.dart';
@@ -73,10 +76,181 @@ class _DriverShellState extends State<DriverShell> {
   bool _loadingAccount = true;
   String? _accountLoadError;
 
+  // ---- Background refresh of the deliveries list ----
+  // One poll feeds Home, Deliveries and History (they all read
+  // _assignedDeliveries). 30s while online on a data tab, ~every 2 min when
+  // offline. Held while the availability toggle is saving, while another route
+  // covers the shell (detail screens poll themselves), and a response that
+  // started before a toggle/load finished is dropped (epoch).
+  int _deliveriesEpoch = 0;
+  int _pollTicks = 0;
+  bool _deliveriesLoaded = false;
+  ModalRoute<dynamic>? _route;
+
+  // ---- Notification bell (Home header) ----
+  // The unread count rides the deliveries poll tick below (no second poller).
+  // While a pickup/scan/photo flow opened from the inbox is running, a new
+  // count is held and applied when it releases, so the shell never repaints
+  // under the rider's hands. Offline riders still refresh the count about
+  // every 45s (see _countDue) so the badge can't get stuck.
+  int _notifUnread = 0;
+  int? _heldUnread;
+  int _busyHolds = 0;
+  DateTime _unreadAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  late final Poller _deliveriesPoller = Poller(
+    (isActive) async {
+      final token = _accessToken;
+      if (token == null) return;
+      // Offline riders only need an occasional check (every 4th tick).
+      final deliveriesDue = _isOnline || ++_pollTicks % 4 == 0;
+      final countDue = deliveriesDue || DateTime.now().difference(_unreadAt) > const Duration(seconds: 45);
+      if (!countDue) return;
+      // Failure of the count alone is silent; the deliveries call decides the poll's fate.
+      final count = _fetchUnread(token);
+      if (!deliveriesDue) {
+        final unread = await count;
+        if (isActive() && mounted && unread != null) _setNotifUnread(unread);
+        return;
+      }
+      final epoch = _deliveriesEpoch;
+      final response = await _api.getDriverDeliveries(accessToken: token);
+      final rows = (response['data'] as List? ?? [])
+          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .toList();
+      final unread = await count;
+      if (!isActive() || !mounted) return;
+      if (unread != null) _setNotifUnread(unread);
+      // The count never touches delivery state; a stale delivery response is still dropped.
+      if (epoch != _deliveriesEpoch || _togglePending || _route?.isCurrent == false) return;
+      _mergeDeliveries(rows);
+    },
+    interval: const Duration(seconds: 30),
+    shouldSkip: () => _accessToken == null || _togglePending || _tabIndex == 3 || _tabIndex == 4 || _route?.isCurrent == false,
+    onError: _onPollError,
+  );
+
+  /// 401/403 halts the poller (Poller does that) and flags the session as expired.
+  void _onPollError(Object e) {
+    if (mounted && e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
+      setState(() => _deliveriesError = 'Your session has expired. Please sign in again.');
+    }
+  }
+
+  Future<int?> _fetchUnread(String token) => _api.getDriverUnreadCount(accessToken: token).then<int?>((c) {
+        _unreadAt = DateTime.now();
+        return c;
+      }).catchError((_) => null);
+
+  /// Shows a new unread count, or holds it while a flow is running.
+  void _setNotifUnread(int count) {
+    if (_busyHolds > 0) {
+      _heldUnread = count;
+      return;
+    }
+    if (count == _notifUnread) return;
+    setState(() => _notifUnread = count);
+  }
+
+  /// A pickup/scan/photo flow opened from the inbox started/finished.
+  void _setNotifBusy(bool busy) {
+    _busyHolds = busy ? _busyHolds + 1 : (_busyHolds > 0 ? _busyHolds - 1 : 0);
+    if (_busyHolds == 0 && _heldUnread != null) {
+      final held = _heldUnread!;
+      _heldUnread = null;
+      // After the frame: the release can happen while the detail route is popping.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _setNotifUnread(held);
+      });
+    }
+  }
+
+  Future<void> _refreshNotifUnread() async {
+    final token = _accessToken;
+    if (token == null) return;
+    final count = await _fetchUnread(token);
+    if (mounted && count != null) _setNotifUnread(count);
+  }
+
+  Future<void> _openNotifications() async {
+    final token = _accessToken;
+    final chat = _chatController;
+    if (token == null || chat == null || _busyHolds > 0) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DriverNotificationsScreen(
+          accessToken: token,
+          controller: chat,
+          onUnreadChanged: _setNotifUnread,
+          onOpenDeliveries: () => _selectTab(1),
+          isBusy: () => _busyHolds > 0,
+          onBusy: _setNotifBusy,
+          onPollError: _onPollError,
+        ),
+      ),
+    );
+    // Back on the shell: reconcile the badge and the lists.
+    if (mounted) {
+      unawaited(_refreshNotifUnread());
+      unawaited(_deliveriesPoller.refreshIfStale());
+    }
+  }
+
+  bool get _togglePending => (_availabilityWrite?.isActive ?? false) || _toggleInFlight;
+  bool _toggleInFlight = false;
+
+  /// Replaces only the rows that changed; no rebuild when nothing did.
+  void _mergeDeliveries(List<AssignedDelivery> fresh) {
+    final byId = {for (final d in _assignedDeliveries) d.id: d};
+    final merged = [
+      for (final f in fresh)
+        if (byId[f.id] case final old? when old.fingerprint == f.fingerprint) old else f,
+    ];
+    final same = merged.length == _assignedDeliveries.length && [for (var i = 0; i < merged.length; i++) identical(merged[i], _assignedDeliveries[i])].every((e) => e);
+    if (same && !_loadingDeliveries && _deliveriesError == null) return;
+    setState(() {
+      _assignedDeliveries = merged;
+      _loadingDeliveries = false;
+      _deliveriesError = null;
+      _deliveriesLoaded = true;
+    });
+  }
+
+  void _selectTab(int i) {
+    if (i == _tabIndex) return;
+    setState(() => _tabIndex = i);
+    if (i <= 2) unawaited(_deliveriesPoller.refreshIfStale());
+  }
+
+  /// Seam for push/realtime: a notification handler can call this to pull
+  /// deliveries immediately (new assignment, cancellation).
+  Future<void> refreshDeliveriesNow() => _deliveriesPoller.refreshNow();
+
   @override
   void initState() {
     super.initState();
     _loadAccount();
+    // A tapped push (also a cold-start one) opens chat or the notifications inbox.
+    PushService.instance.pendingTap.addListener(_onPushTap);
+  }
+
+  void _onPushTap() {
+    final tap = PushService.instance.pendingTap.value;
+    // Not ready yet (cold start): stays pending until the account has loaded.
+    if (tap == null || !mounted || _accessToken == null || _chatController == null) return;
+    PushService.instance.clearTap();
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (tap.isMessage) {
+      _selectTab(3);
+    } else {
+      unawaited(_openNotifications());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
   }
 
   void _onChatControllerChanged() {
@@ -85,6 +259,8 @@ class _DriverShellState extends State<DriverShell> {
 
   @override
   void dispose() {
+    PushService.instance.pendingTap.removeListener(_onPushTap);
+    _deliveriesPoller.stop();
     _availabilityWrite?.cancel();
     _chatController?.removeListener(_onChatControllerChanged);
     _chatController?.dispose();
@@ -128,7 +304,12 @@ class _DriverShellState extends State<DriverShell> {
       });
       // Fire-and-forget — Deliveries has its own loading/error state and
       // shouldn't hold up the rest of the shell rendering.
-      unawaited(_loadDeliveries());
+      unawaited(_loadDeliveries().then((_) {
+        if (mounted && _accessToken != null) _deliveriesPoller.start();
+      }));
+      unawaited(_refreshNotifUnread());
+      unawaited(PushService.instance.register(token));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onPushTap());
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -153,34 +334,41 @@ class _DriverShellState extends State<DriverShell> {
     final token = _accessToken;
     if (token == null) return;
 
-    setState(() {
-      _loadingDeliveries = true;
-      _deliveriesError = null;
-    });
+    // The skeleton is for the very first load only; later calls (pull to
+    // refresh, returning from a detail) keep the list on screen.
+    if (!_deliveriesLoaded) {
+      setState(() {
+        _loadingDeliveries = true;
+        _deliveriesError = null;
+      });
+    }
 
+    final epoch = _deliveriesEpoch;
     try {
       final response = await _api.getDriverDeliveries(accessToken: token);
       final rows = (response['data'] as List? ?? [])
           .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
           .toList();
       if (!mounted) return;
-      setState(() {
-        _assignedDeliveries = rows;
-        _loadingDeliveries = false;
-      });
+      if (epoch != _deliveriesEpoch && _deliveriesLoaded) return;
+      _mergeDeliveries(rows);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingDeliveries = false;
-        _deliveriesError = e.statusCode == 401
-            ? 'Your session has expired. Please sign in again.'
-            : e.message;
+        if (!_deliveriesLoaded || e.statusCode == 401) {
+          _deliveriesError = e.statusCode == 401
+              ? 'Your session has expired. Please sign in again.'
+              : e.message;
+        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingDeliveries = false;
-        _deliveriesError = 'Could not reach the server. Check your connection and try again.';
+        if (!_deliveriesLoaded) {
+          _deliveriesError = 'Could not reach the server. Check your connection and try again.';
+        }
       });
     }
   }
@@ -218,10 +406,13 @@ class _DriverShellState extends State<DriverShell> {
       );
     }
 
+    unawaited(_refreshNotifUnread());
     await _loadDeliveries();
   }
 
   Future<void> _signOutToLogin() async {
+    _deliveriesPoller.stop();
+    await PushService.instance.unregister(); // needs the session, so before it is cleared
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
@@ -253,6 +444,7 @@ class _DriverShellState extends State<DriverShell> {
       }
     });
 
+    _deliveriesEpoch++;
     _availabilityWrite?.cancel();
     _availabilityWrite = Timer(const Duration(milliseconds: 450), () => _persistAvailability(online));
   }
@@ -264,6 +456,7 @@ class _DriverShellState extends State<DriverShell> {
     // toggled off then back on within the debounce window).
     if ((_account?.isOnline ?? false) == online) return;
 
+    _toggleInFlight = true;
     try {
       await _api.updateDriverAvailability(accessToken: token, online: online);
       _account?.deliveryStatus = online ? 'available' : 'unavailable';
@@ -283,6 +476,9 @@ class _DriverShellState extends State<DriverShell> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
       );
+    } finally {
+      _toggleInFlight = false;
+      _deliveriesEpoch++;
     }
   }
 
@@ -478,8 +674,10 @@ class _DriverShellState extends State<DriverShell> {
           error: _deliveriesError,
           controller: _chatController!,
           onRefresh: _loadDeliveries,
-          onOpenDeliveries: () => setState(() => _tabIndex = 1),
-          onOpenRemittances: () => setState(() => _tabIndex = 2),
+          onOpenDeliveries: () => _selectTab(1),
+          onOpenRemittances: () => _selectTab(2),
+          unreadNotifications: _notifUnread,
+          onOpenNotifications: _openNotifications,
         )
       else
         DriverHomeScreen(
@@ -494,6 +692,8 @@ class _DriverShellState extends State<DriverShell> {
         onOpenRequest: _openRequestDetails,
         onContinueActiveDelivery: _openActiveDeliveryFlow,
         onRefreshRequests: _refreshRequests,
+        unreadNotifications: _notifUnread,
+        onOpenNotifications: _openNotifications,
       ),
       DriverDeliveriesScreen(
         deliveries: _assignedDeliveries,
@@ -508,6 +708,7 @@ class _DriverShellState extends State<DriverShell> {
           ? RemittancesScreen(
               accessToken: accessToken,
               role: RemittanceRole.courier,
+              active: _tabIndex == 2,
             )
           : DriverEarningsScreen(
               todayEarnings: _todayEarnings,
@@ -539,7 +740,7 @@ class _DriverShellState extends State<DriverShell> {
       backgroundColor: DriverColors.background,
       extendBody: true,
       body: IndexedStack(index: _tabIndex, children: pages),
-      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, isCourier: account.role == 'courier', onTap: (i) => setState(() => _tabIndex = i)),
+      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, isCourier: account.role == 'courier', onTap: _selectTab),
     );
   }
 }

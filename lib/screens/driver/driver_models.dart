@@ -385,6 +385,31 @@ class AssignedDelivery {
   /// used after a successful "Mark as picked up" or "Mark as Delivered"
   /// call so the same object already in DriverShell's list updates without
   /// needing to splice a fresh instance into it.
+  /// Everything a background refresh compares to decide whether a row changed
+  /// (so unchanged rows keep their object identity and don't rebuild).
+  String get fingerprint => [
+        status.index,
+        handedOffAt,
+        deliveredAt,
+        transferredAt,
+        hasPickupPhoto,
+        hasDeliveryPhoto,
+        canMarkFailed,
+        deliveryAttempt.count,
+        deliveryAttempt.retryAt,
+        deliveryAttempt.failedAt,
+        deliveryAttempt.needsReview,
+        deliveryAttempt.eligible,
+        deliveryAttempt.returnFlaggedAt,
+        codAmountCents,
+        parcels,
+        earningPreviewCents,
+        confirmationToken,
+        items.length,
+        pickupLabel,
+        dropoffLabel,
+      ].join('|');
+
   void applyFrom(AssignedDelivery other) {
     status = other.status;
     deliveryAttempt = other.deliveryAttempt;

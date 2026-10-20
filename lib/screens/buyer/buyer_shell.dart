@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../services/push_service.dart';
 import '../auth/auth_screen.dart';
 import 'account/account_screen.dart';
+import 'account/notifications_screen.dart';
 import 'buyer_store.dart';
 import 'buyer_theme.dart';
 import 'cart/cart_screen.dart';
@@ -42,6 +44,30 @@ class _BuyerShellState extends State<BuyerShell> {
     super.initState();
     BuyerShell.tab.value = 0;
     store.init();
+    // A tapped push (also a cold-start one) opens chat or the notifications inbox.
+    PushService.instance.pendingTap.addListener(_onPushTap);
+    store.addListener(_onPushTap);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onPushTap());
+  }
+
+  @override
+  void dispose() {
+    PushService.instance.pendingTap.removeListener(_onPushTap);
+    store.removeListener(_onPushTap);
+    super.dispose();
+  }
+
+  void _onPushTap() {
+    final tap = PushService.instance.pendingTap.value;
+    // Not ready yet (cold start): stays pending until the store has loaded.
+    if (tap == null || !mounted || !store.initialized || store.sessionExpired) return;
+    PushService.instance.clearTap();
+    if (tap.isMessage) {
+      BuyerShell.goTo(context, 3);
+    } else {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+    }
   }
 
   Future<void> _backToSignIn() async {
@@ -81,6 +107,11 @@ class _BuyerShellState extends State<BuyerShell> {
 
         final index = BuyerShell.tab.value;
         _visitedTabs.add(index);
+        // Background refresh only runs for the tab being looked at, and not
+        // while another route (product page, sheet, …) covers the shell.
+        final covered = ModalRoute.of(context)?.isCurrent == false;
+        store.ordersTabActive = index == 1 && !covered;
+        store.cartTabActive = index == 2 && !covered;
         return PopScope(
           canPop: index == 0,
           onPopInvokedWithResult: (didPop, _) {

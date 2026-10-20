@@ -85,7 +85,7 @@ class _OrderActionButtonsState extends State<OrderActionButtons> {
     if (reason == null || !mounted) return;
     setState(() => busy = true);
     try {
-      final updated = await store.api.cancelOrder(widget.order.number, reason);
+      final updated = await store.guardOrderMutation(() => store.api.cancelOrder(widget.order.number, reason));
       store.replaceOrder(updated);
       widget.onUpdated?.call(updated);
       if (mounted) showToast(context, 'Order ${widget.order.orderId} cancelled');
@@ -108,7 +108,7 @@ class _OrderActionButtonsState extends State<OrderActionButtons> {
     if (!ok || !mounted) return;
     setState(() => busy = true);
     try {
-      final updated = await store.api.receiveOrder(widget.order.number);
+      final updated = await store.guardOrderMutation(() => store.api.receiveOrder(widget.order.number));
       store.replaceOrder(updated);
       widget.onUpdated?.call(updated);
       if (mounted) showToast(context, 'Thanks! Order marked as received.');

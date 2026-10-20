@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -242,6 +243,71 @@ class ApiService {
       body: jsonEncode({'email': email}),
     );
     return _handleResponse(response);
+  }
+
+  // ============================================================
+  // SIGN-IN METHODS (Login & Security, every role)
+  // ============================================================
+
+  Future<Map<String, dynamic>> getSignInMethods(String token) =>
+      _accountRequest('GET', '/account/sign-in-methods', token);
+
+  /// Links the Google account behind [idToken]; re-verifies with the
+  /// account's current password. Safe to retry (idempotent server-side).
+  Future<Map<String, dynamic>> linkGoogle(
+    String token, {
+    required String idToken,
+    required String currentPassword,
+  }) =>
+      _accountRequest('POST', '/account/google/link', token,
+          body: {'id_token': idToken, 'current_password': currentPassword});
+
+  Future<Map<String, dynamic>> disconnectGoogle(
+          String token, String currentPassword) =>
+      _accountRequest('DELETE', '/account/google', token,
+          body: {'current_password': currentPassword});
+
+  /// Sets the first password on a Google-only account, confirmed with the
+  /// code emailed by [sendPasswordResetCode].
+  Future<Map<String, dynamic>> setPassword(
+    String token, {
+    required String code,
+    required String password,
+    required String passwordConfirmation,
+  }) =>
+      _accountRequest('POST', '/account/password/set', token, body: {
+        'code': code,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      });
+
+  Future<Map<String, dynamic>> _accountRequest(
+    String method,
+    String path,
+    String token, {
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final request = http.Request(method, Uri.parse('$baseUrl$path'))
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+      if (body != null) request.body = jsonEncode(body);
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      return _handleResponse(await http.Response.fromStream(streamed));
+    } on SocketException {
+      throw ApiException(
+        message: 'Cannot connect to server. Please check your connection.',
+        statusCode: 0,
+      );
+    } on TimeoutException {
+      throw ApiException(
+        message: 'Connection timeout. Please check your internet connection.',
+        statusCode: 408,
+      );
+    }
   }
 
   // ============================================================
@@ -706,6 +772,80 @@ class ApiService {
       },
       body: jsonEncode({'confirmation_token': confirmationToken}),
     );
+    return _handleResponse(response);
+  }
+
+  // ============================================================
+  // LOGISTICS NOTIFICATION INBOX (client=mobile)
+  // ============================================================
+  // Backend: NotificationInboxController — only events tagged for the
+  // scanner app are listed or counted.
+
+  Map<String, String> _authHeaders(String accessToken) => {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'};
+
+  Future<Map<String, dynamic>> getLogisticsNotifications({required String accessToken, int page = 1}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/notifications?client=mobile&page=$page'),
+      headers: _authHeaders(accessToken),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<int> getLogisticsUnreadCount({required String accessToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/notifications/unread-count?client=mobile'),
+      headers: _authHeaders(accessToken),
+    );
+    final data = _handleResponse(response)['data'];
+    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+  }
+
+  Future<void> markLogisticsNotificationRead({required String accessToken, required String id}) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/logistics/notifications/${Uri.encodeComponent(id)}/read?client=mobile'),
+      headers: _authHeaders(accessToken),
+    );
+    _handleResponse(response);
+  }
+
+  Future<void> markAllLogisticsNotificationsRead({required String accessToken}) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/logistics/notifications/read-all?client=mobile'),
+      headers: _authHeaders(accessToken),
+    );
+    _handleResponse(response);
+  }
+
+  // ============================================================
+  // COURIER NOTIFICATION INBOX
+  // ============================================================
+  // Backend: Driver/NotificationInboxController - the courier audience only,
+  // scoped to the caller and their current employer.
+
+  Future<Map<String, dynamic>> getDriverNotifications({required String accessToken, int page = 1}) async {
+    final response = await http.get(Uri.parse('$baseUrl/driver/notifications?page=$page'), headers: _authHeaders(accessToken));
+    return _handleResponse(response);
+  }
+
+  Future<int> getDriverUnreadCount({required String accessToken}) async {
+    final response = await http.get(Uri.parse('$baseUrl/driver/notifications/unread-count'), headers: _authHeaders(accessToken));
+    final data = _handleResponse(response)['data'];
+    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+  }
+
+  Future<void> markDriverNotificationRead({required String accessToken, required String id}) async {
+    final response = await http.put(Uri.parse('$baseUrl/driver/notifications/${Uri.encodeComponent(id)}/read'), headers: _authHeaders(accessToken));
+    _handleResponse(response);
+  }
+
+  Future<void> markAllDriverNotificationsRead({required String accessToken}) async {
+    final response = await http.put(Uri.parse('$baseUrl/driver/notifications/read-all'), headers: _authHeaders(accessToken));
+    _handleResponse(response);
+  }
+
+  /// One of the rider's deliveries by id (404 once it is no longer theirs).
+  Future<Map<String, dynamic>> getDriverDelivery({required String accessToken, required String id}) async {
+    final response = await http.get(Uri.parse('$baseUrl/driver/deliveries/${Uri.encodeComponent(id)}'), headers: _authHeaders(accessToken));
     return _handleResponse(response);
   }
 
@@ -1297,11 +1437,14 @@ class ApiService {
       try {
         error = jsonDecode(response.body);
       } catch (_) {}
+      final message =
+          error?['message'] ?? 'Request failed with status ${response.statusCode}';
+      final hint = error?['hint'];
       throw ApiException(
-        message: error?['message'] ??
-            'Request failed with status ${response.statusCode}',
+        message: hint is String && hint.isNotEmpty ? '$message. $hint' : message,
         statusCode: response.statusCode,
         errors: error?['errors'],
+        code: error?['code'] is String ? error!['code'] : null,
       );
     }
   }
@@ -1330,10 +1473,15 @@ class ApiException implements Exception {
   final int? statusCode;
   final Map<String, dynamic>? errors;
 
+  /// Machine-readable reason from the API (e.g. `invalid_password`,
+  /// `google_already_linked_other`), when it sends one.
+  final String? code;
+
   ApiException({
     required this.message,
     this.statusCode,
     this.errors,
+    this.code,
   });
 
   @override

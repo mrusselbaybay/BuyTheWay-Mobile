@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "836450785411",
+    "project_id": "buytheway-d1e1b",
+    "storage_bucket": "buytheway-d1e1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836450785411:android:31ce9cce795f1ff13563b6",
+        "android_client_info": {
+          "package_name": "shop.buythewaymarket.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9dhMNK3WqcXVadt_j6U3SaEFafMaH4jo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

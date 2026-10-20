@@ -950,9 +950,7 @@ class OrderItem {
   final String? reviewId;
   final int? reviewRating;
   final String? reviewComment;
-  final String? returnStatus;
-  final String? returnType;
-  final String? returnResolution;
+  final ReturnRequestInfo? returnRequest;
 
   const OrderItem({
     required this.id,
@@ -968,12 +966,11 @@ class OrderItem {
     this.reviewId,
     this.reviewRating,
     this.reviewComment,
-    this.returnStatus,
-    this.returnType,
-    this.returnResolution,
+    this.returnRequest,
   });
 
   bool get reviewed => reviewId != null;
+  String? get returnStatus => returnRequest?.status;
 
   factory OrderItem.fromJson(Map<String, dynamic> j) {
     final review = _map(j['review']);
@@ -992,11 +989,65 @@ class OrderItem {
       reviewId: _s(review['id']),
       reviewRating: review['rating'] == null ? null : _i(review['rating']),
       reviewComment: _s(review['comment']),
-      returnStatus: _s(ret['status']),
-      returnType: _s(ret['requestType']),
-      returnResolution: _s(ret['resolutionNote']),
+      returnRequest: ret.isEmpty ? null : ReturnRequestInfo.fromJson(ret),
     );
   }
+}
+
+/// One item's return / refund request — Buyer\OrderController::
+/// transformReturnRequest(), the same block the web ReturnTrackingModal reads.
+class ReturnRequestInfo {
+  final String? id;
+  final String requestType;
+  final String? reason;
+  final String? otherReason;
+  final String? details;
+  final int quantity;
+  final List<String> evidence;
+  /// As sent: Pending, Approved, Rejected, Cancelled or Completed.
+  final String status;
+  final String? resolutionNote;
+  final double? refundedAmount;
+  final DateTime? submittedAt;
+  final DateTime? resolvedAt;
+  final DateTime? returnedAt;
+
+  const ReturnRequestInfo({
+    this.id,
+    required this.requestType,
+    this.reason,
+    this.otherReason,
+    this.details,
+    required this.quantity,
+    this.evidence = const [],
+    required this.status,
+    this.resolutionNote,
+    this.refundedAmount,
+    this.submittedAt,
+    this.resolvedAt,
+    this.returnedAt,
+  });
+
+  bool get isReturn => requestType == 'return_and_refund';
+
+  /// Lower-cased status: pending, approved, rejected, cancelled, completed.
+  String get state => status.toLowerCase();
+
+  factory ReturnRequestInfo.fromJson(Map<String, dynamic> j) => ReturnRequestInfo(
+        id: _s(j['id']),
+        requestType: _s(j['requestType']) ?? 'refund_only',
+        reason: _s(j['reason']),
+        otherReason: _s(j['otherReason']),
+        details: _s(j['details']),
+        quantity: _i(j['quantity'], 1),
+        evidence: j['evidence'] is List ? [for (final e in j['evidence'] as List) if (_s(e) != null) _s(e)!] : const [],
+        status: _s(j['status']) ?? 'Pending',
+        resolutionNote: _s(j['resolutionNote']),
+        refundedAmount: _dn(j['refundedAmount']),
+        submittedAt: _date(j['submittedAt']),
+        resolvedAt: _date(j['resolvedAt']),
+        returnedAt: _date(j['returnedAt']),
+      );
 }
 
 class StatusEvent {
@@ -1173,4 +1224,46 @@ String paymentLabel(String? code) {
     default:
       return code ?? '—';
   }
+}
+
+
+/// One item in the buyer's notification inbox (GET /buyer/notifications).
+class BuyerNotification {
+  final String id;
+  final String type; // order_update | delivery | refund | case | support | account
+  final String title;
+  final String? body;
+  final String? orderNumber;
+  final bool read;
+  final DateTime? createdAt;
+
+  const BuyerNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.body,
+    this.orderNumber,
+    this.read = false,
+    this.createdAt,
+  });
+
+  BuyerNotification copyWith({bool? read}) => BuyerNotification(
+        id: id,
+        type: type,
+        title: title,
+        body: body,
+        orderNumber: orderNumber,
+        read: read ?? this.read,
+        createdAt: createdAt,
+      );
+
+  factory BuyerNotification.fromJson(Map<String, dynamic> j) => BuyerNotification(
+        id: '${j['id']}',
+        type: _s(j['type']) ?? 'order_update',
+        title: _s(j['title']) ?? 'Notification',
+        body: _s(j['body']),
+        orderNumber: _s(j['orderNumber']),
+        read: j['read'] == true,
+        createdAt: _date(j['createdAt']),
+      );
 }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,7 +19,8 @@ class RemittanceActionScreen extends StatefulWidget {
       required this.row,
       this.recipient,
       this.obligationIds,
-      this.maxCents});
+      this.maxCents,
+      this.latest});
   final RemittanceApiService api;
   final String action;
   final String tab;
@@ -26,6 +28,10 @@ class RemittanceActionScreen extends StatefulWidget {
   final Map<String, dynamic>? recipient;
   final List<String>? obligationIds;
   final int? maxCents;
+
+  /// Newest server copy of [row] (null = unchanged), fed by the list's
+  /// background refresh. Only drives a banner: the form is never touched.
+  final ValueListenable<Map<String, dynamic>?>? latest;
   @override
   State<RemittanceActionScreen> createState() => _RemittanceActionScreenState();
 }
@@ -42,6 +48,14 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
   Uint8List? _bytes;
   String? _filename;
   String? _proofPath;
+  /// True when the server's copy differs from the one this screen opened with.
+  bool _changed(Map<String, dynamic> latest) =>
+      latest['__missing'] == true ||
+      latest['status'] != widget.row['status'] ||
+      latest['paid_cents'] != widget.row['paid_cents'] ||
+      latest['amount_cents'] != widget.row['amount_cents'] ||
+      latest['remaining_cents'] != widget.row['remaining_cents'];
+
   bool get _transfer => ['cod', 'payment'].contains(widget.action);
   int get _maximum =>
       widget.maxCents ??
@@ -242,6 +256,22 @@ class _RemittanceActionScreenState extends State<RemittanceActionScreen> {
               child: Form(
                   key: _form,
                   child: ListView(padding: const EdgeInsets.all(20), children: [
+                    if (widget.latest != null)
+                      ValueListenableBuilder<Map<String, dynamic>?>(
+                        valueListenable: widget.latest!,
+                        builder: (_, latest, __) => latest == null || !_changed(latest)
+                            ? const SizedBox.shrink()
+                            : Container(
+                                margin: const EdgeInsets.only(bottom: 14),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(12)),
+                                child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Icon(Icons.sync_problem_rounded, size: 18, color: DriverColors.warning),
+                                  SizedBox(width: 8),
+                                  Expanded(child: Text('This record was updated elsewhere (status or balance changed). Your entries are kept — go back and re-open it to see the latest before submitting.', style: TextStyle(fontSize: 12.5, height: 1.35))),
+                                ]),
+                              ),
+                      ),
                     Text(remittanceOrder(widget.row),
                         style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.w800)),

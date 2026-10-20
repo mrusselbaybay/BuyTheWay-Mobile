@@ -91,6 +91,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final _query = ValueNotifier<String>('');
   final _searchCtrl = TextEditingController();
 
+  bool _pushed = false;
+
   @override
   void initState() {
     super.initState();
@@ -100,7 +102,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Opened from Account's shortcuts (not the shell tab): keep it fresh too.
+    if (!_pushed && ModalRoute.of(context)?.isFirst == false) {
+      _pushed = true;
+      store.orderDetailsOpened();
+    }
+  }
+
+  @override
   void dispose() {
+    if (_pushed) store.orderDetailsClosed();
     _query.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -297,11 +310,55 @@ class _StatusTabBar extends StatelessWidget {
       );
 }
 
-class _OrderList extends StatelessWidget {
+class _OrderList extends StatefulWidget {
   const _OrderList({required this.filter, required this.searching});
 
   final bool Function(Order) filter;
   final bool searching;
+
+  @override
+  State<_OrderList> createState() => _OrderListState();
+}
+
+class _OrderListState extends State<_OrderList> {
+  final _scroll = ScrollController();
+
+  /// What is on screen. Follows the store directly while the list is at the
+  /// top; once scrolled, orders that join/leave/move are held back behind an
+  /// "N updated" pill so rows don't shift under the finger.
+  List<Order> _shown = const [];
+  int _pending = 0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool get _scrolled => _scroll.hasClients && _scroll.offset > 24;
+
+  void _sync(List<Order> fresh) {
+    final sameShape = fresh.length == _shown.length && [for (var i = 0; i < fresh.length; i++) fresh[i].orderId == _shown[i].orderId].every((e) => e);
+    if (sameShape || _shown.isEmpty || fresh.isEmpty || !_scrolled) {
+      _shown = fresh;
+      _pending = 0;
+      return;
+    }
+    // Scrolled and the set/order changed: refresh rows in place, hold the rest.
+    final byId = {for (final o in fresh) o.orderId: o};
+    _shown = [for (final o in _shown) byId[o.orderId] ?? o];
+    final shownIds = {for (final o in _shown) o.orderId};
+    _pending = fresh.where((o) => !shownIds.contains(o.orderId)).length + _shown.where((o) => !byId.containsKey(o.orderId)).length;
+    if (_pending == 0) _pending = 1; // pure reorder
+  }
+
+  void _applyPending() {
+    setState(() {
+      _pending = 0;
+      _shown = BuyerStore.instance.orders.where(widget.filter).toList();
+    });
+    if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -317,18 +374,22 @@ class _OrderList extends StatelessWidget {
       );
     }
 
-    final orders = store.orders.where(filter).toList();
-    return RefreshIndicator(
+    _sync(store.orders.where(widget.filter).toList());
+    final orders = _shown;
+    final list = RefreshIndicator(
       color: BColors.brand,
-      onRefresh: store.loadOrders,
+      onRefresh: () async {
+        await store.loadOrders();
+        if (mounted) setState(() => _pending = 0);
+      },
       child: orders.isEmpty
-          ? ListView(children: [
+          ? ListView(controller: _scroll, children: [
               SizedBox(
                 height: 420,
                 child: store.ordersError != null && !store.ordersLoaded
                     ? ErrorState(
                         message: store.ordersError!, onRetry: store.loadOrders)
-                    : searching
+                    : widget.searching
                         ? const EmptyState(
                             icon: Icons.search_off_rounded,
                             title: 'No matching orders',
@@ -343,12 +404,41 @@ class _OrderList extends StatelessWidget {
               ),
             ])
           : ListView.separated(
+              controller: _scroll,
               padding: EdgeInsets.only(top: 12, bottom: bottom),
               itemCount: orders.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (_, i) => OrderCard(order: orders[i]),
+              itemBuilder: (_, i) => OrderCard(key: ValueKey(orders[i].orderId), order: orders[i]),
             ),
     );
+    if (_pending == 0) return list;
+    return Stack(children: [
+      list,
+      Positioned(
+        top: 10,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: Material(
+            color: BColors.brand,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 3,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _applyPending,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text('$_pending updated', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 

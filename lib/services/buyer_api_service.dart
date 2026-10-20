@@ -635,6 +635,28 @@ class BuyerApiService {
     return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
   }
 
+  // ---------------- Notifications ----------------
+
+  Future<({List<BuyerNotification> items, bool hasMore, int unread})> notifications({int page = 1}) async {
+    final body = await _send('GET', '/buyer/notifications', query: 'page=$page');
+    final meta = body['meta'] is Map ? Map<String, dynamic>.from(body['meta'] as Map) : <String, dynamic>{};
+    return (
+      items: _list(body['data']).map(BuyerNotification.fromJson).toList(),
+      hasMore: meta['hasMore'] == true,
+      unread: meta['unread'] is num ? (meta['unread'] as num).toInt() : 0,
+    );
+  }
+
+  Future<int> unreadNotifications() async {
+    final body = await _send('GET', '/buyer/notifications/unread-count');
+    final data = body['data'];
+    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+  }
+
+  Future<void> markNotificationRead(String id) => _send('PUT', '/buyer/notifications/${Uri.encodeComponent(id)}/read');
+
+  Future<void> markAllNotificationsRead() => _send('PUT', '/buyer/notifications/read-all');
+
   // ---------------- Multipart ----------------
 
   Future<Map<String, dynamic>> _multipart(String path, String field, List<int> bytes, String fileName) async {

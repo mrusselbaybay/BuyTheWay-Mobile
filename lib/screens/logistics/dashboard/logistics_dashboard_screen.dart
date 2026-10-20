@@ -19,6 +19,8 @@ class LogisticsDashboardScreen extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenInventory;
+  final int unreadNotifications;
+  final VoidCallback onOpenNotifications;
 
   const LogisticsDashboardScreen({
     super.key,
@@ -29,6 +31,8 @@ class LogisticsDashboardScreen extends StatelessWidget {
     required this.error,
     required this.onRefresh,
     required this.onOpenInventory,
+    required this.unreadNotifications,
+    required this.onOpenNotifications,
   });
 
   int get _fromPickup => pending.where((p) => p.origin == InventoryOrigin.pickup).length;
@@ -44,6 +48,7 @@ class LogisticsDashboardScreen extends StatelessWidget {
           DriverGradientHeader(
             title: account.companyName,
             subtitle: '${account.ownerName} · Logistics',
+            trailing: _NotificationBell(unread: unreadNotifications, onTap: onOpenNotifications),
           ),
           Expanded(
             child: DriverRefreshable(
@@ -195,6 +200,54 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(label, style: DriverText.caption),
         ],
+      ),
+    );
+  }
+}
+
+/// Bell in the Dashboard header — opens the notifications screen. The badge
+/// only counts events tagged for this app, so it never shows a number the
+/// screen can't list.
+class _NotificationBell extends StatelessWidget {
+  final int unread;
+  final VoidCallback onTap;
+
+  const _NotificationBell({required this.unread, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = unread > 99 ? '99+' : '$unread';
+    return Semantics(
+      button: true,
+      label: unread > 0 ? 'Notifications, $label unread' : 'Notifications',
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              onPressed: onTap,
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+              style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.15), minimumSize: const Size(44, 44)),
+            ),
+            if (unread > 0)
+              Positioned(
+                top: 2,
+                right: 2,
+                child: IgnorePointer(
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(color: DriverColors.error, borderRadius: BorderRadius.circular(9), border: Border.all(color: Colors.white, width: 1.5)),
+                    alignment: Alignment.center,
+                    child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, height: 1.1)),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
