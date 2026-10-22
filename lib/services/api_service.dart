@@ -20,14 +20,14 @@ class ApiService {
       if (kIsWeb) {
         return 'http://localhost:8000/api';
       }
-      // Android emulator only. A physical Android device must use API_BASE_URL
-      // with the computer's LAN address; 10.0.2.2 is not reachable from it.
+      // Use the reachable hosted API on mobile devices by default. Local
+      // development can still override this with API_BASE_URL.
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8000/api';
+        return 'https://buythewaymarket.shop/api';
       }
-      // For iOS simulator or physical device
+      // The iOS simulator and physical devices share this default.
       if (Platform.isIOS) {
-        return 'http://localhost:8000/api';
+        return 'https://buythewaymarket.shop/api';
       }
       // Fallback for other platforms
       return 'http://localhost:8000/api';
@@ -220,7 +220,7 @@ class ApiService {
   Future<Map<String, dynamic>> sendSignupCode(String email) async {
     final response = await http.post(
       Uri.parse('$baseUrl/signup/send-code'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       body: jsonEncode({'email': email}),
     );
     return _handleResponse(response);
@@ -317,7 +317,7 @@ class ApiService {
   Future<Map<String, dynamic>> sendPasswordResetCode(String email) async {
     final response = await http.post(
       Uri.parse('$baseUrl/password/send-code'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       body: jsonEncode({'email': email}),
     );
     return _handleResponse(response);

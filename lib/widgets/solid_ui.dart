@@ -100,6 +100,7 @@ class SolidField extends StatefulWidget {
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
     this.onSubmitted,
+    this.inputFormatters,
   });
 
   final String label;
@@ -116,6 +117,7 @@ class SolidField extends StatefulWidget {
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<SolidField> createState() => _SolidFieldState();
@@ -158,9 +160,9 @@ class _SolidFieldState extends State<SolidField> {
             textCapitalization: widget.textCapitalization,
             textInputAction: widget.textInputAction,
             onSubmitted: widget.onSubmitted,
-            inputFormatters: widget.keyboardType == TextInputType.number
+            inputFormatters: widget.inputFormatters ?? (widget.keyboardType == TextInputType.number
                 ? [FilteringTextInputFormatter.digitsOnly]
-                : null,
+                : null),
             style: const TextStyle(fontSize: 15, color: AppColors.slate900),
             decoration: InputDecoration(
               counterText: '',
@@ -216,66 +218,70 @@ class SolidDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasError = (error ?? '').isNotEmpty;
+    final selectedValue = value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel(label, required),
         const SizedBox(height: 7),
-        _FieldChrome(
-          focused: false,
-          hasError: hasError,
-          enabled: enabled,
-          child: Padding(
-            padding: EdgeInsets.only(left: icon == null ? 14 : 0, right: 10),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: value,
-                icon: const Padding(
-                  padding: EdgeInsets.only(right: 2),
-                  child: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.slate400),
+        LayoutBuilder(builder: (context, constraints) => MenuAnchor(
+          style: MenuStyle(
+            backgroundColor: const WidgetStatePropertyAll(Colors.white),
+            elevation: const WidgetStatePropertyAll(4),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          ),
+          menuChildren: [SizedBox(
+            width: constraints.maxWidth,
+            height: (items.length < 5 ? items.length : 5) * 48.0,
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: items.length,
+              itemBuilder: (context, index) => MenuItemButton(
+                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                onPressed: () => onChanged(items[index]),
+                child: SizedBox(
+                  height: 48,
+                  width: constraints.maxWidth,
+                  child: Align(alignment: Alignment.centerLeft, child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                    displayItems != null && index < displayItems!.length ? displayItems![index] : items[index],
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, color: AppColors.slate900),
+                  ))),
                 ),
-                borderRadius: BorderRadius.circular(14),
-                hint: Row(children: [
+              ),
+            ),
+          )],
+          builder: (context, controller, child) => _FieldChrome(
+            focused: controller.isOpen,
+            hasError: hasError,
+            enabled: enabled,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: enabled && items.isNotEmpty ? controller.open : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: SizedBox(height: 50, child: Row(children: [
                   if (icon != null) ...[
-                    Icon(icon, size: 19, color: AppColors.slate400),
+                    Icon(icon, size: 19, color: AppColors.slate500),
                     const SizedBox(width: 10),
-                  ] else
-                    const SizedBox(width: 4),
-                  Text(hint ?? 'Select',
-                      style: const TextStyle(color: AppColors.slate400, fontSize: 14)),
-                ]),
-                selectedItemBuilder: icon == null
-                    ? null
-                    : (context) => items
-                        .map((it) => Row(children: [
-                              Icon(icon, size: 19, color: AppColors.slate500),
-                              const SizedBox(width: 10),
-                              Text(
-                                  displayItems != null &&
-                                          items.indexOf(it) < displayItems!.length
-                                      ? displayItems![items.indexOf(it)]
-                                      : it,
-                                  style: const TextStyle(
-                                      fontSize: 15, color: AppColors.slate900)),
-                            ]))
-                        .toList(),
-                style: const TextStyle(fontSize: 15, color: AppColors.slate900),
-                items: [
-                  for (int i = 0; i < items.length; i++)
-                    DropdownMenuItem(
-                      value: items[i],
-                      child: Text(
-                          displayItems != null && i < displayItems!.length
-                              ? displayItems![i]
-                              : items[i]),
-                    ),
-                ],
-                onChanged: enabled ? onChanged : null,
+                  ],
+                  Expanded(child: Text(
+                    selectedValue != null && items.contains(selectedValue)
+                        ? (displayItems != null && items.indexOf(selectedValue) < displayItems!.length
+                            ? displayItems![items.indexOf(selectedValue)] : selectedValue)
+                        : (hint ?? 'Select'),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, color: selectedValue == null ? AppColors.slate400 : AppColors.slate900),
+                  )),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.slate400),
+                ])),
               ),
             ),
           ),
-        ),
+        )),
         _fieldError(error),
       ],
     );

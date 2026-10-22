@@ -7,7 +7,7 @@ import '../../../widgets/common.dart' show MessageBanner;
 import '../driver_shell.dart';
 import '../driver_theme.dart';
 import 'driver_forgot_password_screen.dart';
-import 'driver_register_screen.dart';
+import '../../auth/auth_screen.dart';
 
 /// Sign-in screen for the driver/courier app — signs in against the same
 /// Laravel/Supabase backend the buyer and seller apps use (`POST
@@ -232,7 +232,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
                       TextSpan(
                         text: 'Create an account',
                         style: const TextStyle(fontWeight: FontWeight.w800, color: DriverColors.primary, decoration: TextDecoration.underline),
-                        recognizer: TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverRegisterScreen())),
+                        recognizer: TapGestureRecognizer()..onTap = () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner, startInSignup: true))),
                       ),
                     ],
                   ),

@@ -29,7 +29,12 @@ class InventoryDetailScreen extends StatefulWidget {
   /// Scan confirmed: lets the shell move the parcel to Inventory right away.
   final ValueChanged<InventoryParcel>? onScanned;
 
-  const InventoryDetailScreen({super.key, required this.parcelId, required this.accessToken, this.onScanActive, this.onScanned});
+  const InventoryDetailScreen(
+      {super.key,
+      required this.parcelId,
+      required this.accessToken,
+      this.onScanActive,
+      this.onScanned});
 
   @override
   State<InventoryDetailScreen> createState() => _InventoryDetailScreenState();
@@ -45,7 +50,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   bool _scanFlowOpen = false;
   bool _notFound = false;
   int _epoch = 0;
-  InventoryParcel? _updated; // newer server copy, shown behind a "Reload" banner
+  InventoryParcel?
+      _updated; // newer server copy, shown behind a "Reload" banner
   ModalRoute<dynamic>? _route;
 
   // Only this parcel is polled while the screen is on top (the shell holds its
@@ -55,16 +61,24 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     (isActive) async {
       final epoch = _epoch;
       try {
-        final response = await _api.getInventoryDetail(parcelAssignmentId: widget.parcelId, accessToken: widget.accessToken);
+        final response = await _api.getInventoryDetail(
+            parcelAssignmentId: widget.parcelId,
+            accessToken: widget.accessToken);
         final data = response['data'];
-        if (data is! Map || !isActive() || !mounted || epoch != _epoch || _scanning || _scanFlowOpen) return;
+        if (data is! Map ||
+            !isActive() ||
+            !mounted ||
+            epoch != _epoch ||
+            _scanning ||
+            _scanFlowOpen) return;
         final fresh = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
         final current = _parcel;
         if (current == null || _fingerprint(current) == _fingerprint(fresh)) {
           if (_updated != null) setState(() => _updated = null);
           return;
         }
-        if (_updated == null || _fingerprint(_updated!) != _fingerprint(fresh)) setState(() => _updated = fresh);
+        if (_updated == null || _fingerprint(_updated!) != _fingerprint(fresh))
+          setState(() => _updated = fresh);
       } on ApiException catch (e) {
         if (e.statusCode == 404 && isActive() && mounted) {
           _poller.stop();
@@ -75,11 +89,26 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       }
     },
     interval: const Duration(seconds: 30),
-    shouldSkip: () => _loading || _scanning || _scanFlowOpen || _notFound || _parcel == null || _route?.isCurrent == false,
+    shouldSkip: () =>
+        _loading ||
+        _scanning ||
+        _scanFlowOpen ||
+        _notFound ||
+        _parcel == null ||
+        _route?.isCurrent == false,
   );
 
-  String _fingerprint(InventoryParcel p) =>
-      [p.status, p.inventoryScannedAt, p.forInventoryAt, p.courier?.id, p.hubName, p.transferToCompanyName, p.trackingNumber, p.confirmationToken, p.items.length].join('|');
+  String _fingerprint(InventoryParcel p) => [
+        p.status,
+        p.inventoryScannedAt,
+        p.forInventoryAt,
+        p.courier?.id,
+        p.hubName,
+        p.transferToCompanyName,
+        p.trackingNumber,
+        p.confirmationToken,
+        p.items.length
+      ].join('|');
 
   @override
   void initState() {
@@ -116,9 +145,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       _error = null;
     });
     try {
-      final response = await _api.getInventoryDetail(parcelAssignmentId: widget.parcelId, accessToken: widget.accessToken);
+      final response = await _api.getInventoryDetail(
+          parcelAssignmentId: widget.parcelId, accessToken: widget.accessToken);
       final data = response['data'];
-      if (data is! Map) throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+      if (data is! Map)
+        throw ApiException(
+            message: 'The server returned an invalid response.',
+            statusCode: 500);
       if (!mounted) return;
       setState(() {
         _parcel = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
@@ -149,7 +182,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     if (parcel == null) return;
 
     if (kIsWeb) {
-      _toast("Scanning isn't supported in this preview. Please use the mobile app.", isError: true);
+      _toast(
+          "Scanning isn't supported in this preview. Please use the mobile app.",
+          isError: true);
       return;
     }
 
@@ -166,7 +201,10 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final QrScanResult? result;
     try {
       result = await Navigator.of(context).push<QrScanResult>(
-        MaterialPageRoute(builder: (_) => QrScanScreen(title: 'Scan to confirm inventory', expectedToken: expectedToken)),
+        MaterialPageRoute(
+            builder: (_) => QrScanScreen(
+                title: 'Scan to confirm inventory',
+                expectedToken: expectedToken)),
       );
     } catch (_) {
       _scanFlowOpen = false;
@@ -188,7 +226,10 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         confirmationToken: result.rawValue,
       );
       final data = response['data'];
-      if (data is! Map) throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+      if (data is! Map)
+        throw ApiException(
+            message: 'The server returned an invalid response.',
+            statusCode: 500);
       final scanned = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
       widget.onScanned?.call(scanned);
       if (!mounted) return;
@@ -196,7 +237,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         _parcel = scanned;
         _scanning = false;
       });
-      DriverTopNotification.show(context, message: 'Parcel scanned into inventory.');
+      DriverTopNotification.show(context,
+          message: 'Parcel scanned into inventory.');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -230,7 +272,20 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   String _formatDate(DateTime? d) {
     if (d == null) return 'Unknown time';
     final local = d.toLocal();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final m = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
@@ -257,27 +312,63 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final parcel = _parcel;
 
     return Scaffold(
-      backgroundColor: DriverColors.background,
+      backgroundColor: const Color(0xFFF5F6F1),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            DriverGradientHeader(
-              title: parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
-              subtitle: parcel == null
-                  ? ''
-                  : [
-                      _statusLabel(parcel.status),
-                      if (parcel.isReturn) 'To return${parcel.returnReason != null ? ' — ${parcel.returnReason}' : ''}',
-                    ].join(' · '),
-              onBack: () => Navigator.of(context).pop(),
-              trailing: parcel != null
-                  ? DriverStatusBadge(
-                      label: parcel.isScanned ? 'Scanned' : 'Pending',
-                      color: parcel.isScanned ? DriverColors.success : DriverColors.warning,
-                      icon: parcel.isScanned ? Icons.check_circle_rounded : Icons.qr_code_scanner_rounded,
-                    )
-                  : null,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 20, 18),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Back to parcels',
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: Color(0xFF184D3B)),
+                      ),
+                      const SizedBox(width: 5),
+                      const Text('PARCEL RECORD',
+                          style: TextStyle(
+                              color: Color(0xFF184D3B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5)),
+                      const Spacer(),
+                      if (parcel != null)
+                        DriverStatusBadge(
+                          label: parcel.isScanned ? 'Scanned' : 'To scan',
+                          color: parcel.isScanned
+                              ? DriverColors.success
+                              : DriverColors.warning,
+                          icon: parcel.isScanned
+                              ? Icons.check_circle_rounded
+                              : Icons.qr_code_scanner_rounded,
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Text(
+                        parcel?.trackingNumber ??
+                            parcel?.orderNumber ??
+                            'Parcel',
+                        style: const TextStyle(
+                            color: Color(0xFF172923),
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -.8)),
+                    if (parcel != null) ...[
+                      const SizedBox(height: 5),
+                      Text(_statusLabel(parcel.status),
+                          style: const TextStyle(
+                              color: Color(0xFF687970), fontSize: 13)),
+                      if (parcel.isReturn && parcel.returnReason != null)
+                        Text('Return: ${parcel.returnReason}',
+                            style: const TextStyle(
+                                color: Color(0xFF687970), fontSize: 12)),
+                    ],
+                  ]),
             ),
             Expanded(child: _buildBody(context)),
             if (parcel != null && parcel.isPending) _buildScanBar(),
@@ -289,7 +380,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: DriverColors.primary));
+      return const Center(
+          child: CircularProgressIndicator(color: DriverColors.primary));
     }
     if (_notFound) {
       return Center(
@@ -298,11 +390,18 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.search_off_rounded, size: 44, color: DriverColors.textSecondary),
+              const Icon(Icons.search_off_rounded,
+                  size: 44, color: DriverColors.textSecondary),
               const SizedBox(height: 12),
-              const Text('This parcel is no longer available', textAlign: TextAlign.center, style: DriverText.body),
+              const Text('This parcel is no longer available',
+                  textAlign: TextAlign.center, style: DriverText.body),
               const SizedBox(height: 14),
-              ElevatedButton(onPressed: () => Navigator.of(context).pop(), style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white), child: const Text('Back to inventory')),
+              ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: DriverColors.primary,
+                      foregroundColor: Colors.white),
+                  child: const Text('Back to inventory')),
             ],
           ),
         ),
@@ -317,9 +416,15 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error ?? 'Could not load this parcel.', textAlign: TextAlign.center, style: DriverText.body),
+              Text(_error ?? 'Could not load this parcel.',
+                  textAlign: TextAlign.center, style: DriverText.body),
               const SizedBox(height: 14),
-              ElevatedButton(onPressed: _load, style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white), child: const Text('Try again')),
+              ElevatedButton(
+                  onPressed: _load,
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: DriverColors.primary,
+                      foregroundColor: Colors.white),
+                  child: const Text('Try again')),
             ],
           ),
         ),
@@ -330,20 +435,26 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       onRefresh: _load,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_updated != null) ...[
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-                decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                    color: DriverColors.warningSurface,
+                    borderRadius: BorderRadius.circular(14)),
                 child: Row(
                   children: [
-                    const Icon(Icons.sync_problem_rounded, size: 18, color: DriverColors.warning),
+                    const Icon(Icons.sync_problem_rounded,
+                        size: 18, color: DriverColors.warning),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text('Updated elsewhere', style: DriverText.caption)),
-                    TextButton(onPressed: _reloadUpdated, child: const Text('Reload')),
+                    const Expanded(
+                        child: Text('Updated elsewhere',
+                            style: DriverText.caption)),
+                    TextButton(
+                        onPressed: _reloadUpdated, child: const Text('Reload')),
                   ],
                 ),
               ),
@@ -352,10 +463,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
             if (parcel.isPending) ...[
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(
+                    color: DriverColors.warningSurface,
+                    borderRadius: BorderRadius.circular(14)),
                 child: Row(
                   children: [
-                    const Icon(Icons.qr_code_scanner_rounded, size: 18, color: DriverColors.warning),
+                    const Icon(Icons.qr_code_scanner_rounded,
+                        size: 18, color: DriverColors.warning),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
@@ -374,10 +488,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow('Tracking number', parcel.trackingNumber ?? 'Not on file'),
+                  _infoRow('Tracking number',
+                      parcel.trackingNumber ?? 'Not on file'),
                   _infoRow('Order number', parcel.orderNumber ?? 'Not on file'),
-                  if (parcel.transferToCompanyName != null) _infoRow('Transferring to', parcel.transferToCompanyName!),
-                  if (parcel.hubName != null) _infoRow('Hub / company', parcel.hubName!),
+                  if (parcel.transferToCompanyName != null)
+                    _infoRow('Transferring to', parcel.transferToCompanyName!),
+                  if (parcel.hubName != null)
+                    _infoRow('Hub / company', parcel.hubName!),
                 ],
               ),
             ),
@@ -389,8 +506,10 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _infoRow('Name', parcel.buyer.name ?? 'Not on file'),
-                  if (parcel.buyer.contactNo != null) _infoRow('Contact', parcel.buyer.contactNo!),
-                  if (parcel.buyer.address != null) _infoRow('Address', parcel.buyer.address!),
+                  if (parcel.buyer.contactNo != null)
+                    _infoRow('Contact', parcel.buyer.contactNo!),
+                  if (parcel.buyer.address != null)
+                    _infoRow('Address', parcel.buyer.address!),
                 ],
               ),
             ),
@@ -401,9 +520,15 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow('Name', parcel.seller.shopName ?? parcel.seller.name ?? 'Not on file'),
-                  if (parcel.seller.contactNo != null) _infoRow('Contact', parcel.seller.contactNo!),
-                  if (parcel.seller.address != null) _infoRow('Address', parcel.seller.address!),
+                  _infoRow(
+                      'Name',
+                      parcel.seller.shopName ??
+                          parcel.seller.name ??
+                          'Not on file'),
+                  if (parcel.seller.contactNo != null)
+                    _infoRow('Contact', parcel.seller.contactNo!),
+                  if (parcel.seller.address != null)
+                    _infoRow('Address', parcel.seller.address!),
                 ],
               ),
             ),
@@ -416,7 +541,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _infoRow('Name', parcel.courier!.fullName ?? 'Not on file'),
-                    if (parcel.courier!.contactNo != null) _infoRow('Contact', parcel.courier!.contactNo!),
+                    if (parcel.courier!.contactNo != null)
+                      _infoRow('Contact', parcel.courier!.contactNo!),
                   ],
                 ),
               ),
@@ -426,7 +552,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               icon: Icons.inventory_2_outlined,
               title: 'Parcel contents',
               child: parcel.items.isEmpty
-                  ? const Text('No item details on file.', style: DriverText.body)
+                  ? const Text('No item details on file.',
+                      style: DriverText.body)
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -444,9 +571,19 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow('Entered inventory', parcel.forInventoryAt != null ? _formatDate(parcel.forInventoryAt) : 'Not yet'),
-                  _infoRow('Scanned', parcel.inventoryScannedAt != null ? _formatDate(parcel.inventoryScannedAt) : 'Not yet'),
-                  if (parcel.inventoryScannedBy?.fullName != null) _infoRow('Scanned by', parcel.inventoryScannedBy!.fullName!),
+                  _infoRow(
+                      'Entered inventory',
+                      parcel.forInventoryAt != null
+                          ? _formatDate(parcel.forInventoryAt)
+                          : 'Not yet'),
+                  _infoRow(
+                      'Scanned',
+                      parcel.inventoryScannedAt != null
+                          ? _formatDate(parcel.inventoryScannedAt)
+                          : 'Not yet'),
+                  if (parcel.inventoryScannedBy?.fullName != null)
+                    _infoRow(
+                        'Scanned by', parcel.inventoryScannedBy!.fullName!),
                 ],
               ),
             ),
@@ -461,16 +598,26 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, -4))]),
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE0E6DD)))),
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _scanning || _updated != null ? null : _scanQr,
             icon: _scanning
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.4, color: Colors.white))
                 : const Icon(Icons.qr_code_scanner_rounded),
-            label: Text(_scanning ? 'Confirming…' : (_updated != null ? 'Updated elsewhere — reload first' : 'Scan QR to confirm')),
-            style: DriverButtonStyle.primary(DriverColors.primary),
+            label: Text(_scanning
+                ? 'Confirming…'
+                : (_updated != null
+                    ? 'Updated elsewhere — reload first'
+                    : 'Scan QR to confirm')),
+            style: DriverButtonStyle.primary(const Color(0xFF184D3B)),
           ),
         ),
       ),
@@ -484,7 +631,12 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: 120, child: Text(label, style: DriverText.caption)),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: DriverColors.textPrimary))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: DriverColors.textPrimary))),
         ],
       ),
     );
@@ -507,13 +659,21 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: DriverColors.textPrimary)),
-              if (meta.isNotEmpty) ...[const SizedBox(height: 2), Text(meta, style: DriverText.caption)],
+              Text(item.name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      color: DriverColors.textPrimary)),
+              if (meta.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(meta, style: DriverText.caption)
+              ],
               if (specs.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.straighten_rounded, size: 12, color: DriverColors.textSecondary),
+                    const Icon(Icons.straighten_rounded,
+                        size: 12, color: DriverColors.textSecondary),
                     const SizedBox(width: 4),
                     Expanded(child: Text(specs, style: DriverText.caption)),
                   ],
@@ -525,17 +685,32 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         const SizedBox(width: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(8)),
-          child: Text('×${item.quantity}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: DriverColors.primaryDark)),
+          decoration: BoxDecoration(
+              color: DriverColors.primarySurface,
+              borderRadius: BorderRadius.circular(8)),
+          child: Text('×${item.quantity}',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: DriverColors.primaryDark)),
         ),
       ],
     );
   }
 
-  Widget _sectionCard({required IconData icon, required String title, required Widget child}) {
+  Widget _sectionCard(
+      {required IconData icon, required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))]),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 3))
+          ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -545,7 +720,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 width: 28,
                 height: 28,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(9)),
+                decoration: BoxDecoration(
+                    color: DriverColors.primarySurface,
+                    borderRadius: BorderRadius.circular(9)),
                 child: Icon(icon, size: 15, color: DriverColors.primaryDark),
               ),
               const SizedBox(width: 10),

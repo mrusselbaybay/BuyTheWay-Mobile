@@ -44,11 +44,14 @@ class LogisticsInventoryScreen extends StatefulWidget {
   });
 
   @override
-  State<LogisticsInventoryScreen> createState() => _LogisticsInventoryScreenState();
+  State<LogisticsInventoryScreen> createState() =>
+      _LogisticsInventoryScreenState();
 }
 
-class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this, initialIndex: 1);
+class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController =
+      TabController(length: 2, vsync: this);
 
   @override
   void dispose() {
@@ -77,30 +80,41 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: DriverColors.heroGradient),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            ),
+            color: const Color(0xFFF5F6F1),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 14),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Inventory', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 21)),
-                  ),
-                ),
+                const Text('LOGISTICS / PARCELS',
+                    style: TextStyle(
+                        color: Color(0xFF184D3B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5)),
+                const SizedBox(height: 7),
+                const Text('Parcel checkpoint',
+                    style: TextStyle(
+                        color: Color(0xFF172923),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 27,
+                        letterSpacing: -.8)),
+                const SizedBox(height: 7),
+                const Text('Receive and track parcels at your hub.',
+                    style: TextStyle(color: Color(0xFF687970), fontSize: 13)),
+                const SizedBox(height: 18),
                 TabBar(
                   controller: _tabController,
-                  indicatorColor: Colors.white,
+                  indicatorColor: const Color(0xFF184D3B),
                   indicatorWeight: 3,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: const Color(0xFFE0E6DD),
+                  labelColor: const Color(0xFF184D3B),
+                  unselectedLabelColor: const Color(0xFF687970),
+                  labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 13),
                   tabs: [
-                    Tab(text: 'For Inventory (${widget.pending.length})'),
-                    Tab(text: 'Inventory (${widget.scanned.length})'),
+                    Tab(text: 'To scan (${widget.pending.length})'),
+                    Tab(text: 'Scanned (${widget.scanned.length})'),
                   ],
                 ),
               ],
@@ -109,8 +123,13 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
           if (widget.reconnecting)
             const Padding(
               padding: EdgeInsets.only(top: 6),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.8, color: DriverColors.textSecondary)),
+              child:
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                SizedBox(
+                    width: 11,
+                    height: 11,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 1.8, color: DriverColors.textSecondary)),
                 SizedBox(width: 8),
                 Text('Reconnecting…', style: DriverText.caption),
               ]),
@@ -127,7 +146,8 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
                   onTap: _openDetail,
                   emptyIcon: Icons.qr_code_scanner_rounded,
                   emptyTitle: 'Nothing awaiting a scan',
-                  emptySubtitle: 'Parcels couriers hand over will show up here for scanning.',
+                  emptySubtitle:
+                      'Parcels couriers hand over will show up here for scanning.',
                   pendingStyle: true,
                 ),
                 _ParcelList(
@@ -138,7 +158,8 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen> wit
                   onTap: _openDetail,
                   emptyIcon: Icons.inventory_2_outlined,
                   emptyTitle: 'No inventory records yet',
-                  emptySubtitle: 'Scanned parcels stay listed here permanently, even after they\'re dispatched.',
+                  emptySubtitle:
+                      'Scanned parcels stay listed here permanently, even after they\'re dispatched.',
                   pendingStyle: false,
                 ),
               ],
@@ -196,7 +217,9 @@ class _ParcelListState extends State<_ParcelList> {
   bool get _scrolled => _scroll.hasClients && _scroll.offset > 24;
 
   void _sync(List<InventoryParcel> fresh) {
-    final sameShape = fresh.length == _shown.length && [for (var i = 0; i < fresh.length; i++) fresh[i].id == _shown[i].id].every((e) => e);
+    final sameShape = fresh.length == _shown.length &&
+        [for (var i = 0; i < fresh.length; i++) fresh[i].id == _shown[i].id]
+            .every((e) => e);
     if (sameShape || _shown.isEmpty || fresh.isEmpty || !_scrolled) {
       _shown = fresh;
       _held = 0;
@@ -217,7 +240,9 @@ class _ParcelListState extends State<_ParcelList> {
       _held = 0;
       _heldNew = 0;
     });
-    if (_scroll.hasClients) _scroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    if (_scroll.hasClients)
+      _scroll.animateTo(0,
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
   }
 
   @override
@@ -229,17 +254,25 @@ class _ParcelListState extends State<_ParcelList> {
       child: ListView(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
           if (widget.error != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                  color: DriverColors.errorSurface,
+                  borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, size: 16, color: DriverColors.error),
+                  const Icon(Icons.error_outline_rounded,
+                      size: 16, color: DriverColors.error),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(widget.error!, style: const TextStyle(fontSize: 12, color: DriverColors.error, fontWeight: FontWeight.w600))),
+                  Expanded(
+                      child: Text(widget.error!,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: DriverColors.error,
+                              fontWeight: FontWeight.w600))),
                 ],
               ),
             ),
@@ -250,10 +283,17 @@ class _ParcelListState extends State<_ParcelList> {
             const DriverCardSkeleton(),
             const DriverCardSkeleton(),
           ] else if (parcels.isEmpty)
-            DriverEmptyState(icon: widget.emptyIcon, title: widget.emptyTitle, subtitle: widget.emptySubtitle)
+            DriverEmptyState(
+                icon: widget.emptyIcon,
+                title: widget.emptyTitle,
+                subtitle: widget.emptySubtitle)
           else
             for (final parcel in parcels) ...[
-              _ParcelCard(key: ValueKey(parcel.id), parcel: parcel, pendingStyle: widget.pendingStyle, onTap: () => widget.onTap(parcel)),
+              _ParcelCard(
+                  key: ValueKey(parcel.id),
+                  parcel: parcel,
+                  pendingStyle: widget.pendingStyle,
+                  onTap: () => widget.onTap(parcel)),
               const SizedBox(height: 10),
             ],
         ],
@@ -275,11 +315,17 @@ class _ParcelListState extends State<_ParcelList> {
               borderRadius: BorderRadius.circular(20),
               onTap: _applyHeld,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                  const Icon(Icons.arrow_upward_rounded,
+                      size: 16, color: Colors.white),
                   const SizedBox(width: 6),
-                  Text(_heldNew > 0 ? '$_heldNew new' : '$_held updated', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Text(_heldNew > 0 ? '$_heldNew new' : '$_held updated',
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white)),
                 ]),
               ),
             ),
@@ -295,13 +341,19 @@ class _ParcelCard extends StatelessWidget {
   final bool pendingStyle;
   final VoidCallback onTap;
 
-  const _ParcelCard({super.key, required this.parcel, required this.pendingStyle, required this.onTap});
+  const _ParcelCard(
+      {super.key,
+      required this.parcel,
+      required this.pendingStyle,
+      required this.onTap});
 
   String _originLabel(InventoryOrigin origin) {
     switch (origin) {
       case InventoryOrigin.pickup:
         // A return's first leg is collected from the buyer, not the seller.
-        return parcel.isReturn ? 'Picked up from buyer' : 'Picked up from seller';
+        return parcel.isReturn
+            ? 'Picked up from buyer'
+            : 'Picked up from seller';
       case InventoryOrigin.transferDeparture:
         return 'Outgoing transfer';
       case InventoryOrigin.transferReceipt:
@@ -314,7 +366,20 @@ class _ParcelCard extends StatelessWidget {
   String _formatDate(DateTime? d) {
     if (d == null) return '';
     final local = d.toLocal();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final m = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
@@ -323,19 +388,47 @@ class _ParcelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = pendingStyle ? DriverColors.warning : DriverColors.success;
+    final badgeColor =
+        pendingStyle ? DriverColors.warning : DriverColors.success;
     final badgeLabel = pendingStyle ? 'Awaiting scan' : 'In inventory';
-    final badgeIcon = pendingStyle ? Icons.qr_code_scanner_rounded : Icons.check_circle_rounded;
-    final timeLabel = pendingStyle ? _formatDate(parcel.forInventoryAt) : _formatDate(parcel.inventoryScannedAt);
+    final badgeIcon = pendingStyle
+        ? Icons.qr_code_scanner_rounded
+        : Icons.check_circle_rounded;
+    final timeLabel = pendingStyle
+        ? _formatDate(parcel.forInventoryAt)
+        : _formatDate(parcel.inventoryScannedAt);
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))]),
+        padding: const EdgeInsets.all(17),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: const Border(
+                left: BorderSide(color: Color(0xFF184D3B), width: 3))),
         child: Row(
           children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: pendingStyle
+                      ? const Color(0xFFF8EFE2)
+                      : const Color(0xFFE7F0E9),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(
+                  pendingStyle
+                      ? Icons.qr_code_rounded
+                      : Icons.inventory_2_outlined,
+                  color: pendingStyle
+                      ? const Color(0xFF9D6120)
+                      : const Color(0xFF184D3B),
+                  size: 20),
+            ),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,10 +437,15 @@ class _ParcelCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          parcel.trackingNumber ?? parcel.orderNumber ?? 'Parcel',
+                          parcel.trackingNumber ??
+                              parcel.orderNumber ??
+                              'Parcel',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: DriverColors.textPrimary),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: Color(0xFF172923)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -355,7 +453,10 @@ class _ParcelCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          DriverStatusBadge(label: badgeLabel, color: badgeColor, icon: badgeIcon),
+                          DriverStatusBadge(
+                              label: badgeLabel,
+                              color: badgeColor,
+                              icon: badgeIcon),
                           if (parcel.isReturn) ...[
                             const SizedBox(height: 4),
                             const DriverReturnChip(),
@@ -364,16 +465,23 @@ class _ParcelCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(parcel.buyer.name ?? 'Buyer', style: DriverText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  Text(parcel.buyer.name ?? 'Buyer',
+                      style: DriverText.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.local_shipping_outlined, size: 12, color: DriverColors.textSecondary),
+                      const Icon(Icons.local_shipping_outlined,
+                          size: 12, color: DriverColors.textSecondary),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          [_originLabel(parcel.origin), if (timeLabel.isNotEmpty) timeLabel].where((s) => s.isNotEmpty).join(' · '),
+                          [
+                            _originLabel(parcel.origin),
+                            if (timeLabel.isNotEmpty) timeLabel
+                          ].where((s) => s.isNotEmpty).join(' · '),
                           style: DriverText.caption,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -385,7 +493,8 @@ class _ParcelCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey[400]),
+            const Icon(Icons.chevron_right_rounded,
+                size: 20, color: Color(0xFF687970)),
           ],
         ),
       ),

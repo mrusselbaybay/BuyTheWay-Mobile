@@ -28,13 +28,17 @@ class GoogleAuthService {
   /// null if the user cancelled. Signs out first so the chooser always
   /// appears instead of silently reusing the last Google account.
   Future<String?> pickIdToken() async {
+    final account = await pickAccount();
+    return account?.authentication.idToken;
+  }
+
+  Future<GoogleSignInAccount?> pickAccount() async {
     await _ensureInitialized();
     await signOut();
     try {
       final account = await _google.authenticate();
-      final idToken = account.authentication.idToken;
-      if (idToken == null) throw const GoogleAuthException();
-      return idToken;
+      if (account.authentication.idToken == null) throw const GoogleAuthException();
+      return account;
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) return null;
       throw const GoogleAuthException();

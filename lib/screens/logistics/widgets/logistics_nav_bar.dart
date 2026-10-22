@@ -1,102 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../driver/driver_theme.dart';
-
-/// Bottom navigation for the Logistics mobile app — same rounded white bar
-/// + teal accent language as [DriverNavBar] (widgets/driver_nav_bar.dart),
-/// simplified to a plain 3-item row since Dashboard/Inventory/Settings has
-/// no natural "hero" tab to float a center button over the way the driver
-/// app's Home tab does.
 class LogisticsNavBar extends StatelessWidget {
-  const LogisticsNavBar({super.key, required this.currentIndex, required this.onTap, this.badges = const {}});
+  const LogisticsNavBar(
+      {super.key,
+      required this.currentIndex,
+      required this.onTap,
+      this.badges = const {}});
 
-  /// Tab index -> count shown as a badge (hidden at 0).
-  final Map<int, int> badges;
-
-  /// 0 Dashboard, 1 Inventory, 2 Settings.
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final Map<int, int> badges;
 
   static const _items = [
-    (icon: Icons.space_dashboard_rounded, label: 'Dashboard'),
-    (icon: Icons.inventory_2_rounded, label: 'Inventory'),
-    (icon: Icons.settings_rounded, label: 'Settings'),
+    (icon: Icons.grid_view_rounded, label: 'Overview'),
+    (icon: Icons.qr_code_scanner_rounded, label: 'Parcels'),
+    (icon: Icons.person_outline_rounded, label: 'Account'),
   ];
 
-  void _handleTap(int index) {
-    HapticFeedback.selectionClick();
-    onTap(index);
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-    return Container(
-      height: 72 + bottomInset,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -6))],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            for (var i = 0; i < _items.length; i++)
-              Expanded(
-                child: _LogisticsNavItem(
-                  icon: _items[i].icon,
-                  label: _items[i].label,
-                  selected: currentIndex == i,
-                  badge: badges[i] ?? 0,
-                  onTap: () => _handleTap(i),
+  Widget build(BuildContext context) => Container(
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE2E8DE)))),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 68,
+            child: Row(children: [
+              for (var i = 0; i < _items.length; i++)
+                Expanded(
+                  child: Semantics(
+                    selected: currentIndex == i,
+                    button: true,
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        onTap(i);
+                      },
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Badge(
+                              isLabelVisible: (badges[i] ?? 0) > 0,
+                              label: Text((badges[i] ?? 0) > 99
+                                  ? '99+'
+                                  : '${badges[i]}'),
+                              backgroundColor: const Color(0xFFB95137),
+                              child: Icon(_items[i].icon,
+                                  size: 23,
+                                  color: currentIndex == i
+                                      ? const Color(0xFF184D3B)
+                                      : const Color(0xFF84938A)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(_items[i].label,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: currentIndex == i
+                                        ? FontWeight.w800
+                                        : FontWeight.w500,
+                                    color: currentIndex == i
+                                        ? const Color(0xFF184D3B)
+                                        : const Color(0xFF84938A))),
+                          ]),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ]),
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _LogisticsNavItem extends StatelessWidget {
-  const _LogisticsNavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.badge = 0});
-
-  final int badge;
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? DriverColors.primary : DriverColors.textSecondary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: selected ? DriverColors.primary.withOpacity(0.12) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-              child: Badge(
-                isLabelVisible: badge > 0,
-                label: Text(badge > 99 ? '99+' : '$badge'),
-                backgroundColor: DriverColors.warning,
-                child: Icon(icon, size: 22, color: color),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
+      );
 }

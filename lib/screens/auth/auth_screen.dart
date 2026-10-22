@@ -14,9 +14,9 @@
 // presentation layer was rebuilt.
 // ============================================================================
 
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../widgets/brand_logo.dart';
@@ -34,6 +34,32 @@ import '../../services/push_service.dart';
 /// it as `in:Luzon,Visayas,Mindanao` (AuthController::registerUser), which
 /// is exactly the three-option <select> the web wizard renders.
 const List<String> kRegionOptions = ['Luzon', 'Visayas', 'Mindanao'];
+
+class _PlateNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final raw = newValue.text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final letters = StringBuffer();
+    final digits = StringBuffer();
+    for (final character in raw.split('')) {
+      if (letters.length < 3) {
+        if (RegExp(r'[A-Z]').hasMatch(character)) letters.write(character);
+      } else if (digits.length < 3 && RegExp(r'[0-9]').hasMatch(character)) {
+        digits.write(character);
+      }
+    }
+    final formatted = '${letters.toString()}${digits.toString()}';
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+  }
+}
+
+class _UppercaseLetterFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text.replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
 
 /// Accepted values for the "ID Type" dropdown that sits next to every
 /// valid-ID upload. Must stay in sync with AuthController::ID_TYPES and
@@ -65,9 +91,10 @@ const List<String> kLineOfBusinessOptions = [
 enum AuthPortal { buyer, partner }
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, this.portal = AuthPortal.buyer});
+  const AuthScreen({super.key, this.portal = AuthPortal.buyer, this.startInSignup = false});
 
   final AuthPortal portal;
+  final bool startInSignup;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -80,10 +107,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ---------------- Top-level UI state ----------------
   String mode = 'login'; // login | signup | forgot | reset
-  String signupStep = 'role';
+  String signupStep = 'personal';
   String? selectedRole;
   bool isLogisticsSignup = false;
   bool showPassword = false;
+  bool showConfirmPassword = false;
   bool rememberMe = false;
   bool isSubmitting = false;
   bool isSendingCode = false;
@@ -110,6 +138,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ---------------- Signup email verification ----------------
   final signupVerifyCode = TextEditingController();
+  final _signupCodeFocus = FocusNode();
 
   // ---------------- Personal (buyer/seller/courier) ----------------
   final lastName = TextEditingController();
@@ -378,6 +407,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
+    _signupCodeFocus.dispose();
     for (final c in _allControllers) {
       c.dispose();
     }
@@ -454,11 +484,11 @@ class _AuthScreenState extends State<AuthScreen> {
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
     if (file.bytes == null) return;
-    // Mirrors the server rule (`max:10240` KB on every document in
+    // Mirrors the server rule (`max:5120` KB on every document in
     // AuthController::registerUser) so an oversized file is rejected here
     // with a clear message instead of as a 422 after a long upload.
-    if (file.bytes!.lengthInBytes > 10 * 1024 * 1024) {
-      setState(() => errorMsg = 'That file is larger than 10MB. Please upload a smaller one.');
+    if (file.bytes!.lengthInBytes > 5 * 1024 * 1024) {
+      setState(() => errorMsg = 'That file is larger than 5MB. Please upload a smaller one.');
       return;
     }
     _uploadSetters[fieldName]?.call(file.name, file.bytes!);
@@ -621,10 +651,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // ==================== Validation helpers ====================
 
-  bool _validateName(String v) => RegExp(r'^[A-Za-z\s\-]+$').hasMatch(v);
+  bool _validateName(String v) =>
+      RegExp(r"^[A-Za-z]+(?:[ '-][A-Za-z]+)*$").hasMatch(v);
+  bool _validNameLength(String v) => v.length >= 2 && v.length <= 50;
+  bool _isAdult(DateTime value) {
+    final today = DateTime.now();
+    final cutoff = DateTime(today.year - 18, today.month, today.day);
+    return !value.isAfter(cutoff);
+  }
   bool _validateMI(String v) => v.isEmpty || RegExp(r'^[A-Za-z]$').hasMatch(v);
   bool _validateEmail(String v) =>
-      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v);
+      v.length <= 254 && RegExp(r'^[^\s@]+@[^\s@]+\.com$', caseSensitive: false).hasMatch(v);
   bool _validateContact(String v) => RegExp(r'^09\d{9}$').hasMatch(v);
   bool _validatePasswordLen(String v) => v.length >= 8;
 
@@ -648,8 +685,11 @@ class _AuthScreenState extends State<AuthScreen> {
     if (first.text.trim().isEmpty) {
       validationErrors[pFirst] = 'First name is required';
       ok = false;
+    } else if (!_validNameLength(first.text.trim())) {
+      validationErrors[pFirst] = 'First name must be 2 to 50 characters';
+      ok = false;
     } else if (!_validateName(first.text.trim())) {
-      validationErrors[pFirst] = 'Only letters allowed';
+      validationErrors[pFirst] = 'Use letters, spaces, hyphens, or apostrophes';
       ok = false;
     } else {
       validationErrors[pFirst] = '';
@@ -658,8 +698,11 @@ class _AuthScreenState extends State<AuthScreen> {
     if (last.text.trim().isEmpty) {
       validationErrors[pLast] = 'Last name is required';
       ok = false;
+    } else if (!_validNameLength(last.text.trim())) {
+      validationErrors[pLast] = 'Last name must be 2 to 50 characters';
+      ok = false;
     } else if (!_validateName(last.text.trim())) {
-      validationErrors[pLast] = 'Only letters allowed';
+      validationErrors[pLast] = 'Use letters, spaces, hyphens, or apostrophes';
       ok = false;
     } else {
       validationErrors[pLast] = '';
@@ -695,6 +738,9 @@ class _AuthScreenState extends State<AuthScreen> {
     if (birthdayVal == null) {
       validationErrors[pBirthday] = 'Birthday is required';
       ok = false;
+    } else if (!_isAdult(birthdayVal)) {
+      validationErrors[pBirthday] = 'You must be at least 18 years old';
+      ok = false;
     } else {
       validationErrors[pBirthday] = '';
     }
@@ -715,6 +761,16 @@ class _AuthScreenState extends State<AuthScreen> {
       ok = false;
     } else if (!_validatePasswordLen(pw.text)) {
       validationErrors[pPw] = 'Min 8 characters';
+      ok = false;
+    } else if (!RegExp(r'[A-Z]').hasMatch(pw.text) ||
+        !RegExp(r'[a-z]').hasMatch(pw.text)) {
+      validationErrors[pPw] = 'Use uppercase and lowercase letters';
+      ok = false;
+    } else if (!RegExp(r'\d').hasMatch(pw.text)) {
+      validationErrors[pPw] = 'Include at least one number';
+      ok = false;
+    } else if (!RegExp(r'[^A-Za-z0-9]').hasMatch(pw.text)) {
+      validationErrors[pPw] = 'Include at least one symbol';
       ok = false;
     } else {
       validationErrors[pPw] = '';
@@ -767,6 +823,10 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     }
     if (selectedRole == 'courier') {
+      if (!RegExp(r'^[A-Z]{3}[0-9]{3}$').hasMatch(plateNumber.text.trim())) {
+        errorMsg = 'Enter a plate number with 3 letters followed by 3 digits.';
+        return false;
+      }
       if (vehicle.isEmpty ||
           plateNumber.text.trim().isEmpty ||
           !orcrUploaded ||
@@ -818,9 +878,18 @@ class _AuthScreenState extends State<AuthScreen> {
       errorMsg = 'Please fill in all required owner details.';
       return false;
     }
+    if (!_validNameLength(ownerFirstName.text.trim()) ||
+        !_validNameLength(ownerLastName.text.trim())) {
+      errorMsg = 'Owner first and last names must each be 2 to 50 characters.';
+      return false;
+    }
     if (!_validateName(ownerFirstName.text.trim()) ||
         !_validateName(ownerLastName.text.trim())) {
       errorMsg = 'Names should only contain letters.';
+      return false;
+    }
+    if (!_isAdult(ownerBirthday!)) {
+      errorMsg = 'The owner must be at least 18 years old.';
       return false;
     }
     return true;
@@ -838,10 +907,43 @@ class _AuthScreenState extends State<AuthScreen> {
     return true;
   }
 
+  String _stepForRegistrationError(String field) {
+    if (field == 'password' || field == 'password_confirmation') {
+      return selectedRole == 'driver' ? 'driverSecurity' : 'security';
+    }
+    if (isLogisticsSignup) {
+      if (field.startsWith('owner_') &&
+          field != 'owner_id_file' && field != 'owner_id_type') return 'owner';
+      if (field.startsWith('company_province') ||
+          field.startsWith('company_municipality') ||
+          field == 'company_barangay' || field == 'company_street' ||
+          field == 'company_house_no' || field == 'company_postal_code') {
+        return 'address';
+      }
+      if (field.endsWith('_file') || field == 'owner_id_type') return 'documents';
+      return 'company';
+    }
+    if (field == 'first_name' || field == 'last_name' ||
+        field == 'middle_initial' || field == 'email' || field == 'sex' ||
+        field == 'contact_no' || field == 'birthday') {
+      return selectedRole == 'driver' ? 'driverPersonal' : 'personal';
+    }
+    if (field == 'region' || field == 'province_code' ||
+        field == 'municipality_code' || field == 'barangay' ||
+        field == 'street' || field == 'house_no') {
+      return selectedRole == 'driver' ? 'driverAddress' : 'address';
+    }
+    return selectedRole == 'driver' ? 'driverDocuments' : 'documents';
+  }
+
   // ==================== API Calls ====================
 
-  Future<void> _sendVerificationCode(String email) async {
-    setState(() => isSendingCode = true);
+  Future<bool> _sendVerificationCode(String email) async {
+    setState(() {
+      isSendingCode = true;
+      errorMsg = '';
+      successMsg = '';
+    });
 
     try {
       final response = await _api.sendSignupCode(email);
@@ -851,16 +953,19 @@ class _AuthScreenState extends State<AuthScreen> {
         successMsg =
             response['message'] ?? 'Verification code sent to your email.';
       });
+      return true;
     } on ApiException catch (e) {
       setState(() {
         isSendingCode = false;
         errorMsg = e.message;
       });
+      return false;
     } catch (e) {
       setState(() {
         isSendingCode = false;
         errorMsg = e.toString().replaceAll('Exception: ', '');
       });
+      return false;
     }
   }
 
@@ -895,8 +1000,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return email.text.trim();
   }
 
-  Future<void> _sendVerificationCodeStub() async {
-    await _sendVerificationCode(_activeSignupEmail);
+  Future<bool> _sendVerificationCodeStub() async {
+    return _sendVerificationCode(_activeSignupEmail);
   }
 
   Future<bool> _verifyCodeStub() async {
@@ -904,6 +1009,24 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   // ==================== Authentication Methods ====================
+
+  Future<void> _prefillSignupFromGoogle() async {
+    setState(() { errorMsg = ''; isSubmitting = true; });
+    try {
+      final account = await GoogleAuthService.instance.pickAccount();
+      if (account == null) return;
+      final names = account.displayName?.trim().split(RegExp(r'\s+')) ?? [];
+      setState(() {
+        email.text = account.email;
+        if (names.isNotEmpty) firstName.text = names.first;
+        if (names.length > 1) lastName.text = names.sublist(1).join(' ');
+      });
+    } catch (e) {
+      if (mounted) setState(() => errorMsg = e.toString());
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
+  }
 
   Future<void> _handleGoogleAuth() async {
     setState(() {
@@ -1187,10 +1310,32 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() {
         isSubmitting = false;
         errorMsg = e.message;
-        if (e.errors != null) {
+        if (e.errors != null && e.errors!.isNotEmpty) {
+          String? firstMessage;
+          String? earliestStep;
           e.errors!.forEach((key, value) {
-            validationErrors[key] = value.toString();
+            final message = value is List ? value.join('\n') : value.toString();
+            firstMessage ??= message;
+            final step = _stepForRegistrationError(key);
+            if (earliestStep == null ||
+                _activeStepKeys.indexOf(step) < _activeStepKeys.indexOf(earliestStep!)) {
+              earliestStep = step;
+            }
+            final field = switch (key) {
+              'first_name' => selectedRole == 'driver' ? 'driverFirstName' : 'firstName',
+              'last_name' => selectedRole == 'driver' ? 'driverLastName' : 'lastName',
+              'email' => selectedRole == 'driver' ? 'driverEmail' : 'email',
+              'contact_no' => selectedRole == 'driver' ? 'driverContactNo' : 'contactNo',
+              'birthday' => selectedRole == 'driver' ? 'driverBirthday' : 'birthday',
+              'password' => selectedRole == 'driver' ? 'driverPassword' : 'password',
+              'password_confirmation' => selectedRole == 'driver'
+                  ? 'driverConfirmPassword' : 'confirmPassword',
+              _ => key,
+            };
+            validationErrors[field] = message;
           });
+          if (earliestStep != null) signupStep = earliestStep!;
+          errorMsg = firstMessage ?? e.message;
         }
       });
     } catch (e) {
@@ -1254,6 +1399,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final data = <String, String>{
         'company_email': companyEmail.text.trim().toLowerCase(),
         'password': password.text,
+        'password_confirmation': confirmPassword.text,
         'company_name': companyName.text.trim(),
         'company_contact_no': companyContactNo.text.trim(),
         'company_tin': companyTIN.text.trim(),
@@ -1287,6 +1433,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final data = <String, String>{
         'email': driverEmail.text.trim().toLowerCase(),
         'password': driverPassword.text,
+        'password_confirmation': driverConfirmPassword.text,
         'role': 'driver',
         'first_name': driverFirstName.text.trim(),
         'last_name': driverLastName.text.trim(),
@@ -1321,6 +1468,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final data = <String, String>{
       'email': email.text.trim().toLowerCase(),
       'password': password.text,
+      'password_confirmation': confirmPassword.text,
       'role': selectedRole ?? 'buyer',
       ..._personalAddressData(),
       'id_type': idType,
@@ -1610,6 +1758,8 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    selectedRole = _isPartnerPortal ? 'courier' : 'buyer';
+    if (widget.startInSignup) mode = 'signup';
     checkAuthStatus();
     _loadProvinces();
   }
@@ -1708,12 +1858,8 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {});
           return;
         }
-        setState(() {
-          signupStep = step;
-          errorMsg = '';
-          successMsg = '';
-        });
-        await _sendVerificationCodeStub();
+        if (!await _sendVerificationCodeStub() || !mounted) return;
+        setState(() => signupStep = step);
         return;
       }
       if (step == 'driverAddress' && signupStep == 'driverVerifyEmail') {
@@ -1762,12 +1908,8 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {});
           return;
         }
-        setState(() {
-          signupStep = step;
-          errorMsg = '';
-          successMsg = '';
-        });
-        await _sendVerificationCodeStub();
+        if (!await _sendVerificationCodeStub() || !mounted) return;
+        setState(() => signupStep = step);
         return;
       }
       if (step == 'address' && signupStep == 'verifyEmail') {
@@ -1801,12 +1943,8 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {});
           return;
         }
-        setState(() {
-          signupStep = step;
-          errorMsg = '';
-          successMsg = '';
-        });
-        await _sendVerificationCodeStub();
+        if (!await _sendVerificationCodeStub() || !mounted) return;
+        setState(() => signupStep = step);
         return;
       }
       if (step == 'owner' && signupStep == 'companyVerifyEmail') {
@@ -1848,6 +1986,17 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  Future<void> _continueToStep(String step) async {
+    final currentStep = signupStep;
+    await goToStep(step);
+    if (!mounted || signupStep != currentStep) return;
+    final fieldError = validationErrors.values.where((message) => message.isNotEmpty).firstOrNull;
+    final message = errorMsg.isNotEmpty
+        ? errorMsg
+        : (fieldError ?? 'Please correct the highlighted fields before continuing.');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _handleBackNavigation() {
     if (mode == 'forgot' || mode == 'reset') {
       if (resetStep > 1) {
@@ -1863,19 +2012,13 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     if (mode == 'signup') {
-      if (signupStep == 'role' || signupStep == 'complete') {
+      if (signupStep == 'complete') {
         switchMode('login');
         return;
       }
       final idx = currentStepIndex;
       if (idx <= 0) {
-        setState(() {
-          isLogisticsSignup = false;
-          selectedRole = null;
-          signupStep = 'role';
-          errorMsg = '';
-          successMsg = '';
-        });
+        switchMode('login');
       } else {
         goToStep(_activeStepKeys[idx - 1]);
       }
@@ -1885,8 +2028,8 @@ class _AuthScreenState extends State<AuthScreen> {
   void switchMode(String next) {
     setState(() {
       mode = next;
-      signupStep = 'role';
-      selectedRole = null;
+      signupStep = 'personal';
+      selectedRole = _isPartnerPortal ? 'courier' : 'buyer';
       isLogisticsSignup = false;
       errorMsg = '';
       successMsg = '';
@@ -1960,8 +2103,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool get _showAppBarBack {
     if (loggedInUser != null) return false;
     if (mode == 'login') return false;
-    if (mode == 'signup' &&
-        (signupStep == 'role' || signupStep == 'complete')) {
+    if (mode == 'signup' && signupStep == 'complete') {
       return false;
     }
     return true;
@@ -2015,7 +2157,7 @@ class _AuthScreenState extends State<AuthScreen> {
         child: SolidButton(
           label: isLast ? (isSubmitting ? 'Submitting...' : 'Submit') : 'Continue',
           icon: isLast ? null : Icons.arrow_forward_rounded,
-          onPressed: isSubmitting ? null : () => isLast ? submitRegistration() : goToStep(keys[idx + 1]),
+          onPressed: isSubmitting ? null : () => isLast ? submitRegistration() : _continueToStep(keys[idx + 1]),
           loading: isLast && isSubmitting,
         ),
       ),
@@ -2457,9 +2599,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _buildSignupBody() {
     if (signupStep == 'complete') return _buildComplete();
-    if (signupStep == 'role' && !isLogisticsSignup) {
-      return _buildRoleSelection();
-    }
     if (isLogisticsSignup) return _buildLogisticsWizard();
     if (selectedRole == 'driver') return _buildDriverWizard();
     return _buildRegularWizard();
@@ -2498,8 +2637,15 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _wizardHeader({required String kicker}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
-      child: Text(kicker,
-          style: const TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.4)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(kicker,
+            style: const TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.4)),
+        if (errorMsg.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(errorMsg,
+              style: const TextStyle(color: AppColors.errorRed, fontSize: 13)),
+        ],
+      ]),
     );
   }
 
@@ -2539,6 +2685,9 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _personalFields() {
     return Column(
       children: [
+        GoogleButton(onPressed: isSubmitting ? null : _prefillSignupFromGoogle,
+            label: 'Continue with Google'),
+        const SizedBox(height: 18),
         SolidField(
             label: 'Last Name',
             controller: lastName,
@@ -2546,6 +2695,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: 'Dela Cruz',
             icon: Icons.badge_outlined,
             textCapitalization: TextCapitalization.words,
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
             error: validationErrors['lastName']),
         const SizedBox(height: 12),
         SolidField(
@@ -2555,6 +2705,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: 'Juan',
             icon: Icons.badge_outlined,
             textCapitalization: TextCapitalization.words,
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
             error: validationErrors['firstName']),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2566,6 +2717,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 hint: 'B',
                 maxLength: 1,
                 textCapitalization: TextCapitalization.characters,
+                inputFormatters: [_UppercaseLetterFormatter()],
                 error: validationErrors['middleInitial']),
           ),
           const SizedBox(width: 12),
@@ -2597,6 +2749,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: '09XXXXXXXXX',
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: 11,
             error: validationErrors['contactNo']),
         const SizedBox(height: 12),
@@ -2641,16 +2794,40 @@ class _AuthScreenState extends State<AuthScreen> {
               padding: const EdgeInsets.only(top: 10),
               child: Text(successMsg, style: const TextStyle(color: AppColors.successGreen, fontSize: 12))),
         const SizedBox(height: 16),
-        SolidField(
-            label: 'Verification Code',
-            controller: signupVerifyCode,
-            required: true,
-            hint: '6-digit code',
-            icon: Icons.pin_outlined,
-            keyboardType: TextInputType.number,
-            maxLength: 6),
+        const Text('Verification Code *', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.slate800)),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _signupCodeFocus.requestFocus(),
+          child: Stack(children: [
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: signupVerifyCode,
+              builder: (context, value, _) => Row(children: List.generate(6, (index) =>
+                Expanded(child: Container(
+                  height: 52,
+                  margin: EdgeInsets.only(right: index == 5 ? 0 : 7),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate100,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _signupCodeFocus.hasFocus && index == value.text.length ? BrandColors.blue : AppColors.slate400),
+                  ),
+                  child: Text(index < value.text.length ? value.text[index] : '',
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.slate900)),
+                )),
+              )),
+            ),
+            Positioned.fill(child: Opacity(opacity: 0, child: TextField(
+              controller: signupVerifyCode,
+              focusNode: _signupCodeFocus,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(counterText: '', border: InputBorder.none),
+            ))),
+          ]),
+        ),
         const SizedBox(height: 4),
-        const Text('Code expires in 15 minutes.',
+        const Text('Code expires in 5 minutes.',
             style: TextStyle(color: AppColors.slate500, fontSize: 12)),
         const SizedBox(height: 8),
         TextButton(
@@ -2748,13 +2925,14 @@ class _AuthScreenState extends State<AuthScreen> {
             controller: streetCtrl,
             required: true,
             hint: 'Street name',
-            icon: Icons.signpost_outlined),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))]),
         const SizedBox(height: 12),
         SolidField(
             label: 'House / Unit #',
             controller: houseCtrl,
-            hint: '123, Unit B',
-            icon: Icons.home_outlined),
+            hint: '123',
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
         if (_addressError.isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -2780,6 +2958,7 @@ class _AuthScreenState extends State<AuthScreen> {
           obscure: !showPassword,
           error: validationErrors[keyPw],
           suffix: IconButton(
+            tooltip: showPassword ? 'Hide password' : 'Show password',
             icon: Icon(showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                 size: 19, color: AppColors.slate400),
             onPressed: () => setState(() => showPassword = !showPassword),
@@ -2789,10 +2968,6 @@ class _AuthScreenState extends State<AuthScreen> {
         // characters", the same one app.js and Laravel enforce. Rebuilds
         // off the controller directly so typing doesn't setState the
         // whole wizard on every keystroke.
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: pw,
-          builder: (context, value, _) => PasswordStrengthMeter(password: value.text),
-        ),
         const SizedBox(height: 12),
         SolidField(
             label: 'Confirm Password',
@@ -2800,24 +2975,17 @@ class _AuthScreenState extends State<AuthScreen> {
             required: true,
             hint: 'Re-enter password',
             icon: Icons.lock_outline_rounded,
-            obscure: !showPassword,
-            error: validationErrors[keyCpw]),
-        const SizedBox(height: 10),
-        InkWell(
-          onTap: () => setState(() => showPassword = !showPassword),
-          borderRadius: BorderRadius.circular(6),
-          child: Row(children: [
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Checkbox(
-                  value: showPassword,
-                  activeColor: BrandColors.blue,
-                  onChanged: (v) => setState(() => showPassword = v ?? false)),
-            ),
-            const SizedBox(width: 6),
-            const Text('Show passwords', style: TextStyle(fontSize: 13, color: AppColors.slate600)),
-          ]),
+            obscure: !showConfirmPassword,
+            error: validationErrors[keyCpw],
+            suffix: IconButton(
+              tooltip: showConfirmPassword ? 'Hide confirm password' : 'Show confirm password',
+              icon: Icon(showConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  size: 19, color: AppColors.slate400),
+              onPressed: () => setState(() => showConfirmPassword = !showConfirmPassword),
+            )),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: pw,
+          builder: (context, value, _) => PasswordStrengthMeter(password: value.text),
         ),
       ],
     );
@@ -2902,9 +3070,11 @@ class _AuthScreenState extends State<AuthScreen> {
             label: 'Plate Number',
             controller: plateNumber,
             required: true,
-            hint: 'ABC-1234',
+            hint: 'ABC123',
             icon: Icons.pin_outlined,
-            textCapitalization: TextCapitalization.characters),
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 6,
+            inputFormatters: [_PlateNumberFormatter()]),
         const SizedBox(height: 20),
         const SectionDivider(label: 'Verification documents'),
         const SizedBox(height: 14),

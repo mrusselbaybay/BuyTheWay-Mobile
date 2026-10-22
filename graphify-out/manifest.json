@@ -492,21 +492,21 @@
     "semantic_hash": ""
   },
   "lib/screens/logistics/dashboard/logistics_dashboard_screen.dart": {
-    "mtime": 1792433352.8303962,
-    "seen": 1792433446.8530555,
-    "ast_hash": "4ae94bc5879b88f029d4d55ca9e3a309",
+    "mtime": 1792563543.9398904,
+    "seen": 1792563728.7409933,
+    "ast_hash": "d1324e483f2ca77b96eb7d61dbb94570",
     "semantic_hash": ""
   },
   "lib/screens/logistics/inventory/inventory_detail_screen.dart": {
-    "mtime": 1792429395.3885665,
-    "seen": 1792429760.1460886,
-    "ast_hash": "0bd177f71a3d4c4f63495c7e70b8f804",
+    "mtime": 1792563630.629812,
+    "seen": 1792563728.7409992,
+    "ast_hash": "1b0ae709df8013bd408e0ba6a919b782",
     "semantic_hash": ""
   },
   "lib/screens/logistics/inventory/logistics_inventory_screen.dart": {
-    "mtime": 1792429395.3885665,
-    "seen": 1792429760.1460905,
-    "ast_hash": "27275361305f47f98ac9a467adba5f3a",
+    "mtime": 1792563544.1459284,
+    "seen": 1792563728.7410035,
+    "ast_hash": "d817071a720b8596421ff8367fb7460f",
     "semantic_hash": ""
   },
   "lib/screens/logistics/logistics_models.dart": {
@@ -522,15 +522,15 @@
     "semantic_hash": ""
   },
   "lib/screens/logistics/settings/logistics_settings_screen.dart": {
-    "mtime": 1792512347.788139,
-    "seen": 1792512378.9176636,
-    "ast_hash": "8754fb072a3e83157cc47518d89d2078",
+    "mtime": 1792563630.3490746,
+    "seen": 1792563728.7410316,
+    "ast_hash": "cf7c4d042b353fb7efce2f7f10b6bb33",
     "semantic_hash": ""
   },
   "lib/screens/logistics/widgets/logistics_nav_bar.dart": {
-    "mtime": 1792429355.908387,
-    "seen": 1792429760.1460996,
-    "ast_hash": "1f0b7e5b9f63914d0b4313bf05cf4ae7",
+    "mtime": 1792563544.2002604,
+    "seen": 1792563728.7410357,
+    "ast_hash": "8c9eedc800349c8074afc524ce23b14d",
     "semantic_hash": ""
   },
   "lib/screens/pickup_courier/courier_dashboard.dart": {

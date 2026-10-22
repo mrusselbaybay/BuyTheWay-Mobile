@@ -38,10 +38,15 @@ class LogisticsSettingsScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again to access the Logistics app.'),
+        content: const Text(
+            'You will need to sign in again to access the Logistics app.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Sign out')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Sign out')),
         ],
       ),
     );
@@ -51,20 +56,28 @@ class LogisticsSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DriverColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: DriverColors.textPrimary,
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w800)),
-      ),
+      backgroundColor: const Color(0xFFF5F6F1),
       body: SafeArea(
         child: DriverRefreshable(
           onRefresh: onRefresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
             children: [
+              const Text('LOGISTICS / ACCOUNT',
+                  style: TextStyle(
+                      color: Color(0xFF184D3B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5)),
+              const SizedBox(height: 7),
+              const Text('Your account',
+                  style: TextStyle(
+                      color: Color(0xFF172923),
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.8)),
+              const SizedBox(height: 20),
               SettingsProfileSummary(
                 name: account.ownerName,
                 email: account.email,
@@ -74,7 +87,6 @@ class LogisticsSettingsScreen extends StatelessWidget {
                 onTap: () {},
               ),
               const SizedBox(height: 26),
-
               const SettingsSectionLabel('Payments'),
               const SizedBox(height: 8),
               SettingsGroupCard(
@@ -93,9 +105,7 @@ class LogisticsSettingsScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
-
               const SignInMethodsSection(),
-
               const SettingsSectionLabel('Support'),
               const SizedBox(height: 8),
               SettingsGroupCard(
@@ -112,18 +122,22 @@ class LogisticsSettingsScreen extends StatelessWidget {
                           'A parcel a courier hands over — picked up from a seller, or arriving via a company-to-company transfer — sits in "For Inventory" until its QR code is scanned here. '
                           'Only a successful, matching scan moves it into "Inventory" and makes it eligible for delivery or transfer.',
                         ),
-                        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it'))],
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Got it'))
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 30),
-
               OutlinedButton.icon(
                 onPressed: () => _confirmSignOut(context),
                 icon: const Icon(Icons.logout_rounded, size: 16),
-                label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w700)),
+                label: const Text('Sign out',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: DriverColors.textPrimary,
                   side: const BorderSide(color: DriverColors.border),

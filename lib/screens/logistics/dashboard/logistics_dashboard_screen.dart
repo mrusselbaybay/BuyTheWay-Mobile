@@ -4,24 +4,7 @@ import '../../driver/driver_theme.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../logistics_models.dart';
 
-/// Landing tab of the Logistics mobile app — a compact summary of the
-/// inventory pipeline (parcels awaiting a scan vs. already scanned in,
-/// split further by which of the three "a courier just handed us a
-/// parcel" moments produced them) plus a shortcut into the Inventory tab.
-/// No separate stats endpoint exists on the backend — every count here is
-/// derived client-side from the same `pending`/`index` inventory lists the
-/// Inventory tab itself loads (see LogisticsShell).
 class LogisticsDashboardScreen extends StatelessWidget {
-  final LogisticsAccount account;
-  final List<InventoryParcel> pending;
-  final List<InventoryParcel> scanned;
-  final bool loading;
-  final String? error;
-  final Future<void> Function() onRefresh;
-  final VoidCallback onOpenInventory;
-  final int unreadNotifications;
-  final VoidCallback onOpenNotifications;
-
   const LogisticsDashboardScreen({
     super.key,
     required this.account,
@@ -35,220 +18,292 @@ class LogisticsDashboardScreen extends StatelessWidget {
     required this.onOpenNotifications,
   });
 
-  int get _fromPickup => pending.where((p) => p.origin == InventoryOrigin.pickup).length;
-  int get _fromTransferDeparture => pending.where((p) => p.origin == InventoryOrigin.transferDeparture).length;
-  int get _fromTransferReceipt => pending.where((p) => p.origin == InventoryOrigin.transferReceipt).length;
+  final LogisticsAccount account;
+  final List<InventoryParcel> pending;
+  final List<InventoryParcel> scanned;
+  final bool loading;
+  final String? error;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onOpenInventory;
+  final int unreadNotifications;
+  final VoidCallback onOpenNotifications;
+
+  static const _ink = Color(0xFF172923);
+  static const _forest = Color(0xFF184D3B);
+  static const _mint = Color(0xFFE7F0E9);
+  static const _paper = Color(0xFFF5F6F1);
+  static const _muted = Color(0xFF687970);
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        children: [
-          DriverGradientHeader(
-            title: account.companyName,
-            subtitle: '${account.ownerName} · Logistics',
-            trailing: _NotificationBell(unread: unreadNotifications, onTap: onOpenNotifications),
-          ),
-          Expanded(
-            child: DriverRefreshable(
-              onRefresh: onRefresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (error != null) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline_rounded, size: 16, color: DriverColors.error),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(error!, style: const TextStyle(fontSize: 12, color: DriverColors.error, fontWeight: FontWeight.w600))),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    const DriverSectionHeader(title: 'Inventory pipeline'),
-                    const SizedBox(height: 12),
-                    if (loading)
-                      const Row(
-                        children: [
-                          Expanded(child: DriverCardSkeleton()),
-                          SizedBox(width: 12),
-                          Expanded(child: DriverCardSkeleton()),
-                        ],
-                      )
-                    else
-                      GestureDetector(
-                        onTap: onOpenInventory,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _StatCard(
-                                icon: Icons.qr_code_scanner_rounded,
-                                label: 'Awaiting scan',
-                                value: '${pending.length}',
-                                color: DriverColors.warning,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _StatCard(
-                                icon: Icons.inventory_2_rounded,
-                                label: 'In inventory',
-                                value: '${scanned.length}',
-                                color: DriverColors.success,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    const DriverSectionHeader(title: 'Awaiting scan, by source'),
-                    const SizedBox(height: 12),
-                    _sourceRow(
-                      icon: Icons.storefront_rounded,
-                      label: 'Picked up from sellers',
-                      count: _fromPickup,
+    final pickup =
+        pending.where((p) => p.origin == InventoryOrigin.pickup).length;
+    final outbound = pending
+        .where((p) => p.origin == InventoryOrigin.transferDeparture)
+        .length;
+    final inbound = pending
+        .where((p) => p.origin == InventoryOrigin.transferReceipt)
+        .length;
+
+    return ColoredBox(
+      color: _paper,
+      child: SafeArea(
+        bottom: false,
+        child: DriverRefreshable(
+          onRefresh: onRefresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('LOGISTICS / CHECKPOINT',
+                            style: TextStyle(
+                                color: _forest,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5)),
+                        const SizedBox(height: 7),
+                        Text(account.companyName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: _ink,
+                                fontSize: 27,
+                                fontWeight: FontWeight.w800,
+                                height: 1.08,
+                                letterSpacing: -0.8)),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    _sourceRow(
-                      icon: Icons.compare_arrows_rounded,
-                      label: 'Outgoing transfers',
-                      count: _fromTransferDeparture,
-                    ),
-                    const SizedBox(height: 8),
-                    _sourceRow(
-                      icon: Icons.call_received_rounded,
-                      label: 'Incoming transfers',
-                      count: _fromTransferReceipt,
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline_rounded, size: 18, color: DriverColors.primaryDark),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'A parcel can\'t be dispatched for delivery or transfer until its QR code is scanned here.',
-                              style: DriverText.caption,
-                            ),
-                          ),
-                        ],
+                  ),
+                  const SizedBox(width: 12),
+                  Semantics(
+                    button: true,
+                    label: unreadNotifications > 0
+                        ? 'Notifications, $unreadNotifications unread'
+                        : 'Notifications',
+                    child: Badge(
+                      isLabelVisible: unreadNotifications > 0,
+                      label: Text(unreadNotifications > 99
+                          ? '99+'
+                          : '$unreadNotifications'),
+                      backgroundColor: const Color(0xFFB95137),
+                      child: IconButton.filledTonal(
+                        onPressed: onOpenNotifications,
+                        tooltip: 'Notifications',
+                        icon: const Icon(Icons.notifications_none_rounded),
+                        style: IconButton.styleFrom(
+                            backgroundColor: _mint,
+                            foregroundColor: _forest,
+                            minimumSize: const Size(48, 48)),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sourceRow({required IconData icon, required String label, required int count}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.border)),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: DriverColors.primary),
-          const SizedBox(width: 10),
-          Expanded(child: Text(label, style: DriverText.body)),
-          Text('$count', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatCard({required this.icon, required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))]),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 17, color: color),
-          ),
-          const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
-          const SizedBox(height: 2),
-          Text(label, style: DriverText.caption),
-        ],
-      ),
-    );
-  }
-}
-
-/// Bell in the Dashboard header — opens the notifications screen. The badge
-/// only counts events tagged for this app, so it never shows a number the
-/// screen can't list.
-class _NotificationBell extends StatelessWidget {
-  final int unread;
-  final VoidCallback onTap;
-
-  const _NotificationBell({required this.unread, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final label = unread > 99 ? '99+' : '$unread';
-    return Semantics(
-      button: true,
-      label: unread > 0 ? 'Notifications, $label unread' : 'Notifications',
-      child: SizedBox(
-        width: 48,
-        height: 48,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              onPressed: onTap,
-              tooltip: 'Notifications',
-              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-              style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.15), minimumSize: const Size(44, 44)),
-            ),
-            if (unread > 0)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: IgnorePointer(
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(color: DriverColors.error, borderRadius: BorderRadius.circular(9), border: Border.all(color: Colors.white, width: 1.5)),
-                    alignment: Alignment.center,
-                    child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, height: 1.1)),
+              const SizedBox(height: 30),
+              const Text('Your checkpoint',
+                  style: TextStyle(
+                      color: _muted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: DriverColors.errorSurface,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: DriverColors.error),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: Text(error!,
+                            style: const TextStyle(
+                                color: DriverColors.error,
+                                fontWeight: FontWeight.w600))),
+                  ]),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (loading)
+                const DriverCardSkeleton()
+              else
+                Material(
+                  color: _forest,
+                  borderRadius: BorderRadius.circular(24),
+                  child: InkWell(
+                    onTap: onOpenInventory,
+                    borderRadius: BorderRadius.circular(24),
+                    child: Padding(
+                      padding: const EdgeInsets.all(23),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            const Icon(Icons.qr_code_scanner_rounded,
+                                color: Color(0xFFBCE5C2), size: 24),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                                child: Text('READY TO RECEIVE',
+                                    style: TextStyle(
+                                        color: Color(0xFFBCE5C2),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.5))),
+                            Icon(Icons.arrow_outward_rounded,
+                                color: Colors.white.withOpacity(.8), size: 20),
+                          ]),
+                          const SizedBox(height: 28),
+                          Text('${pending.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 72,
+                                  height: .9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -4)),
+                          const SizedBox(height: 10),
+                          Text(
+                              pending.length == 1
+                                  ? 'parcel awaiting a scan'
+                                  : 'parcels awaiting a scan',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 23),
+                          Container(
+                              height: 1, color: Colors.white.withOpacity(.2)),
+                          const SizedBox(height: 16),
+                          const Row(children: [
+                            Text('Open scan queue',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700)),
+                            Spacer(),
+                            Icon(Icons.arrow_forward_rounded,
+                                color: Colors.white, size: 19),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 15),
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(19),
+                child: InkWell(
+                  onTap: onOpenInventory,
+                  borderRadius: BorderRadius.circular(19),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 18),
+                    child: Row(children: [
+                      const Icon(Icons.inventory_2_outlined,
+                          color: _forest, size: 25),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                          child: Text('In inventory',
+                              style: TextStyle(
+                                  color: _ink,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700))),
+                      Text(loading ? '—' : '${scanned.length}',
+                          style: const TextStyle(
+                              color: _ink,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.chevron_right_rounded, color: _muted),
+                    ]),
                   ),
                 ),
               ),
-          ],
+              const SizedBox(height: 31),
+              const Text('Where they came from',
+                  style: TextStyle(
+                      color: _ink,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.4)),
+              const SizedBox(height: 5),
+              const Text('Parcels waiting at your checkpoint',
+                  style: TextStyle(color: _muted, fontSize: 13)),
+              const SizedBox(height: 15),
+              _SourceRow(
+                  icon: Icons.storefront_outlined,
+                  label: 'Seller pickups',
+                  count: loading ? null : pickup),
+              _SourceRow(
+                  icon: Icons.north_east_rounded,
+                  label: 'Outgoing transfers',
+                  count: loading ? null : outbound),
+              _SourceRow(
+                  icon: Icons.south_west_rounded,
+                  label: 'Incoming transfers',
+                  count: loading ? null : inbound),
+              const SizedBox(height: 20),
+              const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: _muted, size: 17),
+                    SizedBox(width: 9),
+                    Expanded(
+                        child: Text(
+                            'Scan each parcel before it can move to delivery or transfer.',
+                            style: TextStyle(
+                                color: _muted, fontSize: 12, height: 1.4))),
+                  ]),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _SourceRow extends StatelessWidget {
+  const _SourceRow(
+      {required this.icon, required this.label, required this.count});
+
+  final IconData icon;
+  final String label;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 15),
+        decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE0E6DD)))),
+        child: Row(children: [
+          Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFE7F0E9),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: const Color(0xFF184D3B), size: 19)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Color(0xFF172923),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600))),
+          Text(count == null ? '—' : '$count',
+              style: const TextStyle(
+                  color: Color(0xFF172923),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800)),
+        ]),
+      );
 }
