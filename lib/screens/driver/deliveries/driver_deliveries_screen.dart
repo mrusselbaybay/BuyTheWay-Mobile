@@ -30,6 +30,7 @@ import '../../remittances/remittances_screen.dart';
 /// Settings on the Account screen.
 class DriverDeliveriesScreen extends StatefulWidget {
   final List<AssignedDelivery> deliveries;
+  final Map<String, dynamic>? capacity;
   final String accessToken;
   final bool loading;
   final String? error;
@@ -40,6 +41,7 @@ class DriverDeliveriesScreen extends StatefulWidget {
   const DriverDeliveriesScreen({
     super.key,
     required this.deliveries,
+    this.capacity,
     required this.accessToken,
     required this.loading,
     required this.error,
@@ -187,6 +189,20 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
                         children: [
+                          if (widget.capacity != null) ...[
+                            Text(
+                              'Currently handling ${widget.capacity!['used_units']} units',
+                              style: DriverText.label,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Small ${(widget.capacity!['breakdown'] as Map?)?['Small'] ?? 0} · '
+                              'Medium ${(widget.capacity!['breakdown'] as Map?)?['Medium'] ?? 0} · '
+                              'Large ${(widget.capacity!['breakdown'] as Map?)?['Large'] ?? 0}',
+                              style: DriverText.caption,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           _LivePulseStrip(
                             total: total,
                             inProgress: inProgress,

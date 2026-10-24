@@ -840,6 +840,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
           ],
           DriverDispatchChip(label: d.dispatchedByLabel),
           const SizedBox(height: 16),
+          if (d.packageSize != null) ...[
+            Text('Parcel: ${d.packageSize} · ${d.parcelUnits ?? '?'} capacity units', style: DriverText.body),
+            const SizedBox(height: 16),
+          ],
           if (d.isReturn) ...[
             Container(
               width: double.infinity,

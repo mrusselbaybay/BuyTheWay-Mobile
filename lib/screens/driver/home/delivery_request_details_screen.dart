@@ -13,7 +13,8 @@ import '../widgets/driver_shared_widgets.dart';
 /// back without deciding.
 class DeliveryRequestDetailsScreen extends StatefulWidget {
   final DeliveryRequest request;
-  const DeliveryRequestDetailsScreen({super.key, required this.request});
+  final Map<String, dynamic>? capacity;
+  const DeliveryRequestDetailsScreen({super.key, required this.request, this.capacity});
 
   @override
   State<DeliveryRequestDetailsScreen> createState() => _DeliveryRequestDetailsScreenState();
@@ -45,9 +46,30 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
   }
 
   void _accept() {
+    final error = _capacityError;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error));
+      return;
+    }
     HapticFeedback.heavyImpact();
     _timer?.cancel();
     Navigator.of(context).pop(true);
+  }
+
+  String? get _capacityError {
+    final load = widget.capacity;
+    if (load == null) return 'Capacity is unavailable. Refresh your deliveries before accepting.';
+    final size = widget.request.packageSize;
+    final units = (load['size_units'] as Map?)?[size] as int?;
+    if (units == null) return 'This parcel has no valid size.';
+    if (!((load['allowed_sizes'] as List?) ?? []).contains(size)) return '$size is not allowed on your vehicle.';
+    if (size == 'Large' && load['max_large'] is int &&
+        (((load['breakdown'] as Map?)?['Large'] as int?) ?? 0) >= (load['max_large'] as int)) {
+      return 'Your vehicle already has its maximum Large parcels.';
+    }
+    final free = (load['free_units'] as num?)?.toInt() ?? 0;
+    if (units > free) return '$size needs $units units, $free free.';
+    return null;
   }
 
   void _decline() {
@@ -84,6 +106,12 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('${request.packageSize} parcel · ${widget.capacity?['used_units'] ?? '?'} / ${widget.capacity?['max_units'] ?? '?'} units loaded', style: DriverText.body),
+            if (_capacityError != null) ...[
+              const SizedBox(height: 4),
+              Text(_capacityError!, style: const TextStyle(color: DriverColors.error, fontWeight: FontWeight.w700)),
+            ],
+            const SizedBox(height: 12),
             RouteSchematic(pickupLabel: request.pickupLabel, dropoffLabel: request.dropoffLabel, distanceKm: request.distanceKm, etaMinutes: request.etaMinutes),
             const SizedBox(height: 16),
             Container(

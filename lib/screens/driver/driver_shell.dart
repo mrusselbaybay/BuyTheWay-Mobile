@@ -55,6 +55,7 @@ class _DriverShellState extends State<DriverShell> {
   // ---- Deliveries tab — real data from GET /api/driver/deliveries, not
   // hardcoded (see AssignedDelivery.fromApi / DriverDeliveryController).
   List<AssignedDelivery> _assignedDeliveries = [];
+  Map<String, dynamic>? _parcelCapacity;
   bool _loadingDeliveries = true;
   String? _deliveriesError;
 
@@ -351,6 +352,9 @@ class _DriverShellState extends State<DriverShell> {
           .toList();
       if (!mounted) return;
       if (epoch != _deliveriesEpoch && _deliveriesLoaded) return;
+      _parcelCapacity = response['capacity'] is Map
+          ? Map<String, dynamic>.from(response['capacity'] as Map)
+          : null;
       _mergeDeliveries(rows);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -490,7 +494,7 @@ class _DriverShellState extends State<DriverShell> {
 
   Future<void> _openRequestDetails(DeliveryRequest request) async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => DeliveryRequestDetailsScreen(request: request)),
+      MaterialPageRoute(builder: (_) => DeliveryRequestDetailsScreen(request: request, capacity: _parcelCapacity)),
     );
     if (!mounted) return;
     if (result == true) {
@@ -697,6 +701,7 @@ class _DriverShellState extends State<DriverShell> {
       ),
       DriverDeliveriesScreen(
         deliveries: _assignedDeliveries,
+        capacity: _parcelCapacity,
         accessToken: accessToken,
         loading: _loadingDeliveries,
         error: _deliveriesError,

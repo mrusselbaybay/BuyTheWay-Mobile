@@ -14,6 +14,7 @@ enum HistoryStatus { completed, cancelled }
 
 class DeliveryRequest {
   final String id;
+  final String packageSize;
   final String customerName;
   final String pickupLabel;
   final String pickupAddress;
@@ -29,6 +30,7 @@ class DeliveryRequest {
 
   const DeliveryRequest({
     required this.id,
+    required this.packageSize,
     required this.customerName,
     required this.pickupLabel,
     required this.pickupAddress,
@@ -219,6 +221,8 @@ class AssignedDelivery {
   final bool earningIsEstimate;
 
   final String id;
+  String? packageSize;
+  int? parcelUnits;
   final String orderNumber;
   final String financialFlow;
   final String paymentMethod;
@@ -287,6 +291,8 @@ class AssignedDelivery {
     this.earningPreviewCents = 0,
     this.earningIsEstimate = true,
     required this.id,
+    this.packageSize,
+    this.parcelUnits,
     required this.orderNumber,
     this.financialFlow = '',
     this.paymentMethod = '',
@@ -345,6 +351,8 @@ class AssignedDelivery {
       earningPreviewCents: (json['earning_preview_cents'] as num?)?.toInt() ?? 0,
       earningIsEstimate: json['earning_is_estimate'] != false,
       id: str(json['id']),
+      packageSize: str(json['package_size']).isEmpty ? null : str(json['package_size']),
+      parcelUnits: (json['parcel_units'] as num?)?.toInt(),
       orderNumber: str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
       financialFlow: str(json['financial_flow']),
       paymentMethod: str(json['payment_method']),
@@ -411,6 +419,8 @@ class AssignedDelivery {
       ].join('|');
 
   void applyFrom(AssignedDelivery other) {
+    packageSize = other.packageSize;
+    parcelUnits = other.parcelUnits;
     status = other.status;
     deliveryAttempt = other.deliveryAttempt;
     canMarkFailed = other.canMarkFailed;
@@ -710,6 +720,7 @@ class WithdrawalRecord {
 List<DeliveryRequest> mockAvailableRequests() => [
       DeliveryRequest(
         id: 'req-1',
+        packageSize: 'Small',
         customerName: 'Maria Santos',
         pickupLabel: 'Corner Bakery',
         pickupAddress: '45 Kalayaan Ave, Diliman',
@@ -725,6 +736,7 @@ List<DeliveryRequest> mockAvailableRequests() => [
       ),
       DeliveryRequest(
         id: 'req-2',
+        packageSize: 'Medium',
         customerName: 'Ken Uy',
         pickupLabel: 'TechHub Electronics',
         pickupAddress: '8 Timog Ave, QC',
@@ -739,6 +751,7 @@ List<DeliveryRequest> mockAvailableRequests() => [
       ),
       DeliveryRequest(
         id: 'req-3',
+        packageSize: 'Large',
         customerName: 'Ana Reyes',
         pickupLabel: 'GreenLeaf Grocer',
         pickupAddress: '19 Aurora Blvd, Cubao',
