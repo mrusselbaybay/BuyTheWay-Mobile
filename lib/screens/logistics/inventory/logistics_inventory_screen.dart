@@ -1,3 +1,5 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 
 import '../../driver/driver_theme.dart';
@@ -80,43 +82,47 @@ class _LogisticsInventoryScreenState extends State<LogisticsInventoryScreen>
       child: Column(
         children: [
           Container(
-            color: const Color(0xFFF5F6F1),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            color: const Color(0xFFF3F2EC),
+            padding: const EdgeInsets.fromLTRB(20, 17, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('LOGISTICS / PARCELS',
+                const Text('BUYTHEWAY  /  LOGISTICS',
                     style: TextStyle(
                         color: Color(0xFF184D3B),
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.5)),
                 const SizedBox(height: 7),
-                const Text('Parcel checkpoint',
+                const Text('Parcel register',
                     style: TextStyle(
                         color: Color(0xFF172923),
                         fontWeight: FontWeight.w800,
                         fontSize: 27,
                         letterSpacing: -.8)),
                 const SizedBox(height: 7),
-                const Text('Receive and track parcels at your hub.',
-                    style: TextStyle(color: Color(0xFF687970), fontSize: 13)),
-                const SizedBox(height: 18),
-                TabBar(
+                const Text('Inbound and recorded handovers',
+                    style: TextStyle(color: Color(0xFF687970), fontSize: 12)),
+                const SizedBox(height: 15),
+                Container(
+                  height: 45,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(color: const Color(0xFFE6E8E0), borderRadius: BorderRadius.circular(8)),
+                  child: TabBar(
                   controller: _tabController,
-                  indicatorColor: const Color(0xFF184D3B),
-                  indicatorWeight: 3,
+                  indicator: BoxDecoration(color: const Color(0xFF244C3B), borderRadius: BorderRadius.circular(6)),
                   indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: const Color(0xFFE0E6DD),
-                  labelColor: const Color(0xFF184D3B),
-                  unselectedLabelColor: const Color(0xFF687970),
-                  labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 13),
+                  indicatorPadding: const EdgeInsets.all(1),
+                  dividerColor: Colors.transparent,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: const Color(0xFF66756C),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   tabs: [
                     Tab(text: 'To scan (${widget.pending.length})'),
                     Tab(text: 'Scanned (${widget.scanned.length})'),
                   ],
-                ),
+                )),
               ],
             ),
           ),
@@ -240,9 +246,10 @@ class _ParcelListState extends State<_ParcelList> {
       _held = 0;
       _heldNew = 0;
     });
-    if (_scroll.hasClients)
+    if (_scroll.hasClients) {
       _scroll.animateTo(0,
           duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
   }
 
   @override
@@ -254,7 +261,7 @@ class _ParcelListState extends State<_ParcelList> {
       child: ListView(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
         children: [
           if (widget.error != null) ...[
             Container(
@@ -400,14 +407,23 @@ class _ParcelCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(7),
       child: Container(
         padding: const EdgeInsets.all(17),
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: const Border(
-                left: BorderSide(color: Color(0xFF184D3B), width: 3))),
+            color: const Color(0xFFFCFCF8),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: const Color(0xFFE2E7DE)),
+            boxShadow: const [BoxShadow(color: Color(0x0A172923), blurRadius: 12, offset: Offset(0, 3))]),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          border: Border(
+            left: BorderSide(
+              color: pendingStyle ? const Color(0xFFAD7139) : const Color(0xFF54775E),
+              width: 3,
+            ),
+          ),
+        ),
         child: Row(
           children: [
             Container(
@@ -444,7 +460,7 @@ class _ParcelCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontWeight: FontWeight.w800,
-                              fontSize: 15,
+                              fontSize: 14,
                               color: Color(0xFF172923)),
                         ),
                       ),

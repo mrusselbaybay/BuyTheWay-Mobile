@@ -117,7 +117,7 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
                       ? 'Sellers scan this QR code with GCash to pay your delivery fees. Your couriers can also use it for COD offsets.'
                       : 'Your logistics company scans this QR code with GCash to pay your earnings.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: DriverColors.textSecondary)),
+                  style: const TextStyle(color: DriverColors.textSecondary)),
               const SizedBox(height: 16),
               Container(
                 width: 220,

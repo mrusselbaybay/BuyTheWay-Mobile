@@ -128,7 +128,9 @@ class _DriverShellState extends State<DriverShell> {
       // The count never touches delivery state; a stale delivery response is still dropped.
       if (epoch != _deliveriesEpoch ||
           _togglePending ||
-          _route?.isCurrent == false) return;
+          _route?.isCurrent == false) {
+        return;
+      }
       _mergeDeliveries(rows);
     },
     interval: const Duration(seconds: 30),
@@ -265,7 +267,9 @@ class _DriverShellState extends State<DriverShell> {
         !mounted ||
         _accessToken == null ||
         _chatController == null ||
-        _busyHolds > 0) return;
+        _busyHolds > 0) {
+      return;
+    }
     PushService.instance.clearTap();
     Navigator.of(context).popUntil((route) => route.isFirst);
     if (tap.isMessage) {
@@ -312,10 +316,11 @@ class _DriverShellState extends State<DriverShell> {
         _onPollError(error);
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
                 Text('Could not open the delivery. Check your connection.')));
+      }
     }
   }
 
@@ -385,8 +390,9 @@ class _DriverShellState extends State<DriverShell> {
         _isOnline = account.isOnline;
         if (_isOnline) {
           _shiftStart ??= DateTime.now();
-          if (_availableRequests.isEmpty)
+          if (_availableRequests.isEmpty) {
             _availableRequests = mockAvailableRequests();
+          }
         }
       });
       // Fire-and-forget — Deliveries has its own loading/error state and
@@ -568,8 +574,9 @@ class _DriverShellState extends State<DriverShell> {
       _isOnline = online;
       if (online) {
         _shiftStart ??= DateTime.now();
-        if (_availableRequests.isEmpty)
+        if (_availableRequests.isEmpty) {
           _availableRequests = mockAvailableRequests();
+        }
       } else {
         _shiftStart = null;
         _availableRequests = <DeliveryRequest>[];
@@ -594,8 +601,9 @@ class _DriverShellState extends State<DriverShell> {
       await _api.updateDriverAvailability(accessToken: token, online: online);
       _account?.deliveryStatus = online ? 'available' : 'unavailable';
     } catch (e) {
-      if (!mounted || _isOnline != online)
+      if (!mounted || _isOnline != online) {
         return; // superseded by a newer toggle
+      }
       setState(() {
         _isOnline = !online;
         if (online) {
@@ -603,8 +611,9 @@ class _DriverShellState extends State<DriverShell> {
           _availableRequests = <DeliveryRequest>[];
         } else {
           _shiftStart ??= DateTime.now();
-          if (_availableRequests.isEmpty)
+          if (_availableRequests.isEmpty) {
             _availableRequests = mockAvailableRequests();
+          }
         }
       });
       final message = e is ApiException

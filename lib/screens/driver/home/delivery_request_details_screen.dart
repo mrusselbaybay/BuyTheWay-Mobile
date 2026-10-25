@@ -126,7 +126,7 @@ class _DeliveryRequestDetailsScreenState extends State<DeliveryRequestDetailsScr
                         width: 40,
                         height: 40,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(color: DriverColors.primarySurface, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: DriverColors.primarySurface, shape: BoxShape.circle),
                         child: const Icon(Icons.person_rounded, color: DriverColors.primary, size: 20),
                       ),
                       const SizedBox(width: 12),

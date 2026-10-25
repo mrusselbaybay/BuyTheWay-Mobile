@@ -50,9 +50,10 @@ class DriverNotificationsScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     onOpenDeliveries();
     Navigator.of(context).pop();
-    if (message != null)
+    if (message != null) {
       messenger.showSnackBar(SnackBar(
           content: Text(message), behavior: SnackBarBehavior.floating));
+    }
   }
 
   Future<void> _open(BuildContext context, LogisticsNotification n) async {
@@ -88,10 +89,11 @@ class DriverNotificationsScreen extends StatelessWidget {
       }
       return;
     } catch (_) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content:
                 Text('Could not open the delivery. Check your connection.')));
+      }
       return;
     }
 

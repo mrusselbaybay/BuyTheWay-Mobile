@@ -153,8 +153,9 @@ class PushService {
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) pendingTap.value = PushTap.fromData(initial.data);
       final launch = await _local.getNotificationAppLaunchDetails();
-      if (launch?.didNotificationLaunchApp ?? false)
+      if (launch?.didNotificationLaunchApp ?? false) {
         _onLocalTap(launch!.notificationResponse?.payload);
+      }
 
       _ready = true;
     } catch (e) {
@@ -256,8 +257,9 @@ class PushService {
     final notification = message.notification;
     if (notification == null) {
       // Data-only chat push (Android): drawn by us, with the sender's photo.
-      if (message.data['kind'] == 'message')
+      if (message.data['kind'] == 'message') {
         await ChatNotification.show(_local, message.data);
+      }
       return;
     }
 

@@ -21,8 +21,8 @@ class LogisticsNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Color(0xFFE2E8DE)))),
+            color: Color(0xFFF3F2EC),
+            border: Border(top: BorderSide(color: Color(0xFFE2E4DD)))),
         child: SafeArea(
           top: false,
           child: SizedBox(
@@ -47,13 +47,21 @@ class LogisticsNavBar extends StatelessWidget {
                                   ? '99+'
                                   : '${badges[i]}'),
                               backgroundColor: const Color(0xFFB95137),
-                              child: Icon(_items[i].icon,
-                                  size: 23,
-                                  color: currentIndex == i
-                                      ? const Color(0xFF184D3B)
-                                      : const Color(0xFF84938A)),
+                              child: Container(
+                                width: 32,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: currentIndex == i
+                                    ? BoxDecoration(color: const Color(0xFFE0E8DD), borderRadius: BorderRadius.circular(8))
+                                    : null,
+                                child: Icon(_items[i].icon,
+                                    size: 20,
+                                    color: currentIndex == i
+                                        ? const Color(0xFF285A45)
+                                        : const Color(0xFF84938A)),
+                              ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Text(_items[i].label,
                                 style: TextStyle(
                                     fontSize: 11,
@@ -61,7 +69,7 @@ class LogisticsNavBar extends StatelessWidget {
                                         ? FontWeight.w800
                                         : FontWeight.w500,
                                     color: currentIndex == i
-                                        ? const Color(0xFF184D3B)
+                                        ? const Color(0xFF285A45)
                                         : const Color(0xFF84938A))),
                           ]),
                     ),

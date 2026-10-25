@@ -729,7 +729,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
               ]),
               const SizedBox(height: 6),
               loading
-                  ? DriverShimmerBox(height: 32, width: 150)
+                  ? const DriverShimmerBox(height: 32, width: 150)
                   : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v('available_cents'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white))),
             ]),
           ),
@@ -762,7 +762,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 Text(label, style: TextStyle(fontSize: 11.5, color: Colors.white.withOpacity(0.78))),
                 const SizedBox(height: 2),
                 value == null
-                    ? DriverShimmerBox(height: 16, width: 56)
+                    ? const DriverShimmerBox(height: 16, width: 56)
                     : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Colors.white))),
               ]),
             ),

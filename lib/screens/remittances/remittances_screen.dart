@@ -437,13 +437,13 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                         style: const TextStyle(fontSize: 12.5, height: 1.35))),
               ])),
       ] else
-        Padding(
-            padding: const EdgeInsets.only(top: 10, left: 4),
+        const Padding(
+            padding: EdgeInsets.only(top: 10, left: 4),
             child: Row(children: [
-              const Icon(Icons.info_outline_rounded,
+              Icon(Icons.info_outline_rounded,
                   size: 14, color: DriverColors.textSecondary),
-              const SizedBox(width: 6),
-              const Expanded(
+              SizedBox(width: 6),
+              Expanded(
                   child: Text(
                       'Logistics pays your courier earnings separately from COD remittances.',
                       style: DriverText.caption)),

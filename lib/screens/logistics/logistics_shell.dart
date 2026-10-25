@@ -79,7 +79,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
       if (!isActive() || !mounted) return;
       if (unread != null) _setNotifUnread(unread);
       if (epoch != _epoch || _scanHolds > 0) return;
-      _applyLists(lists.pending, lists.scanned);
+      _applyLists(lists.pending, lists.scanned, error: lists.error);
     },
     interval: const Duration(seconds: 30),
     // Not on Settings, not while a detail/scanner route covers the shell.
@@ -227,29 +227,52 @@ class _LogisticsShellState extends State<LogisticsShell> {
       a.length == b.length && [for (var i = 0; i < a.length; i++) identical(a[i], b[i])].every((e) => e);
 
   /// Rebuilds only when something visible changed.
-  void _applyLists(List<InventoryParcel> pending, List<InventoryParcel> scanned) {
+  void _applyLists(List<InventoryParcel> pending, List<InventoryParcel> scanned, {Object? error}) {
     final nextPending = _merge(_pending, pending);
     final nextScanned = _merge(_scanned, scanned);
-    final changed = !_sameList(nextPending, _pending) || !_sameList(nextScanned, _scanned) || _reconnecting || _inventoryError != null || _loadingInventory;
+    final partialError = error == null
+        ? null
+        : error is ApiException && error.statusCode == 401
+            ? 'Your session has expired. Please sign in again.'
+            : 'Some parcel data could not be loaded. Pull down to retry.';
+    final changed = !_sameList(nextPending, _pending) || !_sameList(nextScanned, _scanned) || _reconnecting || _inventoryError != partialError || _loadingInventory;
     if (!changed) return;
     setState(() {
       _pending = nextPending;
       _scanned = nextScanned;
       _reconnecting = false;
-      _inventoryError = null;
+      _inventoryError = partialError;
       _loadingInventory = false;
       _inventoryLoaded = true;
     });
   }
 
-  Future<({List<InventoryParcel> pending, List<InventoryParcel> scanned})> _fetchLists(String token) async {
-    final results = await Future.wait([
-      _api.getPendingInventory(accessToken: token),
-      _api.getInventory(accessToken: token),
-    ]);
+  Future<({List<InventoryParcel> pending, List<InventoryParcel> scanned, Object? error})> _fetchLists(String token) async {
     List<InventoryParcel> parse(dynamic body) =>
         (body['data'] as List? ?? []).map((row) => InventoryParcel.fromApi(Map<String, dynamic>.from(row as Map))).toList();
-    return (pending: parse(results[0]), scanned: parse(results[1]));
+    Future<({List<InventoryParcel>? data, Object? error})> load(Future<Map<String, dynamic>> request) async {
+      try {
+        return (data: parse(await request), error: null);
+      } catch (error) {
+        return (data: null, error: error);
+      }
+    }
+
+    final results = await Future.wait([
+      load(_api.getPendingInventory(accessToken: token)),
+      load(_api.getInventory(accessToken: token)),
+    ]);
+    final pendingResult = results[0];
+    final scannedResult = results[1];
+    if (pendingResult.data == null && scannedResult.data == null) {
+      throw pendingResult.error ?? scannedResult.error ?? StateError('Could not load parcel lists.');
+    }
+    final errors = [pendingResult.error, scannedResult.error].whereType<Object>().toList();
+    return (
+      pending: pendingResult.data ?? _pending,
+      scanned: scannedResult.data ?? _scanned,
+      error: errors.isEmpty ? null : errors.first,
+    );
   }
 
   Future<void> _loadAccount() async {
@@ -320,7 +343,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
         if (!_inventoryLoaded) setState(() => _loadingInventory = false);
         return;
       }
-      _applyLists(lists.pending, lists.scanned);
+      _applyLists(lists.pending, lists.scanned, error: lists.error);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -331,12 +354,12 @@ class _LogisticsShellState extends State<LogisticsShell> {
           _reconnecting = true; // keep last good data
         }
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingInventory = false;
         if (!_inventoryLoaded) {
-          _inventoryError = 'Could not reach the server. Check your connection and try again.';
+          _inventoryError = e is ApiException ? e.message : 'Could not load parcels. Please try again.';
         } else {
           _reconnecting = true;
         }

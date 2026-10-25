@@ -1,3 +1,5 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
@@ -70,15 +72,18 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
             !mounted ||
             epoch != _epoch ||
             _scanning ||
-            _scanFlowOpen) return;
+            _scanFlowOpen) {
+          return;
+        }
         final fresh = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
         final current = _parcel;
         if (current == null || _fingerprint(current) == _fingerprint(fresh)) {
           if (_updated != null) setState(() => _updated = null);
           return;
         }
-        if (_updated == null || _fingerprint(_updated!) != _fingerprint(fresh))
+        if (_updated == null || _fingerprint(_updated!) != _fingerprint(fresh)) {
           setState(() => _updated = fresh);
+        }
       } on ApiException catch (e) {
         if (e.statusCode == 404 && isActive() && mounted) {
           _poller.stop();
@@ -148,10 +153,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       final response = await _api.getInventoryDetail(
           parcelAssignmentId: widget.parcelId, accessToken: widget.accessToken);
       final data = response['data'];
-      if (data is! Map)
+      if (data is! Map) {
         throw ApiException(
             message: 'The server returned an invalid response.',
             statusCode: 500);
+      }
       if (!mounted) return;
       setState(() {
         _parcel = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
@@ -226,10 +232,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         confirmationToken: result.rawValue,
       );
       final data = response['data'];
-      if (data is! Map)
+      if (data is! Map) {
         throw ApiException(
             message: 'The server returned an invalid response.',
             statusCode: 500);
+      }
       final scanned = InventoryParcel.fromApi(Map<String, dynamic>.from(data));
       widget.onScanned?.call(scanned);
       if (!mounted) return;
@@ -312,13 +319,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final parcel = _parcel;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F1),
+      backgroundColor: const Color(0xFFF4F5EF),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 20, 18),
+              padding: const EdgeInsets.fromLTRB(16, 10, 20, 14),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -348,21 +355,36 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                               : Icons.qr_code_scanner_rounded,
                         ),
                     ]),
-                    const SizedBox(height: 12),
-                    Text(
-                        parcel?.trackingNumber ??
-                            parcel?.orderNumber ??
-                            'Parcel',
-                        style: const TextStyle(
-                            color: Color(0xFF172923),
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -.8)),
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(17, 15, 17, 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF285A45),
+                        borderRadius: BorderRadius.circular(7),
+                        boxShadow: const [BoxShadow(color: Color(0x1F285A45), blurRadius: 14, offset: Offset(0, 5))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('PARCEL IDENTIFIER', style: TextStyle(color: Color(0xFFC2D9BF), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                          const SizedBox(height: 5),
+                          Text(
+                            parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -.4, fontFeatures: [FontFeature.tabularFigures()]),
+                          ),
+                        ],
+                      ),
+                    ),
                     if (parcel != null) ...[
-                      const SizedBox(height: 5),
-                      Text(_statusLabel(parcel.status),
-                          style: const TextStyle(
-                              color: Color(0xFF687970), fontSize: 13)),
+                      const SizedBox(height: 9),
+                      Row(children: [
+                        const Icon(Icons.route_outlined, size: 15, color: Color(0xFF718078)),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(_statusLabel(parcel.status), style: const TextStyle(color: Color(0xFF59685F), fontSize: 12, fontWeight: FontWeight.w700))),
+                      ]),
                       if (parcel.isReturn && parcel.returnReason != null)
                         Text('Return: ${parcel.returnReason}',
                             style: const TextStyle(
@@ -444,7 +466,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
                 decoration: BoxDecoration(
                     color: DriverColors.warningSurface,
-                    borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(7)),
                 child: Row(
                   children: [
                     const Icon(Icons.sync_problem_rounded,
@@ -465,13 +487,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                     color: DriverColors.warningSurface,
-                    borderRadius: BorderRadius.circular(14)),
-                child: Row(
+                    borderRadius: BorderRadius.circular(7)),
+                child: const Row(
                   children: [
-                    const Icon(Icons.qr_code_scanner_rounded,
+                    Icon(Icons.qr_code_scanner_rounded,
                         size: 18, color: DriverColors.warning),
-                    const SizedBox(width: 10),
-                    const Expanded(
+                    SizedBox(width: 10),
+                    Expanded(
                       child: Text(
                         'Scan this parcel\'s QR code to move it into inventory before it can be delivered or transferred.',
                         style: DriverText.caption,
@@ -599,7 +621,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Color(0xFFF9FAF6),
             border: Border(top: BorderSide(color: Color(0xFFE0E6DD)))),
         child: SizedBox(
           width: double.infinity,
@@ -704,13 +726,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
-          ]),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: const Color(0xFFE2E7DE)),
+          boxShadow: const [BoxShadow(color: Color(0x09172923), blurRadius: 10, offset: Offset(0, 3))]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -722,7 +740,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                     color: DriverColors.primarySurface,
-                    borderRadius: BorderRadius.circular(9)),
+                    borderRadius: BorderRadius.circular(5)),
                 child: Icon(icon, size: 15, color: DriverColors.primaryDark),
               ),
               const SizedBox(width: 10),

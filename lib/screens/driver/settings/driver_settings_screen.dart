@@ -363,8 +363,8 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 13)),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24),
                       child: Text(
                         'Irreversible — immediately ends your session and requires support to reactivate.',
                         textAlign: TextAlign.center,

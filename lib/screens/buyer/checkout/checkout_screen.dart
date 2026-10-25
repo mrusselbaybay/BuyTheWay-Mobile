@@ -845,8 +845,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Cash on delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: codMethod?.available == false ? BColors.faint : BColors.ink)),
-                  SizedBox(height: 2),
-                  Text('Pay the courier when your parcel arrives.', style: BText.tiny),
+                  const SizedBox(height: 2),
+                  const Text('Pay the courier when your parcel arrives.', style: BText.tiny),
                   if (codMethod?.available == false) ...[
                     const SizedBox(height: 4),
                     Text(codMethod?.unavailableReason ?? 'COD is currently unavailable.', style: const TextStyle(fontSize: 11.5, color: BColors.error, fontWeight: FontWeight.w700)),

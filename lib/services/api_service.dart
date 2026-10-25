@@ -722,11 +722,17 @@ class ApiService {
   Future<Map<String, dynamic>> getInventory({
     required String accessToken,
   }) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/logistics/inventory'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
-    );
-    return _handleResponse(response);
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/logistics/inventory'),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      ).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(message: 'Cannot connect to server. Please check your internet connection.', statusCode: 0);
+    } on TimeoutException {
+      throw ApiException(message: 'Loading inventory timed out. Please try again.', statusCode: 408);
+    }
   }
 
   /// Tab 2 — "For Inventory": parcels awaiting a scan, via
@@ -734,11 +740,17 @@ class ApiService {
   Future<Map<String, dynamic>> getPendingInventory({
     required String accessToken,
   }) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/logistics/inventory/pending'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
-    );
-    return _handleResponse(response);
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/logistics/inventory/pending'),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      ).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } on SocketException {
+      throw ApiException(message: 'Cannot connect to server. Please check your internet connection.', statusCode: 0);
+    } on TimeoutException {
+      throw ApiException(message: 'Loading parcels to scan timed out. Please try again.', statusCode: 408);
+    }
   }
 
   /// Full detail for one parcel, via

@@ -913,7 +913,9 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     if (isLogisticsSignup) {
       if (field.startsWith('owner_') &&
-          field != 'owner_id_file' && field != 'owner_id_type') return 'owner';
+          field != 'owner_id_file' && field != 'owner_id_type') {
+        return 'owner';
+      }
       if (field.startsWith('company_province') ||
           field.startsWith('company_municipality') ||
           field == 'company_barangay' || field == 'company_street' ||

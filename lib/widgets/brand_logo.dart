@@ -87,7 +87,7 @@ class BrandWordmark extends StatelessWidget {
 /// Vector rendition of the bag logo, authored on a 1254×1254 canvas
 /// (the source artwork's size) and scaled to fit.
 class _BagLogoPainter extends CustomPainter {
-  _BagLogoPainter({this.handle, this.road, Listenable? repaint}) : super(repaint: repaint);
+  _BagLogoPainter({this.handle, this.road, super.repaint});
 
   final Animation<double>? handle;
   final Animation<double>? road;

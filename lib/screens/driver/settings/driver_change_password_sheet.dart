@@ -207,7 +207,7 @@ Future<void> showChangePasswordSheet(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('New password', style: DriverText.label),
+                const Text('New password', style: DriverText.label),
                 const SizedBox(height: 6),
                 TextField(
                   controller: newPassword,
@@ -226,7 +226,7 @@ Future<void> showChangePasswordSheet(
                 ),
                 PasswordStrengthMeter(password: newPassword.text),
                 const SizedBox(height: 12),
-                Text('Confirm new password', style: DriverText.label),
+                const Text('Confirm new password', style: DriverText.label),
                 const SizedBox(height: 6),
                 TextField(
                   controller: confirmPassword,
@@ -276,11 +276,11 @@ Future<void> showChangePasswordSheet(
                     decoration: BoxDecoration(color: DriverColors.border, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.lock_reset_rounded, color: DriverColors.primary),
-                    const SizedBox(width: 8),
-                    const Text('Change password', style: DriverText.title),
+                    Icon(Icons.lock_reset_rounded, color: DriverColors.primary),
+                    SizedBox(width: 8),
+                    Text('Change password', style: DriverText.title),
                   ],
                 ),
                 const SizedBox(height: 16),

@@ -975,7 +975,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
           children: [
             _heroCard(),
             const SizedBox(height: 20),
-            SectionHeader(title: 'This week'),
+            const SectionHeader(title: 'This week'),
             const SizedBox(height: 12),
             _loading ? const TaskCardSkeleton() : _weeklyChart(),
             const SizedBox(height: 20),

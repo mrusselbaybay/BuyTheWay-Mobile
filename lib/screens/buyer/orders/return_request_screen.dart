@@ -58,10 +58,12 @@ class _ReturnRequestScreenState extends State<ReturnRequestScreen> {
 
   String? get problem {
     if (reason == null) return 'Choose a reason.';
-    if (reason == 'other' && otherReason.text.trim().length < 3)
+    if (reason == 'other' && otherReason.text.trim().length < 3) {
       return 'Describe the reason.';
-    if (details.text.trim().length < 10)
+    }
+    if (details.text.trim().length < 10) {
       return 'Add a few more details (at least 10 characters).';
+    }
     if (photos.isEmpty) return 'Add at least one photo.';
     return null;
   }
@@ -90,9 +92,10 @@ class _ReturnRequestScreenState extends State<ReturnRequestScreen> {
     final bytes = await file.readAsBytes();
     // Server limit is 2MB of text per photo; base64 adds ~33%.
     if (bytes.lengthInBytes > 1400 * 1024) {
-      if (mounted)
+      if (mounted) {
         showToast(context, 'That photo is too large. Try another one.',
             error: true);
+      }
       return;
     }
     if (mounted) setState(() => photos.add(bytes));

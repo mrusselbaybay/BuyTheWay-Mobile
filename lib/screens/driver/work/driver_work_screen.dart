@@ -2132,7 +2132,7 @@ class EmptyApplicationsState extends StatelessWidget {
           const SizedBox(height: 12),
           const Text('Start your courier journey', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: WorkAppColors.textPrimary)),
           const SizedBox(height: 4),
-          Text(
+          const Text(
             'Browse logistics companies below and submit your first application — it only takes a minute.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12.5, color: WorkAppColors.textSecondary, height: 1.4),
@@ -2151,14 +2151,14 @@ class CompanyCardSkeleton extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade100)),
-      child: Row(
+      child: const Row(
         children: [
-          const ShimmerBox(height: 50, width: 50, radius: 15),
-          const SizedBox(width: 14),
+          ShimmerBox(height: 50, width: 50, radius: 15),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 ShimmerBox(height: 14, width: 140),
                 SizedBox(height: 8),
                 ShimmerBox(height: 11, width: 100),
@@ -2880,10 +2880,10 @@ class _DriverWorkScreenState extends State<DriverWorkScreen> {
                   children: [
                     const Icon(Icons.search_off_rounded, color: WorkAppColors.primary, size: 48),
                     const SizedBox(height: 14),
-                    Text(
+                    const Text(
                       'No logistics companies match your filters right now.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: WorkAppColors.textSecondary, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: WorkAppColors.textSecondary, fontWeight: FontWeight.w600),
                     ),
                     if (_hasActiveFilters) ...[
                       const SizedBox(height: 12),

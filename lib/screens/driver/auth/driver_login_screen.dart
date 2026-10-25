@@ -198,10 +198,10 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    const Row(
                       children: [
                         Expanded(child: Divider(color: DriverColors.border)),
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or', style: TextStyle(color: DriverColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600))),
+                        Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('or', style: TextStyle(color: DriverColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w600))),
                         Expanded(child: Divider(color: DriverColors.border)),
                       ],
                     ),

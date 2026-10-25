@@ -26,8 +26,17 @@ class MyApp extends StatelessWidget {
       scrollBehavior: const _NoScrollbarBehavior(),
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'Nunito',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF14B8A6),
+          seedColor: const Color(0xFF285A45),
+          surface: const Color(0xFFF4F5EF),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF4F5EF),
+        splashFactory: InkSparkle.splashFactory,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF20372D),
+          contentTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
       home: const BrandSplashScreen(),
