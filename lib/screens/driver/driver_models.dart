@@ -67,6 +67,7 @@ enum AssignedDeliveryStatus {
   failedAttempt,
   needsDispatcherReview,
   assigned,
+  waitingApproval,
   pickedUp,
   delivered,
   handedOver,
@@ -110,6 +111,9 @@ AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
     case 'transferred':
       return AssignedDeliveryStatus.transferred;
     case 'assigned':
+      return AssignedDeliveryStatus.assigned;
+    case 'waiting_approval':
+      return AssignedDeliveryStatus.waitingApproval;
     default:
       return AssignedDeliveryStatus.assigned;
   }
@@ -250,6 +254,9 @@ class AssignedDelivery {
   bool hasPickupPhoto;
   bool hasDeliveryPhoto;
   AssignedDeliveryStatus status;
+  String? handoffRequestId;
+  DateTime? handoffExpiresAt;
+  String? handoffOutcome;
   DeliveryAttemptInfo deliveryAttempt;
   bool canMarkFailed;
 
@@ -317,6 +324,9 @@ class AssignedDelivery {
     this.confirmationToken,
     this.hasConfirmationQr = false,
     required this.status,
+    this.handoffRequestId,
+    this.handoffExpiresAt,
+    this.handoffOutcome,
     this.deliveryAttempt = const DeliveryAttemptInfo(),
     this.canMarkFailed = false,
     this.isTransfer = false,
@@ -380,6 +390,9 @@ class AssignedDelivery {
       confirmationToken: str(json['confirmation_token']).isEmpty ? null : str(json['confirmation_token']),
       hasConfirmationQr: json['has_confirmation_qr'] == true,
       status: _parseAssignedDeliveryStatus(json['status']),
+      handoffRequestId: str(json['handoff_request_id']).isEmpty ? null : str(json['handoff_request_id']),
+      handoffExpiresAt: parseDate(json['handoff_expires_at']),
+      handoffOutcome: str(json['handoff_outcome']).isEmpty ? null : str(json['handoff_outcome']),
       deliveryAttempt: DeliveryAttemptInfo.fromApi(Map<String, dynamic>.from(json['delivery_attempt'] as Map? ?? {})),
       canMarkFailed: json['can_mark_failed'] == true,
       isTransfer: json['is_transfer'] == true,
@@ -397,6 +410,9 @@ class AssignedDelivery {
   /// (so unchanged rows keep their object identity and don't rebuild).
   String get fingerprint => [
         status.index,
+        handoffRequestId,
+        handoffExpiresAt,
+        handoffOutcome,
         handedOffAt,
         deliveredAt,
         transferredAt,
@@ -422,6 +438,9 @@ class AssignedDelivery {
     packageSize = other.packageSize;
     parcelUnits = other.parcelUnits;
     status = other.status;
+    handoffRequestId = other.handoffRequestId;
+    handoffExpiresAt = other.handoffExpiresAt;
+    handoffOutcome = other.handoffOutcome;
     deliveryAttempt = other.deliveryAttempt;
     canMarkFailed = other.canMarkFailed;
     handedOffAt = other.handedOffAt;

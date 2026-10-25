@@ -73,6 +73,7 @@ class AssignedDeliveryDetailScreen extends StatefulWidget {
 
 class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> {
   Timer? _midnightTimer;
+  Timer? _approvalTicker;
 
   // ---- Background check ----
   // Polls this delivery only (30s, while the screen is on top and no action or
@@ -155,6 +156,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   @override
   void initState() {
     super.initState();
+    _approvalTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && widget.delivery.status == AssignedDeliveryStatus.waitingApproval) setState(() {});
+    });
     _scheduleEligibilityRefresh();
     _poller.start();
   }
@@ -181,6 +185,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   @override
   void dispose() {
+    _approvalTicker?.cancel();
     _poller.stop();
     _midnightTimer?.cancel();
     if (_reportedBusy) widget.onBusyChanged?.call(false);
@@ -685,6 +690,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
       case AssignedDeliveryStatus.assigned:
         return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
+      case AssignedDeliveryStatus.waitingApproval:
+        return ('Waiting approval', DriverColors.warning, Icons.hourglass_top_rounded);
       case AssignedDeliveryStatus.pickedUp:
         return ('To deliver', DriverColors.info, Icons.local_shipping_rounded);
       case AssignedDeliveryStatus.delivered:
@@ -839,6 +846,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             const SizedBox(height: 16),
           ],
           DriverDispatchChip(label: d.dispatchedByLabel),
+          if (d.status == AssignedDeliveryStatus.waitingApproval) ...[
+            const SizedBox(height: 12),
+            _sectionCard(
+              icon: Icons.hourglass_top_rounded,
+              title: 'Waiting for your approval',
+              child: Text('Review this parcel and accept or reject before ${_formatDate(d.handoffExpiresAt)}.', style: DriverText.body),
+            ),
+          ],
           const SizedBox(height: 16),
           if (d.packageSize != null) ...[
             Text('Parcel: ${d.packageSize} · ${d.parcelUnits ?? '?'} capacity units', style: DriverText.body),
@@ -1251,7 +1266,107 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         ),
       );
 
+  Future<void> _decideHandoff(bool accept) async {
+    final requestId = widget.delivery.handoffRequestId;
+    if (_submitting || requestId == null) return;
+    final confirmed = await DriverConfirmDialog.show(
+      context,
+      icon: accept ? Icons.inventory_2_rounded : Icons.assignment_return_rounded,
+      accent: accept ? DriverColors.success : DriverColors.error,
+      title: accept ? 'Accept this handoff?' : 'Reject this handoff?',
+      message: accept
+          ? 'You are confirming that you can take responsibility for this parcel. It will be added to your active deliveries.'
+          : 'Logistics will be able to assign this parcel to another courier.',
+      confirmLabel: accept ? 'Accept handoff' : 'Reject handoff',
+      confirmIcon: accept ? Icons.check_rounded : Icons.close_rounded,
+      cancelLabel: accept ? 'Review parcel' : 'Keep parcel',
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _submitting = true);
+    try {
+      final response = await _api.decideHandoff(
+        parcelAssignmentId: widget.delivery.id,
+        requestId: requestId,
+        decision: accept ? 'accept' : 'reject',
+        accessToken: widget.accessToken,
+      );
+      if (!mounted) return;
+      final data = Map<String, dynamic>.from(response['data'] as Map);
+      final result = AssignedDelivery.fromApi(data);
+      setState(() {
+        widget.delivery.applyFrom(result);
+        _gone = result.handoffOutcome != 'accepted';
+      });
+      final outcome = result.handoffOutcome;
+      final accepted = outcome == 'accepted';
+      final rejected = outcome == 'rejected';
+      final message = accepted ? 'Handoff accepted. This parcel is now in your care.'
+          : outcome == 'timed_out' ? 'Approval expired. Logistics can reassign this parcel.'
+          : rejected ? 'Handoff rejected. Logistics can reassign this parcel.'
+          : 'This handoff is no longer available.';
+      DriverTopNotification.show(
+        context,
+        message: message,
+        icon: accepted ? Icons.check_circle_rounded : rejected ? Icons.assignment_return_rounded : Icons.info_rounded,
+        accent: accepted ? DriverColors.success : rejected ? DriverColors.warning : DriverColors.textSecondary,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      DriverTopNotification.show(
+        context,
+        message: 'Could not submit your decision. $error',
+        icon: Icons.error_rounded,
+        accent: DriverColors.error,
+      );
+      _poller.refreshNow();
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
+    if (d.status == AssignedDeliveryStatus.waitingApproval) {
+      final remaining = d.handoffExpiresAt?.difference(DateTime.now().toUtc()) ?? Duration.zero;
+      final available = remaining > Duration.zero && d.handoffRequestId != null;
+      final minutes = remaining.inMinutes;
+      final seconds = remaining.inSeconds.remainder(60);
+      return SafeArea(top: false, child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(available ? 'Approve within $minutes:${seconds.toString().padLeft(2, '0')}' : 'Approval expired. Refresh for the latest status.', style: DriverText.caption),
+          const SizedBox(height: 8),
+          Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: available && !_submitting ? () => _decideHandoff(false) : null,
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Reject'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(58),
+                  foregroundColor: DriverColors.error,
+                  disabledForegroundColor: DriverColors.textSecondary.withOpacity(0.55),
+                  side: BorderSide(color: available ? DriverColors.error.withOpacity(0.55) : DriverColors.border, width: 1.4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: available && !_submitting ? () => _decideHandoff(true) : null,
+                icon: Icon(_submitting ? Icons.hourglass_top_rounded : Icons.check_rounded),
+                label: Text(_submitting ? 'Submitting…' : 'Accept'),
+                style: DriverButtonStyle.primary(DriverColors.success).copyWith(
+                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+                  elevation: const WidgetStatePropertyAll(0),
+                ),
+              ),
+            ),
+          ]),
+        ]),
+      ));
+    }
     if (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview) {
       final allowed = d.status == AssignedDeliveryStatus.failedAttempt && d.deliveryAttempt.eligible;
       return SafeArea(

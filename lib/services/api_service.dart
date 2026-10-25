@@ -868,6 +868,33 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> getDriverNotificationPreferences({required String accessToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/driver/notification-preferences'),
+      headers: _authHeaders(accessToken),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateDriverNotificationPreferences({
+    required String accessToken,
+    bool? pushEnabled,
+    bool? soundEnabled,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/driver/notification-preferences'),
+      headers: {
+        ..._authHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        if (pushEnabled != null) 'push_enabled': pushEnabled,
+        if (soundEnabled != null) 'sound_enabled': soundEnabled,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
   /// Flips the signed-in rider's "Go online" shift flag via
   /// `PUT /api/driver/availability` — [online] true → 'available'
   /// (dispatch can assign deliveries), false → 'unavailable'. The new
@@ -990,6 +1017,20 @@ class ApiService {
         'Authorization': 'Bearer $accessToken',
       },
     );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> decideHandoff({
+    required String parcelAssignmentId,
+    required String requestId,
+    required String decision,
+    required String accessToken,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/handoff-decision'),
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      body: jsonEncode({'request_id': requestId, 'decision': decision}),
+    ).timeout(const Duration(seconds: 30), onTimeout: () => throw ApiException(message: 'Connection timed out. Refresh the parcel before trying again.', statusCode: 408));
     return _handleResponse(response);
   }
 

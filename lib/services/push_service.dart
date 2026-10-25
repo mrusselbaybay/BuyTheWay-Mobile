@@ -15,19 +15,35 @@ import 'chat_notification.dart';
 
 /// Where a tapped push should land. Shells watch [PushService.pendingTap].
 class PushTap {
-  const PushTap({required this.kind, this.conversationId, this.notificationId});
+  const PushTap(
+      {required this.kind,
+      this.conversationId,
+      this.notificationId,
+      this.target,
+      this.parcelId,
+      this.remittanceId,
+      this.payoutId});
 
   /// 'message' (open chat) or 'notification' (open the bell inbox).
   final String kind;
   final String? conversationId;
   final String? notificationId;
+  final String? target;
+  final String? parcelId;
+  final String? remittanceId;
+  final String? payoutId;
 
   bool get isMessage => kind == 'message';
 
   factory PushTap.fromData(Map<String, dynamic> data) => PushTap(
-        kind: data['kind']?.toString() == 'message' ? 'message' : 'notification',
+        kind:
+            data['kind']?.toString() == 'message' ? 'message' : 'notification',
         conversationId: data['conversationId']?.toString(),
         notificationId: data['notificationId']?.toString(),
+        target: data['target']?.toString(),
+        parcelId: data['parcelId']?.toString(),
+        remittanceId: data['remittanceId']?.toString(),
+        payoutId: data['payoutId']?.toString(),
       );
 }
 
@@ -42,7 +58,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     if (message.notification == null && message.data['kind'] == 'message') {
       final plugin = FlutterLocalNotificationsPlugin();
-      await plugin.initialize(settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
+      await plugin.initialize(
+          settings: const InitializationSettings(
+              android: AndroidInitializationSettings('@mipmap/ic_launcher')));
       await ChatNotification.show(plugin, message.data);
     }
   } catch (_) {}
@@ -65,11 +83,13 @@ class PushService {
 
   static const _channelMessages = 'messages';
   static const _channelNotifications = 'notifications';
+  static const _channelNotificationsSilent = 'notifications_silent';
   static const _tokenPrefKey = 'push_fcm_token';
 
   final ValueNotifier<PushTap?> pendingTap = ValueNotifier<PushTap?>(null);
 
-  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _local =
+      FlutterLocalNotificationsPlugin();
   bool _ready = false;
   Future<void>? _initFuture;
 
@@ -89,17 +109,29 @@ class PushService {
       await _local.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false),
+          iOS: DarwinInitializationSettings(
+              requestAlertPermission: false,
+              requestBadgePermission: false,
+              requestSoundPermission: false),
         ),
-        onDidReceiveNotificationResponse: (response) => _onLocalTap(response.payload),
+        onDidReceiveNotificationResponse: (response) =>
+            _onLocalTap(response.payload),
       );
 
-      final android = _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final android = _local.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
       await android?.createNotificationChannel(const AndroidNotificationChannel(
         _channelMessages,
         'Messages',
         description: 'New chat messages',
         importance: Importance.high,
+      ));
+      await android?.createNotificationChannel(const AndroidNotificationChannel(
+        _channelNotificationsSilent,
+        'Notifications (silent)',
+        description: 'Silent delivery, account and support updates',
+        importance: Importance.high,
+        playSound: false,
       ));
       await android?.createNotificationChannel(const AndroidNotificationChannel(
         _channelNotifications,
@@ -109,17 +141,20 @@ class PushService {
       ));
 
       FirebaseMessaging.onMessage.listen(_showForeground);
-      FirebaseMessaging.onMessageOpenedApp.listen((m) => pendingTap.value = PushTap.fromData(m.data));
+      FirebaseMessaging.onMessageOpenedApp
+          .listen((m) => pendingTap.value = PushTap.fromData(m.data));
       // The classic registration token is what the server's FCM HTTP v1 sender targets. v17 deprecates
       // getToken/onTokenRefresh in favour of Installation IDs, which we haven't verified against v1 sends.
       // ignore: deprecated_member_use
-      FirebaseMessaging.instance.onTokenRefresh.listen((token) => unawaited(_registerToken(token)));
+      FirebaseMessaging.instance.onTokenRefresh
+          .listen((token) => unawaited(_registerToken(token)));
 
       // Cold start: the app was launched by tapping a push (system-drawn one, or one we drew).
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) pendingTap.value = PushTap.fromData(initial.data);
       final launch = await _local.getNotificationAppLaunchDetails();
-      if (launch?.didNotificationLaunchApp ?? false) _onLocalTap(launch!.notificationResponse?.payload);
+      if (launch?.didNotificationLaunchApp ?? false)
+        _onLocalTap(launch!.notificationResponse?.payload);
 
       _ready = true;
     } catch (e) {
@@ -198,7 +233,8 @@ class PushService {
         .post(
           Uri.parse('${ApiService.baseUrl}/push/devices'),
           headers: _headers(auth),
-          body: jsonEncode({'token': token, 'platform': Platform.isIOS ? 'ios' : 'android'}),
+          body: jsonEncode(
+              {'token': token, 'platform': Platform.isIOS ? 'ios' : 'android'}),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -215,17 +251,22 @@ class PushService {
 
   /// The system only draws pushes itself when the app is not in the foreground.
   Future<void> _showForeground(RemoteMessage message) async {
-    debugPrint('Push: foreground message kind=${message.data['kind']} hasNotificationBlock=${message.notification != null}');
+    debugPrint(
+        'Push: foreground message kind=${message.data['kind']} hasNotificationBlock=${message.notification != null}');
     final notification = message.notification;
     if (notification == null) {
       // Data-only chat push (Android): drawn by us, with the sender's photo.
-      if (message.data['kind'] == 'message') await ChatNotification.show(_local, message.data);
+      if (message.data['kind'] == 'message')
+        await ChatNotification.show(_local, message.data);
       return;
     }
 
     final isMessage = message.data['kind'] == 'message';
+    final soundEnabled = message.data['soundEnabled'] != '0';
     // One tray entry per chat, like the server's collapse tag.
-    final key = isMessage ? 'chat:${message.data['conversationId']}' : (message.messageId ?? '${DateTime.now().microsecondsSinceEpoch}');
+    final key = isMessage
+        ? 'chat:${message.data['conversationId']}'
+        : (message.messageId ?? '${DateTime.now().microsecondsSinceEpoch}');
 
     await _local.show(
       id: key.hashCode & 0x7fffffff,
@@ -237,8 +278,9 @@ class PushService {
           isMessage ? 'Messages' : 'Notifications',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: isMessage || soundEnabled,
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(presentSound: isMessage || soundEnabled),
       ),
       payload: jsonEncode(message.data),
     );
@@ -246,7 +288,9 @@ class PushService {
 
   void _onLocalTap(String? payload) {
     try {
-      final data = payload == null ? <String, dynamic>{} : (jsonDecode(payload) as Map<String, dynamic>);
+      final data = payload == null
+          ? <String, dynamic>{}
+          : (jsonDecode(payload) as Map<String, dynamic>);
       pendingTap.value = PushTap.fromData(data);
     } catch (_) {
       pendingTap.value = const PushTap(kind: 'notification');

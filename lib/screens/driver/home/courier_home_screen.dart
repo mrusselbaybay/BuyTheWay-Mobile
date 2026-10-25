@@ -125,6 +125,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
 
   static bool _isPending(AssignedDelivery d) => const {
         AssignedDeliveryStatus.assigned,
+        AssignedDeliveryStatus.waitingApproval,
         AssignedDeliveryStatus.pickedUp,
         AssignedDeliveryStatus.transferAssigned,
         AssignedDeliveryStatus.readyToTransfer,
@@ -165,7 +166,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   }
 
   Future<void> _navigate(AssignedDelivery d) async {
-    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned;
+    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned ||
+        (d.status == AssignedDeliveryStatus.waitingApproval && d.handedOffAt == null);
     final uri = Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': toPickup ? d.pickupLabel : d.dropoffLabel});
     await _launch(uri, 'Could not open maps.');
   }
@@ -465,7 +467,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       );
 
   Widget _nextStop(AssignedDelivery d) {
-    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned;
+    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned ||
+        (d.status == AssignedDeliveryStatus.waitingApproval && d.handedOffAt == null);
     final place = toPickup ? d.pickupLabel : d.dropoffLabel;
     final (primaryLabel, primaryIcon) = switch (d.status) {
       AssignedDeliveryStatus.pickedUp => ('Delivered', Icons.check_rounded),
@@ -475,6 +478,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final stage = switch (d.status) {
       AssignedDeliveryStatus.pickedUp => 'Out for delivery',
       AssignedDeliveryStatus.readyToTransfer => 'Ready to hand over',
+      AssignedDeliveryStatus.waitingApproval => 'Waiting approval',
       _ => 'Ready for pickup',
     };
     final kind = d.isTransfer ? 'Transfer' : d.isReturn ? 'Return' : null;

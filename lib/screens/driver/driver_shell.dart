@@ -10,6 +10,7 @@ import '../auth/auth_screen.dart';
 import 'chat/driver_chat_controller.dart';
 import 'chat/driver_chat_list_screen.dart';
 import 'deliveries/driver_deliveries_screen.dart';
+import 'deliveries/assigned_delivery_detail_screen.dart';
 import 'driver_models.dart';
 import 'driver_theme.dart';
 import 'earnings/driver_earnings_screen.dart';
@@ -105,7 +106,8 @@ class _DriverShellState extends State<DriverShell> {
       if (token == null) return;
       // Offline riders only need an occasional check (every 4th tick).
       final deliveriesDue = _isOnline || ++_pollTicks % 4 == 0;
-      final countDue = deliveriesDue || DateTime.now().difference(_unreadAt) > const Duration(seconds: 45);
+      final countDue = deliveriesDue ||
+          DateTime.now().difference(_unreadAt) > const Duration(seconds: 45);
       if (!countDue) return;
       // Failure of the count alone is silent; the deliveries call decides the poll's fate.
       final count = _fetchUnread(token);
@@ -117,28 +119,40 @@ class _DriverShellState extends State<DriverShell> {
       final epoch = _deliveriesEpoch;
       final response = await _api.getDriverDeliveries(accessToken: token);
       final rows = (response['data'] as List? ?? [])
-          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .map((row) =>
+              AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
           .toList();
       final unread = await count;
       if (!isActive() || !mounted) return;
       if (unread != null) _setNotifUnread(unread);
       // The count never touches delivery state; a stale delivery response is still dropped.
-      if (epoch != _deliveriesEpoch || _togglePending || _route?.isCurrent == false) return;
+      if (epoch != _deliveriesEpoch ||
+          _togglePending ||
+          _route?.isCurrent == false) return;
       _mergeDeliveries(rows);
     },
     interval: const Duration(seconds: 30),
-    shouldSkip: () => _accessToken == null || _togglePending || _tabIndex == 3 || _tabIndex == 4 || _route?.isCurrent == false,
+    shouldSkip: () =>
+        _accessToken == null ||
+        _togglePending ||
+        _tabIndex == 3 ||
+        _tabIndex == 4 ||
+        _route?.isCurrent == false,
     onError: _onPollError,
   );
 
   /// 401/403 halts the poller (Poller does that) and flags the session as expired.
   void _onPollError(Object e) {
-    if (mounted && e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
-      setState(() => _deliveriesError = 'Your session has expired. Please sign in again.');
+    if (mounted &&
+        e is ApiException &&
+        (e.statusCode == 401 || e.statusCode == 403)) {
+      setState(() =>
+          _deliveriesError = 'Your session has expired. Please sign in again.');
     }
   }
 
-  Future<int?> _fetchUnread(String token) => _api.getDriverUnreadCount(accessToken: token).then<int?>((c) {
+  Future<int?> _fetchUnread(String token) =>
+      _api.getDriverUnreadCount(accessToken: token).then<int?>((c) {
         _unreadAt = DateTime.now();
         return c;
       }).catchError((_) => null);
@@ -156,14 +170,14 @@ class _DriverShellState extends State<DriverShell> {
   /// A pickup/scan/photo flow opened from the inbox started/finished.
   void _setNotifBusy(bool busy) {
     _busyHolds = busy ? _busyHolds + 1 : (_busyHolds > 0 ? _busyHolds - 1 : 0);
-    if (_busyHolds == 0 && _heldUnread != null) {
-      final held = _heldUnread!;
-      _heldUnread = null;
-      // After the frame: the release can happen while the detail route is popping.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _setNotifUnread(held);
-      });
-    }
+    if (_busyHolds != 0) return;
+    final held = _heldUnread;
+    _heldUnread = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (held != null) _setNotifUnread(held);
+      _onPushTap();
+    });
   }
 
   Future<void> _refreshNotifUnread() async {
@@ -184,6 +198,7 @@ class _DriverShellState extends State<DriverShell> {
           controller: chat,
           onUnreadChanged: _setNotifUnread,
           onOpenDeliveries: () => _selectTab(1),
+          onOpenTarget: (target) => _selectTab(target == 'account' ? 4 : 2),
           isBusy: () => _busyHolds > 0,
           onBusy: _setNotifBusy,
           onPollError: _onPollError,
@@ -197,7 +212,8 @@ class _DriverShellState extends State<DriverShell> {
     }
   }
 
-  bool get _togglePending => (_availabilityWrite?.isActive ?? false) || _toggleInFlight;
+  bool get _togglePending =>
+      (_availabilityWrite?.isActive ?? false) || _toggleInFlight;
   bool _toggleInFlight = false;
 
   /// Replaces only the rows that changed; no rebuild when nothing did.
@@ -205,9 +221,16 @@ class _DriverShellState extends State<DriverShell> {
     final byId = {for (final d in _assignedDeliveries) d.id: d};
     final merged = [
       for (final f in fresh)
-        if (byId[f.id] case final old? when old.fingerprint == f.fingerprint) old else f,
+        if (byId[f.id] case final old? when old.fingerprint == f.fingerprint)
+          old
+        else
+          f,
     ];
-    final same = merged.length == _assignedDeliveries.length && [for (var i = 0; i < merged.length; i++) identical(merged[i], _assignedDeliveries[i])].every((e) => e);
+    final same = merged.length == _assignedDeliveries.length &&
+        [
+          for (var i = 0; i < merged.length; i++)
+            identical(merged[i], _assignedDeliveries[i])
+        ].every((e) => e);
     if (same && !_loadingDeliveries && _deliveriesError == null) return;
     setState(() {
       _assignedDeliveries = merged;
@@ -238,13 +261,61 @@ class _DriverShellState extends State<DriverShell> {
   void _onPushTap() {
     final tap = PushService.instance.pendingTap.value;
     // Not ready yet (cold start): stays pending until the account has loaded.
-    if (tap == null || !mounted || _accessToken == null || _chatController == null) return;
+    if (tap == null ||
+        !mounted ||
+        _accessToken == null ||
+        _chatController == null ||
+        _busyHolds > 0) return;
     PushService.instance.clearTap();
     Navigator.of(context).popUntil((route) => route.isFirst);
     if (tap.isMessage) {
       _selectTab(3);
+    } else if (tap.target == 'deliveries') {
+      if (tap.parcelId != null) {
+        unawaited(_openPushParcel(tap.parcelId!));
+      } else {
+        _selectTab(1);
+      }
+    } else if (tap.target == 'remittances' || tap.target == 'earnings') {
+      _selectTab(2);
+    } else if (tap.target == 'account') {
+      _selectTab(4);
     } else {
       unawaited(_openNotifications());
+    }
+  }
+
+  Future<void> _openPushParcel(String parcelId) async {
+    final token = _accessToken;
+    final controller = _chatController;
+    if (token == null || controller == null || _busyHolds > 0) return;
+    try {
+      final response =
+          await _api.getDriverDelivery(accessToken: token, id: parcelId);
+      if (!mounted) return;
+      final delivery = AssignedDelivery.fromApi(
+          Map<String, dynamic>.from(response['data'] as Map));
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AssignedDeliveryDetailScreen(
+            delivery: delivery,
+            accessToken: token,
+            controller: controller,
+            onBusyChanged: _setNotifBusy),
+      ));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 404) {
+        _selectTab(1);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No longer assigned to you')));
+      } else {
+        _onPollError(error);
+      }
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Could not open the delivery. Check your connection.')));
     }
   }
 
@@ -286,13 +357,27 @@ class _DriverShellState extends State<DriverShell> {
     }
 
     try {
+      final accountPrefsKey = token.hashCode.toString();
+      _notificationsEnabled = prefs.getBool('driver_notifications_enabled_$accountPrefsKey') ?? true;
+      _soundEnabled = prefs.getBool('driver_sound_enabled_$accountPrefsKey') ?? true;
       final response = await _api.getDriverProfile(accessToken: token);
       if (!mounted) return;
       final account = DriverAccount.fromApi(response);
+      try {
+        final preferenceResponse = await _api.getDriverNotificationPreferences(accessToken: token);
+        final preferenceData = Map<String, dynamic>.from(preferenceResponse['data'] as Map? ?? {});
+        _notificationsEnabled = preferenceData['push_enabled'] != false;
+        _soundEnabled = preferenceData['sound_enabled'] != false;
+        await prefs.setBool('driver_notifications_enabled_$accountPrefsKey', _notificationsEnabled);
+        await prefs.setBool('driver_sound_enabled_$accountPrefsKey', _soundEnabled);
+      } catch (_) {
+        // Older deployments can still use the local preference cache.
+      }
       setState(() {
         _accessToken = token;
         _account = account;
-        _chatController ??= DriverChatController(api: _api, accessToken: token)..addListener(_onChatControllerChanged);
+        _chatController ??= DriverChatController(api: _api, accessToken: token)
+          ..addListener(_onChatControllerChanged);
         _loadingAccount = false;
         // Restore the "Go online" state the rider left the app in — it's
         // persisted server-side (driver_details/courier_details.delivery_status),
@@ -300,7 +385,8 @@ class _DriverShellState extends State<DriverShell> {
         _isOnline = account.isOnline;
         if (_isOnline) {
           _shiftStart ??= DateTime.now();
-          if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+          if (_availableRequests.isEmpty)
+            _availableRequests = mockAvailableRequests();
         }
       });
       // Fire-and-forget — Deliveries has its own loading/error state and
@@ -323,8 +409,39 @@ class _DriverShellState extends State<DriverShell> {
       if (!mounted) return;
       setState(() {
         _loadingAccount = false;
-        _accountLoadError = 'Could not reach the server. Check your connection and try again.';
+        _accountLoadError =
+            'Could not reach the server. Check your connection and try again.';
       });
+    }
+  }
+
+  Future<void> _saveNotificationPreference(
+    String token, {
+    bool? pushEnabled,
+    bool? soundEnabled,
+    required bool previous,
+    required bool isSound,
+  }) async {
+    try {
+      await _api.updateDriverNotificationPreferences(
+        accessToken: token,
+        pushEnabled: pushEnabled,
+        soundEnabled: soundEnabled,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (isSound) {
+          _soundEnabled = previous;
+        } else {
+          _notificationsEnabled = previous;
+        }
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(isSound ? 'driver_sound_enabled_${token.hashCode}' : 'driver_notifications_enabled_${token.hashCode}', previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save notification setting. Try again.')),
+      );
     }
   }
 
@@ -348,7 +465,8 @@ class _DriverShellState extends State<DriverShell> {
     try {
       final response = await _api.getDriverDeliveries(accessToken: token);
       final rows = (response['data'] as List? ?? [])
-          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .map((row) =>
+              AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
           .toList();
       if (!mounted) return;
       if (epoch != _deliveriesEpoch && _deliveriesLoaded) return;
@@ -371,7 +489,8 @@ class _DriverShellState extends State<DriverShell> {
       setState(() {
         _loadingDeliveries = false;
         if (!_deliveriesLoaded) {
-          _deliveriesError = 'Could not reach the server. Check your connection and try again.';
+          _deliveriesError =
+              'Could not reach the server. Check your connection and try again.';
         }
       });
     }
@@ -406,7 +525,10 @@ class _DriverShellState extends State<DriverShell> {
           ? e.message
           : 'Could not reach the server. Check your connection and try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
+        SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: DriverColors.error),
       );
     }
 
@@ -416,11 +538,16 @@ class _DriverShellState extends State<DriverShell> {
 
   Future<void> _signOutToLogin() async {
     _deliveriesPoller.stop();
-    await PushService.instance.unregister(); // needs the session, so before it is cleared
+    await PushService.instance
+        .unregister(); // needs the session, so before it is cleared
+    PushService.instance.clearTap();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner)), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+            builder: (_) => const AuthScreen(portal: AuthPortal.partner)),
+        (route) => false);
   }
 
   /// Pending debounced availability write (see [_setOnline]).
@@ -441,7 +568,8 @@ class _DriverShellState extends State<DriverShell> {
       _isOnline = online;
       if (online) {
         _shiftStart ??= DateTime.now();
-        if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+        if (_availableRequests.isEmpty)
+          _availableRequests = mockAvailableRequests();
       } else {
         _shiftStart = null;
         _availableRequests = <DeliveryRequest>[];
@@ -450,7 +578,8 @@ class _DriverShellState extends State<DriverShell> {
 
     _deliveriesEpoch++;
     _availabilityWrite?.cancel();
-    _availabilityWrite = Timer(const Duration(milliseconds: 450), () => _persistAvailability(online));
+    _availabilityWrite = Timer(
+        const Duration(milliseconds: 450), () => _persistAvailability(online));
   }
 
   Future<void> _persistAvailability(bool online) async {
@@ -465,7 +594,8 @@ class _DriverShellState extends State<DriverShell> {
       await _api.updateDriverAvailability(accessToken: token, online: online);
       _account?.deliveryStatus = online ? 'available' : 'unavailable';
     } catch (e) {
-      if (!mounted || _isOnline != online) return; // superseded by a newer toggle
+      if (!mounted || _isOnline != online)
+        return; // superseded by a newer toggle
       setState(() {
         _isOnline = !online;
         if (online) {
@@ -473,12 +603,18 @@ class _DriverShellState extends State<DriverShell> {
           _availableRequests = <DeliveryRequest>[];
         } else {
           _shiftStart ??= DateTime.now();
-          if (_availableRequests.isEmpty) _availableRequests = mockAvailableRequests();
+          if (_availableRequests.isEmpty)
+            _availableRequests = mockAvailableRequests();
         }
       });
-      final message = e is ApiException ? e.message : 'Could not update your status. Please try again.';
+      final message = e is ApiException
+          ? e.message
+          : 'Could not update your status. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
+        SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: DriverColors.error),
       );
     } finally {
       _toggleInFlight = false;
@@ -494,7 +630,9 @@ class _DriverShellState extends State<DriverShell> {
 
   Future<void> _openRequestDetails(DeliveryRequest request) async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => DeliveryRequestDetailsScreen(request: request, capacity: _parcelCapacity)),
+      MaterialPageRoute(
+          builder: (_) => DeliveryRequestDetailsScreen(
+              request: request, capacity: _parcelCapacity)),
     );
     if (!mounted) return;
     if (result == true) {
@@ -503,7 +641,11 @@ class _DriverShellState extends State<DriverShell> {
         _activeDelivery = ActiveDelivery(request: request);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delivery accepted — head to ${request.pickupLabel}.'), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.primaryDark),
+        SnackBar(
+            content:
+                Text('Delivery accepted — head to ${request.pickupLabel}.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: DriverColors.primaryDark),
       );
     } else if (result == false) {
       setState(() => _availableRequests.removeWhere((r) => r.id == request.id));
@@ -531,7 +673,8 @@ class _DriverShellState extends State<DriverShell> {
           earnings: active.request.estimatedFare,
           status: HistoryStatus.completed,
           etaMinutes: active.request.etaMinutes,
-          actualMinutes: DateTime.now().difference(active.request.requestedAt).inMinutes,
+          actualMinutes:
+              DateTime.now().difference(active.request.requestedAt).inMinutes,
         ),
       );
       _availableBalance += active.request.estimatedFare;
@@ -543,15 +686,19 @@ class _DriverShellState extends State<DriverShell> {
     final active = _activeDelivery;
     if (active == null) return;
 
-    if (active.stage == DeliveryStage.headingToPickup || active.stage == DeliveryStage.atPickup) {
+    if (active.stage == DeliveryStage.headingToPickup ||
+        active.stage == DeliveryStage.atPickup) {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => PickupOrderScreen(
             delivery: active,
-            onArrived: () => _updateActiveDelivery((d) => d.stage = DeliveryStage.atPickup),
-            onPhotoAttached: () => _updateActiveDelivery((d) => d.pickupPhotoAttached = true),
+            onArrived: () =>
+                _updateActiveDelivery((d) => d.stage = DeliveryStage.atPickup),
+            onPhotoAttached: () =>
+                _updateActiveDelivery((d) => d.pickupPhotoAttached = true),
             onConfirmPickup: () {
-              _updateActiveDelivery((d) => d.stage = DeliveryStage.headingToDropoff);
+              _updateActiveDelivery(
+                  (d) => d.stage = DeliveryStage.headingToDropoff);
               Navigator.pop(context);
             },
           ),
@@ -562,13 +709,17 @@ class _DriverShellState extends State<DriverShell> {
         MaterialPageRoute(
           builder: (_) => DeliverOrderScreen(
             delivery: active,
-            onArrived: () => _updateActiveDelivery((d) => d.stage = DeliveryStage.atDropoff),
-            onPhotoAttached: () => _updateActiveDelivery((d) => d.deliveryPhotoAttached = true),
-            onNotesChanged: (text) => _updateActiveDelivery((d) => d.deliveryNotes = text),
+            onArrived: () =>
+                _updateActiveDelivery((d) => d.stage = DeliveryStage.atDropoff),
+            onPhotoAttached: () =>
+                _updateActiveDelivery((d) => d.deliveryPhotoAttached = true),
+            onNotesChanged: (text) =>
+                _updateActiveDelivery((d) => d.deliveryNotes = text),
             onMarkDelivered: () {
               _completeActiveDelivery();
               Navigator.pop(context);
-              DriverTopNotification.show(context, message: 'Delivery completed!');
+              DriverTopNotification.show(context,
+                  message: 'Delivery completed!');
             },
           ),
         ),
@@ -607,7 +758,13 @@ class _DriverShellState extends State<DriverShell> {
   void _withdraw(double amount, String destination) {
     setState(() {
       _availableBalance -= amount;
-      _withdrawals.insert(0, WithdrawalRecord(id: 'w-${DateTime.now().millisecondsSinceEpoch}', amount: amount, requestedAt: DateTime.now(), destination: destination));
+      _withdrawals.insert(
+          0,
+          WithdrawalRecord(
+              id: 'w-${DateTime.now().millisecondsSinceEpoch}',
+              amount: amount,
+              requestedAt: DateTime.now(),
+              destination: destination));
     });
   }
 
@@ -618,8 +775,10 @@ class _DriverShellState extends State<DriverShell> {
     return d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
-  double get _todayEarnings =>
-      _history.where((h) => h.status == HistoryStatus.completed && _isToday(h.completedAt)).fold(0, (sum, h) => sum + h.earnings);
+  double get _todayEarnings => _history
+      .where(
+          (h) => h.status == HistoryStatus.completed && _isToday(h.completedAt))
+      .fold(0, (sum, h) => sum + h.earnings);
 
   @override
   Widget build(BuildContext context) {
@@ -644,21 +803,27 @@ class _DriverShellState extends State<DriverShell> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.wifi_off_rounded, size: 48, color: DriverColors.textSecondary),
+                  const Icon(Icons.wifi_off_rounded,
+                      size: 48, color: DriverColors.textSecondary),
                   const SizedBox(height: 16),
                   Text(
-                    _accountLoadError ?? 'Something went wrong loading your account.',
+                    _accountLoadError ??
+                        'Something went wrong loading your account.',
                     textAlign: TextAlign.center,
                     style: DriverText.body,
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _loadAccount,
-                    style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: DriverColors.primary,
+                        foregroundColor: Colors.white),
                     child: const Text('Try again'),
                   ),
                   const SizedBox(height: 10),
-                  TextButton(onPressed: _signOutToLogin, child: const Text('Back to sign in')),
+                  TextButton(
+                      onPressed: _signOutToLogin,
+                      child: const Text('Back to sign in')),
                 ],
               ),
             ),
@@ -685,20 +850,24 @@ class _DriverShellState extends State<DriverShell> {
         )
       else
         DriverHomeScreen(
-        isOnline: _isOnline,
-        shiftStart: _shiftStart,
-        account: account,
-        activeDelivery: _activeDelivery,
-        availableRequests: _availableRequests,
-        todayEarnings: _todayEarnings,
-        completedToday: _history.where((h) => h.status == HistoryStatus.completed && _isToday(h.completedAt)).length,
-        onGoOnline: () => _setOnline(true),
-        onOpenRequest: _openRequestDetails,
-        onContinueActiveDelivery: _openActiveDeliveryFlow,
-        onRefreshRequests: _refreshRequests,
-        unreadNotifications: _notifUnread,
-        onOpenNotifications: _openNotifications,
-      ),
+          isOnline: _isOnline,
+          shiftStart: _shiftStart,
+          account: account,
+          activeDelivery: _activeDelivery,
+          availableRequests: _availableRequests,
+          todayEarnings: _todayEarnings,
+          completedToday: _history
+              .where((h) =>
+                  h.status == HistoryStatus.completed &&
+                  _isToday(h.completedAt))
+              .length,
+          onGoOnline: () => _setOnline(true),
+          onOpenRequest: _openRequestDetails,
+          onContinueActiveDelivery: _openActiveDeliveryFlow,
+          onRefreshRequests: _refreshRequests,
+          unreadNotifications: _notifUnread,
+          onOpenNotifications: _openNotifications,
+        ),
       DriverDeliveriesScreen(
         deliveries: _assignedDeliveries,
         capacity: _parcelCapacity,
@@ -732,9 +901,21 @@ class _DriverShellState extends State<DriverShell> {
         deliveryOnline: _isOnline,
         onDeliveryOnlineChanged: _setOnline,
         notificationsEnabled: _notificationsEnabled,
-        onNotificationsChanged: (v) => setState(() => _notificationsEnabled = v),
+        onNotificationsChanged: (v) {
+            final previous = _notificationsEnabled;
+          setState(() => _notificationsEnabled = v);
+            final token = _accessToken;
+            if (token != null) SharedPreferences.getInstance().then((prefs) => prefs.setBool('driver_notifications_enabled_${token.hashCode}', v));
+            if (token != null) unawaited(_saveNotificationPreference(token, pushEnabled: v, previous: previous, isSound: false));
+        },
         soundEnabled: _soundEnabled,
-        onSoundChanged: (v) => setState(() => _soundEnabled = v),
+        onSoundChanged: (v) {
+            final previous = _soundEnabled;
+          setState(() => _soundEnabled = v);
+            final token = _accessToken;
+            if (token != null) SharedPreferences.getInstance().then((prefs) => prefs.setBool('driver_sound_enabled_${token.hashCode}', v));
+            if (token != null) unawaited(_saveNotificationPreference(token, soundEnabled: v, previous: previous, isSound: true));
+        },
         language: _language,
         onLanguageChanged: (v) => setState(() => _language = v),
         onRefresh: _refreshAll,
@@ -745,7 +926,11 @@ class _DriverShellState extends State<DriverShell> {
       backgroundColor: DriverColors.background,
       extendBody: true,
       body: IndexedStack(index: _tabIndex, children: pages),
-      bottomNavigationBar: DriverNavBar(currentIndex: _tabIndex, unreadChats: _unreadChats, isCourier: account.role == 'courier', onTap: _selectTab),
+      bottomNavigationBar: DriverNavBar(
+          currentIndex: _tabIndex,
+          unreadChats: _unreadChats,
+          isCourier: account.role == 'courier',
+          onTap: _selectTab),
     );
   }
 }

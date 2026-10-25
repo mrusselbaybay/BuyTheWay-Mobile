@@ -21,6 +21,7 @@ class DriverNotificationsScreen extends StatelessWidget {
 
   /// Shell state: switch to the Deliveries tab.
   final VoidCallback onOpenDeliveries;
+  final ValueChanged<String> onOpenTarget;
 
   /// True while a pickup/scan/photo flow is running anywhere in the app.
   final bool Function() isBusy;
@@ -37,6 +38,7 @@ class DriverNotificationsScreen extends StatelessWidget {
     required this.controller,
     required this.onUnreadChanged,
     required this.onOpenDeliveries,
+    required this.onOpenTarget,
     required this.isBusy,
     this.onBusy,
     this.onPollError,
@@ -48,21 +50,32 @@ class DriverNotificationsScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     onOpenDeliveries();
     Navigator.of(context).pop();
-    if (message != null) messenger.showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
+    if (message != null)
+      messenger.showSnackBar(SnackBar(
+          content: Text(message), behavior: SnackBarBehavior.floating));
   }
 
   Future<void> _open(BuildContext context, LogisticsNotification n) async {
     final parcelId = n.parcelId;
     if (parcelId == null) {
       // Employment, money and account updates are read in place.
-      if (n.target == 'deliveries') _toDeliveries(context);
+      if (n.target == 'deliveries') {
+        _toDeliveries(context);
+      } else if (n.target == 'remittances' ||
+          n.target == 'earnings' ||
+          n.target == 'account') {
+        onOpenTarget(n.target!);
+        Navigator.of(context).pop();
+      }
       return;
     }
 
     final AssignedDelivery delivery;
     try {
-      final response = await _api.getDriverDelivery(accessToken: accessToken, id: parcelId);
-      delivery = AssignedDelivery.fromApi(Map<String, dynamic>.from(response['data'] as Map));
+      final response =
+          await _api.getDriverDelivery(accessToken: accessToken, id: parcelId);
+      delivery = AssignedDelivery.fromApi(
+          Map<String, dynamic>.from(response['data'] as Map));
     } on ApiException catch (e) {
       if (!context.mounted) return;
       if (e.statusCode == 404) {
@@ -70,27 +83,38 @@ class DriverNotificationsScreen extends StatelessWidget {
       } else if (e.statusCode == 401 || e.statusCode == 403) {
         onPollError?.call(e);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
       return;
     } catch (_) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open the delivery. Check your connection.')));
+      if (context.mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Could not open the delivery. Check your connection.')));
       return;
     }
 
     if (!context.mounted || isBusy()) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AssignedDeliveryDetailScreen(delivery: delivery, accessToken: accessToken, controller: controller, onBusyChanged: onBusy),
+        builder: (_) => AssignedDeliveryDetailScreen(
+            delivery: delivery,
+            accessToken: accessToken,
+            controller: controller,
+            onBusyChanged: onBusy),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) => NotificationInbox(
-        fetchPage: (page) => _api.getDriverNotifications(accessToken: accessToken, page: page),
-        markRead: (id) => _api.markDriverNotificationRead(accessToken: accessToken, id: id),
-        markAllRead: () => _api.markAllDriverNotificationsRead(accessToken: accessToken),
+        fetchPage: (page) =>
+            _api.getDriverNotifications(accessToken: accessToken, page: page),
+        markRead: (id) =>
+            _api.markDriverNotificationRead(accessToken: accessToken, id: id),
+        markAllRead: () =>
+            _api.markAllDriverNotificationsRead(accessToken: accessToken),
         onUnreadChanged: onUnreadChanged,
         isBusy: isBusy,
         onPollError: onPollError,

@@ -94,7 +94,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
         return all;
       case _QuickFilter.toPickUp:
         return all
-            .where((d) => d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
+            .where((d) => d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned || d.status == AssignedDeliveryStatus.waitingApproval)
             .toList();
       case _QuickFilter.toDeliver:
         return all
@@ -583,6 +583,8 @@ class _MissionCardState extends State<_MissionCard> {
         return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
       case AssignedDeliveryStatus.assigned:
         return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
+      case AssignedDeliveryStatus.waitingApproval:
+        return ('Waiting approval', DriverColors.warning, Icons.hourglass_top_rounded);
       case AssignedDeliveryStatus.pickedUp:
         return ('To deliver', DriverColors.info, Icons.local_shipping_rounded);
       case AssignedDeliveryStatus.delivered:
