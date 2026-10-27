@@ -92,6 +92,7 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
         .push(MaterialPageRoute(
           builder: (_) => DriverVehicleDocumentsScreen(
             account: widget.account,
+            accessToken: widget.accessToken,
             onRefresh: widget.onRefresh,
           ),
         ))

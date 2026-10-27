@@ -73,7 +73,10 @@ class _LogisticsShellState extends State<LogisticsShell> {
       if (token == null) return;
       final epoch = _epoch;
       // Failure of the count alone is silent; the lists decide the poll's fate.
-      final count = _api.getLogisticsUnreadCount(accessToken: token).then<int?>((c) => c).catchError((_) => null);
+      final count = _api
+          .getLogisticsUnreadCount(accessToken: token)
+          .then<int?>((c) => c)
+          .catchError((_) => null);
       final lists = await _fetchLists(token);
       final unread = await count;
       if (!isActive() || !mounted) return;
@@ -83,13 +86,15 @@ class _LogisticsShellState extends State<LogisticsShell> {
     },
     interval: const Duration(seconds: 30),
     // Not on Settings, not while a detail/scanner route covers the shell.
-    shouldSkip: () => _tabIndex == 2 || _scanHolds > 0 || _route?.isCurrent == false,
+    shouldSkip: () =>
+        _tabIndex == 2 || _scanHolds > 0 || _route?.isCurrent == false,
     onError: _onPollError,
   );
 
   void _onPollError(Object error) {
     if (!mounted) return;
-    if (error is ApiException && (error.statusCode == 401 || error.statusCode == 403)) {
+    if (error is ApiException &&
+        (error.statusCode == 401 || error.statusCode == 403)) {
       setState(() {
         _reconnecting = false;
         _inventoryError = 'Your session has expired. Please sign in again.';
@@ -133,7 +138,8 @@ class _LogisticsShellState extends State<LogisticsShell> {
   /// A scan started/finished somewhere below; bumping the epoch invalidates
   /// any poll already in flight.
   void _setScanActive(bool active) {
-    _scanHolds = active ? _scanHolds + 1 : (_scanHolds > 0 ? _scanHolds - 1 : 0);
+    _scanHolds =
+        active ? _scanHolds + 1 : (_scanHolds > 0 ? _scanHolds - 1 : 0);
     _epoch++;
     if (_scanHolds == 0 && _heldUnread != null) {
       final held = _heldUnread!;
@@ -215,19 +221,26 @@ class _LogisticsShellState extends State<LogisticsShell> {
       ].join('|');
 
   /// Keeps the existing object for every unchanged parcel.
-  List<InventoryParcel> _merge(List<InventoryParcel> old, List<InventoryParcel> fresh) {
+  List<InventoryParcel> _merge(
+      List<InventoryParcel> old, List<InventoryParcel> fresh) {
     final byId = {for (final p in old) p.id: p};
     return [
       for (final f in fresh)
-        if (byId[f.id] case final o? when _fingerprint(o) == _fingerprint(f)) o else f,
+        if (byId[f.id] case final o? when _fingerprint(o) == _fingerprint(f))
+          o
+        else
+          f,
     ];
   }
 
   bool _sameList(List<InventoryParcel> a, List<InventoryParcel> b) =>
-      a.length == b.length && [for (var i = 0; i < a.length; i++) identical(a[i], b[i])].every((e) => e);
+      a.length == b.length &&
+      [for (var i = 0; i < a.length; i++) identical(a[i], b[i])]
+          .every((e) => e);
 
   /// Rebuilds only when something visible changed.
-  void _applyLists(List<InventoryParcel> pending, List<InventoryParcel> scanned, {Object? error}) {
+  void _applyLists(List<InventoryParcel> pending, List<InventoryParcel> scanned,
+      {Object? error}) {
     final nextPending = _merge(_pending, pending);
     final nextScanned = _merge(_scanned, scanned);
     final partialError = error == null
@@ -235,7 +248,11 @@ class _LogisticsShellState extends State<LogisticsShell> {
         : error is ApiException && error.statusCode == 401
             ? 'Your session has expired. Please sign in again.'
             : 'Some parcel data could not be loaded. Pull down to retry.';
-    final changed = !_sameList(nextPending, _pending) || !_sameList(nextScanned, _scanned) || _reconnecting || _inventoryError != partialError || _loadingInventory;
+    final changed = !_sameList(nextPending, _pending) ||
+        !_sameList(nextScanned, _scanned) ||
+        _reconnecting ||
+        _inventoryError != partialError ||
+        _loadingInventory;
     if (!changed) return;
     setState(() {
       _pending = nextPending;
@@ -247,10 +264,18 @@ class _LogisticsShellState extends State<LogisticsShell> {
     });
   }
 
-  Future<({List<InventoryParcel> pending, List<InventoryParcel> scanned, Object? error})> _fetchLists(String token) async {
-    List<InventoryParcel> parse(dynamic body) =>
-        (body['data'] as List? ?? []).map((row) => InventoryParcel.fromApi(Map<String, dynamic>.from(row as Map))).toList();
-    Future<({List<InventoryParcel>? data, Object? error})> load(Future<Map<String, dynamic>> request) async {
+  Future<
+      ({
+        List<InventoryParcel> pending,
+        List<InventoryParcel> scanned,
+        Object? error
+      })> _fetchLists(String token) async {
+    List<InventoryParcel> parse(dynamic body) => (body['data'] as List? ?? [])
+        .map((row) =>
+            InventoryParcel.fromApi(Map<String, dynamic>.from(row as Map)))
+        .toList();
+    Future<({List<InventoryParcel>? data, Object? error})> load(
+        Future<Map<String, dynamic>> request) async {
       try {
         return (data: parse(await request), error: null);
       } catch (error) {
@@ -265,9 +290,12 @@ class _LogisticsShellState extends State<LogisticsShell> {
     final pendingResult = results[0];
     final scannedResult = results[1];
     if (pendingResult.data == null && scannedResult.data == null) {
-      throw pendingResult.error ?? scannedResult.error ?? StateError('Could not load parcel lists.');
+      throw pendingResult.error ??
+          scannedResult.error ??
+          StateError('Could not load parcel lists.');
     }
-    final errors = [pendingResult.error, scannedResult.error].whereType<Object>().toList();
+    final errors =
+        [pendingResult.error, scannedResult.error].whereType<Object>().toList();
     return (
       pending: pendingResult.data ?? _pending,
       scanned: scannedResult.data ?? _scanned,
@@ -310,13 +338,16 @@ class _LogisticsShellState extends State<LogisticsShell> {
       if (!mounted) return;
       setState(() {
         _loadingAccount = false;
-        _accountLoadError = e.statusCode == 401 ? 'Your session has expired. Please sign in again.' : e.message;
+        _accountLoadError = e.statusCode == 401
+            ? 'Your session has expired. Please sign in again.'
+            : e.message;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loadingAccount = false;
-        _accountLoadError = 'Could not reach the server. Check your connection and try again.';
+        _accountLoadError =
+            'Could not reach the server. Check your connection and try again.';
       });
     }
   }
@@ -349,7 +380,9 @@ class _LogisticsShellState extends State<LogisticsShell> {
       setState(() {
         _loadingInventory = false;
         if (!_inventoryLoaded || e.statusCode == 401) {
-          _inventoryError = e.statusCode == 401 ? 'Your session has expired. Please sign in again.' : e.message;
+          _inventoryError = e.statusCode == 401
+              ? 'Your session has expired. Please sign in again.'
+              : e.message;
         } else {
           _reconnecting = true; // keep last good data
         }
@@ -359,7 +392,9 @@ class _LogisticsShellState extends State<LogisticsShell> {
       setState(() {
         _loadingInventory = false;
         if (!_inventoryLoaded) {
-          _inventoryError = e is ApiException ? e.message : 'Could not load parcels. Please try again.';
+          _inventoryError = e is ApiException
+              ? e.message
+              : 'Could not load parcels. Please try again.';
         } else {
           _reconnecting = true;
         }
@@ -382,11 +417,15 @@ class _LogisticsShellState extends State<LogisticsShell> {
 
   Future<void> _signOutToLogin() async {
     _poller.stop();
-    await PushService.instance.unregister(); // needs the session, so before it is cleared
+    await PushService.instance
+        .unregister(); // needs the session, so before it is cleared
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthScreen(portal: AuthPortal.partner)), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+            builder: (_) => const AuthScreen(portal: AuthPortal.partner)),
+        (route) => false);
   }
 
   @override
@@ -394,7 +433,8 @@ class _LogisticsShellState extends State<LogisticsShell> {
     if (_loadingAccount) {
       return const Scaffold(
         backgroundColor: DriverColors.background,
-        body: Center(child: CircularProgressIndicator(color: DriverColors.primary)),
+        body: Center(
+            child: CircularProgressIndicator(color: DriverColors.primary)),
       );
     }
 
@@ -410,17 +450,26 @@ class _LogisticsShellState extends State<LogisticsShell> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.wifi_off_rounded, size: 48, color: DriverColors.textSecondary),
+                  const Icon(Icons.wifi_off_rounded,
+                      size: 48, color: DriverColors.textSecondary),
                   const SizedBox(height: 16),
-                  Text(_accountLoadError ?? 'Something went wrong loading your account.', textAlign: TextAlign.center, style: DriverText.body),
+                  Text(
+                      _accountLoadError ??
+                          'Something went wrong loading your account.',
+                      textAlign: TextAlign.center,
+                      style: DriverText.body),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _loadAccount,
-                    style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: DriverColors.primary,
+                        foregroundColor: Colors.white),
                     child: const Text('Try again'),
                   ),
                   const SizedBox(height: 10),
-                  TextButton(onPressed: _signOutToLogin, child: const Text('Back to sign in')),
+                  TextButton(
+                      onPressed: _signOutToLogin,
+                      child: const Text('Back to sign in')),
                 ],
               ),
             ),
@@ -448,6 +497,8 @@ class _LogisticsShellState extends State<LogisticsShell> {
         error: _inventoryError,
         accessToken: accessToken,
         onRefresh: _refreshAll,
+        unreadNotifications: _notifUnread,
+        onOpenNotifications: _openNotifications,
         reconnecting: _reconnecting,
         onScanActive: _setScanActive,
         onScanned: _onParcelScanned,
@@ -463,7 +514,10 @@ class _LogisticsShellState extends State<LogisticsShell> {
     return Scaffold(
       backgroundColor: DriverColors.background,
       body: IndexedStack(index: _tabIndex, children: pages),
-      bottomNavigationBar: LogisticsNavBar(currentIndex: _tabIndex, onTap: _selectTab, badges: {1: _pending.length}),
+      bottomNavigationBar: LogisticsNavBar(
+          currentIndex: _tabIndex,
+          onTap: _selectTab,
+          badges: {1: _pending.length}),
     );
   }
 }

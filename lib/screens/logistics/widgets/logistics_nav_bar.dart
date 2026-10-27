@@ -13,9 +13,9 @@ class LogisticsNavBar extends StatelessWidget {
   final Map<int, int> badges;
 
   static const _items = [
-    (icon: Icons.grid_view_rounded, label: 'Overview'),
-    (icon: Icons.qr_code_scanner_rounded, label: 'Parcels'),
-    (icon: Icons.person_outline_rounded, label: 'Account'),
+    (index: 1, icon: Icons.qr_code_scanner_rounded, label: 'Parcels'),
+    (index: 0, icon: Icons.grid_view_rounded, label: 'Overview'),
+    (index: 2, icon: Icons.person_outline_rounded, label: 'Account'),
   ];
 
   @override
@@ -31,33 +31,33 @@ class LogisticsNavBar extends StatelessWidget {
               for (var i = 0; i < _items.length; i++)
                 Expanded(
                   child: Semantics(
-                    selected: currentIndex == i,
+                    selected: currentIndex == _items[i].index,
                     button: true,
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.selectionClick();
-                        onTap(i);
+                        onTap(_items[i].index);
                       },
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Badge(
-                              isLabelVisible: (badges[i] ?? 0) > 0,
-                              label: Text((badges[i] ?? 0) > 99
+                              isLabelVisible: (badges[_items[i].index] ?? 0) > 0,
+                              label: Text((badges[_items[i].index] ?? 0) > 99
                                   ? '99+'
-                                  : '${badges[i]}'),
+                                  : '${badges[_items[i].index]}'),
                               backgroundColor: const Color(0xFFB95137),
                               child: Container(
                                 width: 32,
                                 height: 26,
                                 alignment: Alignment.center,
-                                decoration: currentIndex == i
-                                    ? BoxDecoration(color: const Color(0xFFE0E8DD), borderRadius: BorderRadius.circular(8))
+                                decoration: currentIndex == _items[i].index
+                                    ? BoxDecoration(color: const Color(0xFFDDF1EC), borderRadius: BorderRadius.circular(8))
                                     : null,
                                 child: Icon(_items[i].icon,
                                     size: 20,
-                                    color: currentIndex == i
-                                        ? const Color(0xFF285A45)
+                                    color: currentIndex == _items[i].index
+                                        ? const Color(0xFF0D9488)
                                         : const Color(0xFF84938A)),
                               ),
                             ),
@@ -65,11 +65,11 @@ class LogisticsNavBar extends StatelessWidget {
                             Text(_items[i].label,
                                 style: TextStyle(
                                     fontSize: 11,
-                                    fontWeight: currentIndex == i
+                                    fontWeight: currentIndex == _items[i].index
                                         ? FontWeight.w800
                                         : FontWeight.w500,
-                                    color: currentIndex == i
-                                        ? const Color(0xFF285A45)
+                                    color: currentIndex == _items[i].index
+                                        ? const Color(0xFF0D9488)
                                         : const Color(0xFF84938A))),
                           ]),
                     ),

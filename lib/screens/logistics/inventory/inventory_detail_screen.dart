@@ -1,7 +1,6 @@
-import 'dart:ui' show FontFeature;
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../services/api_service.dart';
 import '../../../services/poller.dart';
@@ -276,6 +275,20 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     );
   }
 
+  Future<void> _copyParcelNumber() async {
+    final parcel = _parcel;
+    final parcelNumber = parcel?.trackingNumber ?? parcel?.orderNumber;
+    if (parcelNumber == null || parcelNumber.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: parcelNumber));
+    if (!mounted) return;
+    DriverTopNotification.show(
+      context,
+      message: 'Parcel number copied.',
+      icon: Icons.copy_all_rounded,
+      accent: DriverColors.primary,
+    );
+  }
+
   String _formatDate(DateTime? d) {
     if (d == null) return 'Unknown time';
     final local = d.toLocal();
@@ -319,13 +332,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final parcel = _parcel;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5EF),
+      backgroundColor: const Color(0xFFF5F6F1),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 20, 14),
+              padding: const EdgeInsets.fromLTRB(16, 10, 20, 18),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -334,13 +347,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                         tooltip: 'Back to parcels',
                         icon: const Icon(Icons.arrow_back_rounded,
-                            color: Color(0xFF184D3B)),
+                            color: DriverColors.primary),
                       ),
                       const SizedBox(width: 5),
-                      const Text('PARCEL RECORD',
+                      const Text('PARCEL DETAILS',
                           style: TextStyle(
-                              color: Color(0xFF184D3B),
-                              fontSize: 11,
+                              color: DriverColors.primaryDark,
+                              fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.5)),
                       const Spacer(),
@@ -348,48 +361,35 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                         DriverStatusBadge(
                           label: parcel.isScanned ? 'Scanned' : 'To scan',
                           color: parcel.isScanned
-                              ? DriverColors.success
+                              ? DriverColors.primary
                               : DriverColors.warning,
                           icon: parcel.isScanned
                               ? Icons.check_circle_rounded
                               : Icons.qr_code_scanner_rounded,
                         ),
                     ]),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(17, 15, 17, 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF285A45),
-                        borderRadius: BorderRadius.circular(7),
-                        boxShadow: const [BoxShadow(color: Color(0x1F285A45), blurRadius: 14, offset: Offset(0, 5))],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('PARCEL IDENTIFIER', style: TextStyle(color: Color(0xFFC2D9BF), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
-                          const SizedBox(height: 5),
-                          Text(
-                            parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -.4, fontFeatures: [FontFeature.tabularFigures()]),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (parcel != null) ...[
-                      const SizedBox(height: 9),
-                      Row(children: [
-                        const Icon(Icons.route_outlined, size: 15, color: Color(0xFF718078)),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(_statusLabel(parcel.status), style: const TextStyle(color: Color(0xFF59685F), fontSize: 12, fontWeight: FontWeight.w700))),
-                      ]),
-                      if (parcel.isReturn && parcel.returnReason != null)
-                        Text('Return: ${parcel.returnReason}',
-                            style: const TextStyle(
-                                color: Color(0xFF687970), fontSize: 12)),
+                    const SizedBox(height: 12),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: Text(
+                        parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xFF172923), fontSize: 27, height: 1.08, fontWeight: FontWeight.w800, letterSpacing: -.8),
+                      )),
+                      if ((parcel?.trackingNumber ?? parcel?.orderNumber) != null)
+                        IconButton(
+                          onPressed: _copyParcelNumber,
+                          tooltip: 'Copy parcel number',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.copy_all_rounded, color: DriverColors.primary, size: 19),
+                        ),
+                    ]),
+                    if (parcel != null && !parcel.isPending) ...[
+                      const SizedBox(height: 5),
+                      Text(_statusLabel(parcel.status), style: const TextStyle(color: Color(0xFF687970), fontSize: 13)),
                     ],
+                    if (parcel?.isReturn == true && parcel?.returnReason != null)
+                      Text('Return: ${parcel!.returnReason}', style: const TextStyle(color: Color(0xFF687970), fontSize: 12)),
                   ]),
             ),
             Expanded(child: _buildBody(context)),
@@ -466,7 +466,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
                 decoration: BoxDecoration(
                     color: DriverColors.warningSurface,
-                    borderRadius: BorderRadius.circular(7)),
+                    borderRadius: BorderRadius.circular(14)),
                 child: Row(
                   children: [
                     const Icon(Icons.sync_problem_rounded,
@@ -482,37 +482,15 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            if (parcel.isPending) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                    color: DriverColors.warningSurface,
-                    borderRadius: BorderRadius.circular(7)),
-                child: const Row(
-                  children: [
-                    Icon(Icons.qr_code_scanner_rounded,
-                        size: 18, color: DriverColors.warning),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Scan this parcel\'s QR code to move it into inventory before it can be delivered or transferred.',
-                        style: DriverText.caption,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            _inventoryTimeline(parcel),
             _sectionCard(
               icon: Icons.local_shipping_outlined,
               title: 'Tracking',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow('Tracking number',
-                      parcel.trackingNumber ?? 'Not on file'),
-                  _infoRow('Order number', parcel.orderNumber ?? 'Not on file'),
+                  if (parcel.orderNumber != null && parcel.orderNumber != parcel.trackingNumber)
+                    _infoRow('Order number', parcel.orderNumber!),
                   if (parcel.transferToCompanyName != null)
                     _infoRow('Transferring to', parcel.transferToCompanyName!),
                   if (parcel.hubName != null)
@@ -586,29 +564,6 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                       ],
                     ),
             ),
-            const SizedBox(height: 16),
-            _sectionCard(
-              icon: Icons.history_rounded,
-              title: 'Inventory record',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _infoRow(
-                      'Entered inventory',
-                      parcel.forInventoryAt != null
-                          ? _formatDate(parcel.forInventoryAt)
-                          : 'Not yet'),
-                  _infoRow(
-                      'Scanned',
-                      parcel.inventoryScannedAt != null
-                          ? _formatDate(parcel.inventoryScannedAt)
-                          : 'Not yet'),
-                  if (parcel.inventoryScannedBy?.fullName != null)
-                    _infoRow(
-                        'Scanned by', parcel.inventoryScannedBy!.fullName!),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -621,7 +576,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: const BoxDecoration(
-            color: Color(0xFFF9FAF6),
+            color: Colors.white,
             border: Border(top: BorderSide(color: Color(0xFFE0E6DD)))),
         child: SizedBox(
           width: double.infinity,
@@ -639,7 +594,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 : (_updated != null
                     ? 'Updated elsewhere — reload first'
                     : 'Scan QR to confirm')),
-            style: DriverButtonStyle.primary(const Color(0xFF184D3B)),
+            style: DriverButtonStyle.primary(DriverColors.primary),
           ),
         ),
       ),
@@ -723,28 +678,25 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   Widget _sectionCard(
       {required IconData icon, required String title, required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: const Color(0xFFE2E7DE)),
-          boxShadow: const [BoxShadow(color: Color(0x09172923), blurRadius: 10, offset: Offset(0, 3))]),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFDDE3DC)))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 25,
+                height: 25,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                     color: DriverColors.primarySurface,
-                    borderRadius: BorderRadius.circular(5)),
-                child: Icon(icon, size: 15, color: DriverColors.primaryDark),
+                    borderRadius: BorderRadius.circular(7)),
+                child: Icon(icon, size: 14, color: DriverColors.primaryDark),
               ),
-              const SizedBox(width: 10),
-              Text(title, style: DriverText.sectionTitle),
+              const SizedBox(width: 9),
+              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: DriverColors.textPrimary, letterSpacing: -.15)),
             ],
           ),
           const SizedBox(height: 12),
@@ -753,4 +705,54 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       ),
     );
   }
+
+  Widget _inventoryTimeline(InventoryParcel parcel) {
+    final scanned = parcel.inventoryScannedAt != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Handover timeline', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: DriverColors.textPrimary, letterSpacing: -.15)),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: _timelineStep(
+            done: true,
+            title: 'Received',
+            detail: parcel.forInventoryAt == null ? 'Handover recorded' : _formatDate(parcel.forInventoryAt),
+          )),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(width: 24, height: 2, color: DriverColors.primary.withOpacity(scanned ? .55 : .24)),
+          ),
+          Expanded(child: _timelineStep(
+            done: scanned,
+            title: scanned ? 'Scanned' : 'QR scan',
+            detail: scanned
+                ? '${_formatDate(parcel.inventoryScannedAt)}${parcel.inventoryScannedBy?.fullName == null ? '' : ' · ${parcel.inventoryScannedBy!.fullName}'}'
+                : 'Awaiting verification',
+          )),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _timelineStep({required bool done, required String title, required String detail}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _timelineDot(done: done),
+        const SizedBox(height: 8),
+        Text(title, style: TextStyle(color: done ? DriverColors.primaryDark : DriverColors.warning, fontSize: 12, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 3),
+        Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis, style: DriverText.caption),
+      ]);
+
+  Widget _timelineDot({required bool done}) => Container(
+        width: 18,
+        height: 18,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: done ? DriverColors.primary : const Color(0xFFF3F5F1),
+          shape: BoxShape.circle,
+          border: Border.all(color: done ? DriverColors.primary : const Color(0xFFC6D0C7), width: 1.5),
+        ),
+        child: done ? const Icon(Icons.check_rounded, size: 12, color: Colors.white) : null,
+      );
 }

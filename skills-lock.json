@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "appui-design-skill": {
+      "source": "Harzva/harzva-agentworkos-stack",
+      "sourceType": "github",
+      "skillPath": "skills/appui-design/SKILL.md",
+      "computedHash": "d1a9982809d348591ee24b93a022f78fcd382fd69915caedba19a9844c229fbb"
+    }
+  }
+}

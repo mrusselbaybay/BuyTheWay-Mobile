@@ -47,7 +47,8 @@ class ApiService {
             Uri.parse('$baseUrl/auth/login'),
             headers: {'Content-Type': 'application/json'},
             // 'mobile' signs buyer/seller accounts in as buyer (no seller app here).
-            body: jsonEncode({'email': email, 'password': password, 'device': 'mobile'}),
+            body: jsonEncode(
+                {'email': email, 'password': password, 'device': 'mobile'}),
           )
           .timeout(
             const Duration(seconds: 30),
@@ -220,7 +221,10 @@ class ApiService {
   Future<Map<String, dynamic>> sendSignupCode(String email) async {
     final response = await http.post(
       Uri.parse('$baseUrl/signup/send-code'),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: jsonEncode({'email': email}),
     );
     return _handleResponse(response);
@@ -295,7 +299,8 @@ class ApiService {
           'Authorization': 'Bearer $token',
         });
       if (body != null) request.body = jsonEncode(body);
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 30));
       return _handleResponse(await http.Response.fromStream(streamed));
     } on SocketException {
       throw ApiException(
@@ -317,7 +322,10 @@ class ApiService {
   Future<Map<String, dynamic>> sendPasswordResetCode(String email) async {
     final response = await http.post(
       Uri.parse('$baseUrl/password/send-code'),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: jsonEncode({'email': email}),
     );
     return _handleResponse(response);
@@ -489,11 +497,11 @@ class ApiService {
       );
     }
 
-    final request =
-        http.MultipartRequest('POST', Uri.parse('$baseUrl/courier/applications'))
-          ..headers['Accept'] = 'application/json'
-          ..headers['Authorization'] = 'Bearer $accessToken'
-          ..fields['logistics_company_id'] = logisticsCompanyId;
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$baseUrl/courier/applications'))
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken'
+      ..fields['logistics_company_id'] = logisticsCompanyId;
 
     if (coverNote != null && coverNote.trim().isNotEmpty) {
       request.fields['cover_note'] = coverNote.trim();
@@ -653,16 +661,20 @@ class ApiService {
     }
 
     if (letterBytes != null) {
-      request.files.add(http.MultipartFile.fromBytes('letter', letterBytes, filename: letterFileName));
+      request.files.add(http.MultipartFile.fromBytes('letter', letterBytes,
+          filename: letterFileName));
     } else {
-      request.files.add(await http.MultipartFile.fromPath('letter', letterFilePath!, filename: letterFileName));
+      request.files.add(await http.MultipartFile.fromPath(
+          'letter', letterFilePath!,
+          filename: letterFileName));
     }
 
     try {
       final streamedResponse = await request.send().timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw ApiException(
-              message: 'Connection timeout. Please check your internet connection.',
+              message:
+                  'Connection timeout. Please check your internet connection.',
               statusCode: 408,
             ),
           );
@@ -670,7 +682,8 @@ class ApiService {
       return _handleResponse(response);
     } on SocketException {
       throw ApiException(
-        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
         statusCode: 0,
       );
     }
@@ -682,7 +695,10 @@ class ApiService {
   }) async {
     final response = await http.get(
       Uri.parse('$baseUrl/courier/resignation-requests'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -694,7 +710,10 @@ class ApiService {
   }) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/courier/resignation-requests/$resignationRequestId'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -705,8 +724,12 @@ class ApiService {
     required String accessToken,
   }) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/courier/resignation-requests/$resignationRequestId/letter'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      Uri.parse(
+          '$baseUrl/courier/resignation-requests/$resignationRequestId/letter'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -725,13 +748,21 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/logistics/inventory'),
-        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $accessToken'
+        },
       ).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
-      throw ApiException(message: 'Cannot connect to server. Please check your internet connection.', statusCode: 0);
+      throw ApiException(
+          message:
+              'Cannot connect to server. Please check your internet connection.',
+          statusCode: 0);
     } on TimeoutException {
-      throw ApiException(message: 'Loading inventory timed out. Please try again.', statusCode: 408);
+      throw ApiException(
+          message: 'Loading inventory timed out. Please try again.',
+          statusCode: 408);
     }
   }
 
@@ -743,13 +774,21 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/logistics/inventory/pending'),
-        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $accessToken'
+        },
       ).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } on SocketException {
-      throw ApiException(message: 'Cannot connect to server. Please check your internet connection.', statusCode: 0);
+      throw ApiException(
+          message:
+              'Cannot connect to server. Please check your internet connection.',
+          statusCode: 0);
     } on TimeoutException {
-      throw ApiException(message: 'Loading parcels to scan timed out. Please try again.', statusCode: 408);
+      throw ApiException(
+          message: 'Loading parcels to scan timed out. Please try again.',
+          statusCode: 408);
     }
   }
 
@@ -761,7 +800,10 @@ class ApiService {
   }) async {
     final response = await http.get(
       Uri.parse('$baseUrl/logistics/inventory/$parcelAssignmentId'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -793,9 +835,37 @@ class ApiService {
   // Backend: NotificationInboxController — only events tagged for the
   // scanner app are listed or counted.
 
-  Map<String, String> _authHeaders(String accessToken) => {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'};
+  Map<String, String> _authHeaders(String accessToken) =>
+      {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'};
 
-  Future<Map<String, dynamic>> getLogisticsNotifications({required String accessToken, int page = 1}) async {
+  /// The same profile, company, hub and hiring settings used by the web
+  /// logistics portal.
+  Future<Map<String, dynamic>> getLogisticsAccount(
+      {required String accessToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/account'),
+      headers: _authHeaders(accessToken),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateLogisticsAccount({
+    required String accessToken,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/logistics/account'),
+      headers: {
+        ..._authHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getLogisticsNotifications(
+      {required String accessToken, int page = 1}) async {
     final response = await http.get(
       Uri.parse('$baseUrl/logistics/notifications?client=mobile&page=$page'),
       headers: _authHeaders(accessToken),
@@ -809,18 +879,23 @@ class ApiService {
       headers: _authHeaders(accessToken),
     );
     final data = _handleResponse(response)['data'];
-    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+    return data is Map && data['count'] is num
+        ? (data['count'] as num).toInt()
+        : 0;
   }
 
-  Future<void> markLogisticsNotificationRead({required String accessToken, required String id}) async {
+  Future<void> markLogisticsNotificationRead(
+      {required String accessToken, required String id}) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/logistics/notifications/${Uri.encodeComponent(id)}/read?client=mobile'),
+      Uri.parse(
+          '$baseUrl/logistics/notifications/${Uri.encodeComponent(id)}/read?client=mobile'),
       headers: _authHeaders(accessToken),
     );
     _handleResponse(response);
   }
 
-  Future<void> markAllLogisticsNotificationsRead({required String accessToken}) async {
+  Future<void> markAllLogisticsNotificationsRead(
+      {required String accessToken}) async {
     final response = await http.put(
       Uri.parse('$baseUrl/logistics/notifications/read-all?client=mobile'),
       headers: _authHeaders(accessToken),
@@ -834,30 +909,47 @@ class ApiService {
   // Backend: Driver/NotificationInboxController - the courier audience only,
   // scoped to the caller and their current employer.
 
-  Future<Map<String, dynamic>> getDriverNotifications({required String accessToken, int page = 1}) async {
-    final response = await http.get(Uri.parse('$baseUrl/driver/notifications?page=$page'), headers: _authHeaders(accessToken));
+  Future<Map<String, dynamic>> getDriverNotifications(
+      {required String accessToken, int page = 1}) async {
+    final response = await http.get(
+        Uri.parse('$baseUrl/driver/notifications?page=$page'),
+        headers: _authHeaders(accessToken));
     return _handleResponse(response);
   }
 
   Future<int> getDriverUnreadCount({required String accessToken}) async {
-    final response = await http.get(Uri.parse('$baseUrl/driver/notifications/unread-count'), headers: _authHeaders(accessToken));
+    final response = await http.get(
+        Uri.parse('$baseUrl/driver/notifications/unread-count'),
+        headers: _authHeaders(accessToken));
     final data = _handleResponse(response)['data'];
-    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+    return data is Map && data['count'] is num
+        ? (data['count'] as num).toInt()
+        : 0;
   }
 
-  Future<void> markDriverNotificationRead({required String accessToken, required String id}) async {
-    final response = await http.put(Uri.parse('$baseUrl/driver/notifications/${Uri.encodeComponent(id)}/read'), headers: _authHeaders(accessToken));
+  Future<void> markDriverNotificationRead(
+      {required String accessToken, required String id}) async {
+    final response = await http.put(
+        Uri.parse(
+            '$baseUrl/driver/notifications/${Uri.encodeComponent(id)}/read'),
+        headers: _authHeaders(accessToken));
     _handleResponse(response);
   }
 
-  Future<void> markAllDriverNotificationsRead({required String accessToken}) async {
-    final response = await http.put(Uri.parse('$baseUrl/driver/notifications/read-all'), headers: _authHeaders(accessToken));
+  Future<void> markAllDriverNotificationsRead(
+      {required String accessToken}) async {
+    final response = await http.put(
+        Uri.parse('$baseUrl/driver/notifications/read-all'),
+        headers: _authHeaders(accessToken));
     _handleResponse(response);
   }
 
   /// One of the rider's deliveries by id (404 once it is no longer theirs).
-  Future<Map<String, dynamic>> getDriverDelivery({required String accessToken, required String id}) async {
-    final response = await http.get(Uri.parse('$baseUrl/driver/deliveries/${Uri.encodeComponent(id)}'), headers: _authHeaders(accessToken));
+  Future<Map<String, dynamic>> getDriverDelivery(
+      {required String accessToken, required String id}) async {
+    final response = await http.get(
+        Uri.parse('$baseUrl/driver/deliveries/${Uri.encodeComponent(id)}'),
+        headers: _authHeaders(accessToken));
     return _handleResponse(response);
   }
 
@@ -880,7 +972,41 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> getDriverNotificationPreferences({required String accessToken}) async {
+  Future<Map<String, dynamic>> getCourierRegistrationDocuments(
+      {required String accessToken}) async {
+    final response = await http.get(
+        Uri.parse('$baseUrl/driver/profile/documents'),
+        headers: _authHeaders(accessToken));
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> replaceCourierRegistrationDocument({
+    required String accessToken,
+    required String documentType,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$baseUrl/driver/profile/documents'))
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken'
+      ..fields['document_type'] = documentType
+      ..files.add(
+          http.MultipartFile.fromBytes('document', bytes, filename: fileName));
+    try {
+      final response =
+          await request.send().timeout(const Duration(seconds: 45));
+      return _handleResponse(await http.Response.fromStream(response));
+    } on SocketException {
+      throw ApiException(
+          message:
+              'Cannot connect to server. Please check your internet connection.',
+          statusCode: 0);
+    }
+  }
+
+  Future<Map<String, dynamic>> getDriverNotificationPreferences(
+      {required String accessToken}) async {
     final response = await http.get(
       Uri.parse('$baseUrl/driver/notification-preferences'),
       headers: _authHeaders(accessToken),
@@ -923,7 +1049,8 @@ class ApiService {
         'Accept': 'application/json',
         'Authorization': 'Bearer $accessToken',
       },
-      body: jsonEncode({'delivery_status': online ? 'available' : 'unavailable'}),
+      body:
+          jsonEncode({'delivery_status': online ? 'available' : 'unavailable'}),
     );
     return _handleResponse(response);
   }
@@ -992,30 +1119,50 @@ class ApiService {
   /// Loads the parcels the logistics team has assigned to the signed-in
   /// rider/courier for the Deliveries tab, via `GET /api/driver/deliveries`.
   Future<Map<String, dynamic>> markDeliveryFailed({
-    required String parcelAssignmentId, required String accessToken,
-    required String reasonCode, String? description,
-    required Uint8List photoBytes, required String photoFileName,
+    required String parcelAssignmentId,
+    required String accessToken,
+    required String reasonCode,
+    String? description,
+    required Uint8List photoBytes,
+    required String photoFileName,
   }) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/failed-attempt'))
+    final request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+            '$baseUrl/driver/deliveries/$parcelAssignmentId/failed-attempt'))
       ..headers['Accept'] = 'application/json'
       ..headers['Authorization'] = 'Bearer $accessToken'
       ..fields['reason_code'] = reasonCode;
     if (description != null) request.fields['description'] = description;
-    request.files.add(http.MultipartFile.fromBytes('photo', photoBytes, filename: photoFileName));
+    request.files.add(http.MultipartFile.fromBytes('photo', photoBytes,
+        filename: photoFileName));
     final response = await request.send().timeout(const Duration(seconds: 30));
     return _handleResponse(await http.Response.fromStream(response));
   }
 
   Future<Map<String, dynamic>> startDeliveryReattempt({
-    required String parcelAssignmentId, required String accessToken,
-  }) => _deliveryAttemptAction(parcelAssignmentId, accessToken, 'reattempt', {});
+    required String parcelAssignmentId,
+    required String accessToken,
+  }) =>
+      _deliveryAttemptAction(parcelAssignmentId, accessToken, 'reattempt', {});
 
-  Future<Map<String, dynamic>> _deliveryAttemptAction(String id, String token, String action, Map<String, dynamic> body) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/driver/deliveries/$id/$action'),
-      headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 30), onTimeout: () => throw ApiException(message: 'Connection timed out. Refresh the delivery before trying again.', statusCode: 408));
+  Future<Map<String, dynamic>> _deliveryAttemptAction(
+      String id, String token, String action, Map<String, dynamic> body) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/driver/deliveries/$id/$action'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token'
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30),
+            onTimeout: () => throw ApiException(
+                message:
+                    'Connection timed out. Refresh the delivery before trying again.',
+                statusCode: 408));
     return _handleResponse(response);
   }
 
@@ -1038,11 +1185,22 @@ class ApiService {
     required String decision,
     required String accessToken,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/handoff-decision'),
-      headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $accessToken'},
-      body: jsonEncode({'request_id': requestId, 'decision': decision}),
-    ).timeout(const Duration(seconds: 30), onTimeout: () => throw ApiException(message: 'Connection timed out. Refresh the parcel before trying again.', statusCode: 408));
+    final response = await http
+        .post(
+          Uri.parse(
+              '$baseUrl/driver/deliveries/$parcelAssignmentId/handoff-decision'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken'
+          },
+          body: jsonEncode({'request_id': requestId, 'decision': decision}),
+        )
+        .timeout(const Duration(seconds: 30),
+            onTimeout: () => throw ApiException(
+                message:
+                    'Connection timed out. Refresh the parcel before trying again.',
+                statusCode: 408));
     return _handleResponse(response);
   }
 
@@ -1067,7 +1225,8 @@ class ApiService {
   }) async {
     if (photoBytes == null && photoFilePath == null) {
       throw ApiException(
-        message: 'Please attach a photo of the parcel before marking this picked up.',
+        message:
+            'Please attach a photo of the parcel before marking this picked up.',
         statusCode: 422,
       );
     }
@@ -1101,7 +1260,8 @@ class ApiService {
       final streamedResponse = await request.send().timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw ApiException(
-              message: 'Connection timeout. Please check your internet connection.',
+              message:
+                  'Connection timeout. Please check your internet connection.',
               statusCode: 408,
             ),
           );
@@ -1109,7 +1269,8 @@ class ApiService {
       return _handleResponse(response);
     } on SocketException {
       throw ApiException(
-        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
         statusCode: 0,
       );
     }
@@ -1152,7 +1313,8 @@ class ApiService {
   }) async {
     if (photoBytes == null && photoFilePath == null) {
       throw ApiException(
-        message: 'Please attach a photo of the parcel before marking this delivered.',
+        message:
+            'Please attach a photo of the parcel before marking this delivered.',
         statusCode: 422,
       );
     }
@@ -1186,7 +1348,8 @@ class ApiService {
       final streamedResponse = await request.send().timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw ApiException(
-              message: 'Connection timeout. Please check your internet connection.',
+              message:
+                  'Connection timeout. Please check your internet connection.',
               statusCode: 408,
             ),
           );
@@ -1194,7 +1357,8 @@ class ApiService {
       return _handleResponse(response);
     } on SocketException {
       throw ApiException(
-        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
         statusCode: 0,
       );
     }
@@ -1214,14 +1378,16 @@ class ApiService {
   }) async {
     if (photoBytes == null && photoFilePath == null) {
       throw ApiException(
-        message: 'Please attach a photo of the parcel before confirming the transfer.',
+        message:
+            'Please attach a photo of the parcel before confirming the transfer.',
         statusCode: 422,
       );
     }
 
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/confirm-transfer'),
+      Uri.parse(
+          '$baseUrl/driver/deliveries/$parcelAssignmentId/confirm-transfer'),
     )
       ..headers['Accept'] = 'application/json'
       ..headers['Authorization'] = 'Bearer $accessToken';
@@ -1248,7 +1414,8 @@ class ApiService {
       final streamedResponse = await request.send().timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw ApiException(
-              message: 'Connection timeout. Please check your internet connection.',
+              message:
+                  'Connection timeout. Please check your internet connection.',
               statusCode: 408,
             ),
           );
@@ -1256,7 +1423,8 @@ class ApiService {
       return _handleResponse(response);
     } on SocketException {
       throw ApiException(
-        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
         statusCode: 0,
       );
     }
@@ -1319,9 +1487,11 @@ class ApiService {
       'page': '$page',
       'per_page': '$perPage',
       if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
-      if (status != null && status.isNotEmpty && status != 'all') 'status': status,
+      if (status != null && status.isNotEmpty && status != 'all')
+        'status': status,
     };
-    final uri = Uri.parse('$baseUrl/driver/messages/conversations').replace(queryParameters: queryParameters);
+    final uri = Uri.parse('$baseUrl/driver/messages/conversations')
+        .replace(queryParameters: queryParameters);
     final response = await http.get(uri, headers: {
       'Accept': 'application/json',
       'Authorization': 'Bearer $accessToken',
@@ -1336,8 +1506,12 @@ class ApiService {
     required String accessToken,
   }) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(id)}'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      Uri.parse(
+          '$baseUrl/driver/messages/conversations/${Uri.encodeComponent(id)}'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -1357,7 +1531,8 @@ class ApiService {
       if (before != null && before.isNotEmpty) 'before': before,
       if (after != null && after.isNotEmpty) 'after': after,
     };
-    final uri = Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages')
+    final uri = Uri.parse(
+            '$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages')
         .replace(queryParameters: queryParameters);
     final response = await http.get(uri, headers: {
       'Accept': 'application/json',
@@ -1400,7 +1575,8 @@ class ApiService {
     List<String> attachmentIds = const [],
   }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages'),
+      Uri.parse(
+          '$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/messages'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -1423,28 +1599,33 @@ class ApiService {
     Uint8List? bytes,
     String? filePath,
   }) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/driver/messages/attachments'))
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$baseUrl/driver/messages/attachments'))
       ..headers['Accept'] = 'application/json'
       ..headers['Authorization'] = 'Bearer $accessToken';
 
     if (bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+      request.files
+          .add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
     } else {
-      request.files.add(await http.MultipartFile.fromPath('file', filePath!, filename: fileName));
+      request.files.add(await http.MultipartFile.fromPath('file', filePath!,
+          filename: fileName));
     }
 
     try {
       final streamedResponse = await request.send().timeout(
             const Duration(seconds: 45),
             onTimeout: () => throw ApiException(
-              message: 'Connection timeout. Please check your internet connection.',
+              message:
+                  'Connection timeout. Please check your internet connection.',
               statusCode: 408,
             ),
           );
       return _handleResponse(await http.Response.fromStream(streamedResponse));
     } on SocketException {
       throw ApiException(
-        message: 'Cannot connect to server. Please make sure Laravel is running.',
+        message:
+            'Cannot connect to server. Please make sure Laravel is running.',
         statusCode: 0,
       );
     }
@@ -1458,7 +1639,8 @@ class ApiService {
     required String status,
   }) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/status'),
+      Uri.parse(
+          '$baseUrl/driver/messages/conversations/${Uri.encodeComponent(conversationId)}/status'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -1470,10 +1652,14 @@ class ApiService {
   }
 
   /// Lightweight badge count — GET `/driver/messages/unread-count`.
-  Future<Map<String, dynamic>> getChatUnreadCount({required String accessToken}) async {
+  Future<Map<String, dynamic>> getChatUnreadCount(
+      {required String accessToken}) async {
     final response = await http.get(
       Uri.parse('$baseUrl/driver/messages/unread-count'),
-      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $accessToken'},
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken'
+      },
     );
     return _handleResponse(response);
   }
@@ -1490,11 +1676,12 @@ class ApiService {
       try {
         error = jsonDecode(response.body);
       } catch (_) {}
-      final message =
-          error?['message'] ?? 'Request failed with status ${response.statusCode}';
+      final message = error?['message'] ??
+          'Request failed with status ${response.statusCode}';
       final hint = error?['hint'];
       throw ApiException(
-        message: hint is String && hint.isNotEmpty ? '$message. $hint' : message,
+        message:
+            hint is String && hint.isNotEmpty ? '$message. $hint' : message,
         statusCode: response.statusCode,
         errors: error?['errors'],
         code: error?['code'] is String ? error!['code'] : null,
