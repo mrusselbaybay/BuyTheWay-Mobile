@@ -985,6 +985,7 @@ class ApiService {
     required String documentType,
     required Uint8List bytes,
     required String fileName,
+    String? licenseExpiresOn,
   }) async {
     final request = http.MultipartRequest(
         'POST', Uri.parse('$baseUrl/driver/profile/documents'))
@@ -993,6 +994,9 @@ class ApiService {
       ..fields['document_type'] = documentType
       ..files.add(
           http.MultipartFile.fromBytes('document', bytes, filename: fileName));
+    if (documentType == 'drivers_license' && licenseExpiresOn != null) {
+      request.fields['license_expires_on'] = licenseExpiresOn;
+    }
     try {
       final response =
           await request.send().timeout(const Duration(seconds: 45));
@@ -1003,6 +1007,17 @@ class ApiService {
               'Cannot connect to server. Please check your internet connection.',
           statusCode: 0);
     }
+  }
+
+  Future<Map<String, dynamic>> cancelCourierRegistrationDocumentReplacement({
+    required String accessToken,
+    required String documentType,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/driver/profile/documents/$documentType/replacement'),
+      headers: _authHeaders(accessToken),
+    );
+    return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> getDriverNotificationPreferences(
@@ -1073,6 +1088,30 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Saves a courier's vehicle, plate and license expiry as one reviewed
+  /// snapshot through `PUT /api/driver/profile/vehicle`.
+  Future<Map<String, dynamic>> updateCourierVehicle({
+    required String accessToken,
+    required String vehicle,
+    required String plateNumber,
+    required String licenseExpiresOn,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/driver/profile/vehicle'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({
+        'vehicle': vehicle,
+        'plate_number': plateNumber,
+        'license_expires_on': licenseExpiresOn,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
   /// Uploads the rider's profile picture to
   /// `POST /api/driver/profile/avatar`, which stores it in the public
   /// Supabase `avatars` bucket and returns the new `avatar_url`. [bytes]
@@ -1116,8 +1155,37 @@ class ApiService {
     }
   }
 
-  /// Loads the parcels the logistics team has assigned to the signed-in
-  /// rider/courier for the Deliveries tab, via `GET /api/driver/deliveries`.
+  /// Submits a courier's lost/damaged parcel report to logistics.
+  Future<Map<String, dynamic>> reportDeliveryException({
+    required String parcelAssignmentId,
+    required String accessToken,
+    required String type,
+    required String incidentDate,
+    required String description,
+    Uint8List? photoBytes,
+    String? photoFileName,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(
+          '$baseUrl/driver/deliveries/$parcelAssignmentId/exception-reports'),
+    )
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $accessToken'
+      ..fields['type'] = type
+      ..fields['incident_date'] = incidentDate
+      ..fields['description'] = description;
+    if (photoBytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'photo',
+        photoBytes,
+        filename: photoFileName ?? 'damage.jpg',
+      ));
+    }
+    final response = await request.send().timeout(const Duration(seconds: 45));
+    return _handleResponse(await http.Response.fromStream(response));
+  }
+
   Future<Map<String, dynamic>> markDeliveryFailed({
     required String parcelAssignmentId,
     required String accessToken,

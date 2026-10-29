@@ -38,17 +38,8 @@ const List<String> kRegionOptions = ['Luzon', 'Visayas', 'Mindanao'];
 class _PlateNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final raw = newValue.text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    final letters = StringBuffer();
-    final digits = StringBuffer();
-    for (final character in raw.split('')) {
-      if (letters.length < 3) {
-        if (RegExp(r'[A-Z]').hasMatch(character)) letters.write(character);
-      } else if (digits.length < 3 && RegExp(r'[0-9]').hasMatch(character)) {
-        digits.write(character);
-      }
-    }
-    final formatted = '${letters.toString()}${digits.toString()}';
+    final raw = newValue.text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9 -]'), '');
+    final formatted = raw.length > 20 ? raw.substring(0, 20) : raw;
     return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
@@ -115,6 +106,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool rememberMe = false;
   bool isSubmitting = false;
   bool isSendingCode = false;
+  bool isContinuingSignup = false;
   bool isVerifyingCode = false;
   bool isVerifying = false;
   String errorMsg = '';
@@ -176,10 +168,9 @@ class _AuthScreenState extends State<AuthScreen> {
   String _addressError = '';
 
   // ---------------- Documents ----------------
-  /// Which kind of government ID the primary ID upload actually is. One
-  /// per wizard, matching AuthController::PRIMARY_ID_DOC_TYPE: it labels
-  /// the buyer/seller `valid_id`, the courier `drivers_license`, the
-  /// driver `valid_id`, and the logistics owner's `valid_id`.
+  /// Which kind of government ID the primary ID upload actually is. It
+  /// labels buyer/seller `valid_id` uploads; courier registration only
+  /// collects OR/CR and a driver's license, with no ID-type selector.
   String idType = '';
   String driverIdType = '';
   String ownerIdType = '';
@@ -193,6 +184,7 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Courier ----------------
   String vehicle = '';
   final plateNumber = TextEditingController();
+  DateTime? courierLicenseExpiresOn;
   bool orcrUploaded = false;
   bool licenseUploaded = false;
 
@@ -823,16 +815,17 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     }
     if (selectedRole == 'courier') {
-      if (!RegExp(r'^[A-Z]{3}[0-9]{3}$').hasMatch(plateNumber.text.trim())) {
-        errorMsg = 'Enter a plate number with 3 letters followed by 3 digits.';
+      if (!RegExp(r'^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$').hasMatch(plateNumber.text.trim().toUpperCase())) {
+        errorMsg = 'Enter a plate number with 3–20 letters, numbers, spaces, or hyphens.';
         return false;
       }
       if (vehicle.isEmpty ||
           plateNumber.text.trim().isEmpty ||
+          courierLicenseExpiresOn == null ||
+          DateUtils.dateOnly(courierLicenseExpiresOn!).isBefore(DateUtils.dateOnly(DateTime.now())) ||
           !orcrUploaded ||
-          !licenseUploaded ||
-          idType.isEmpty) {
-        errorMsg = 'Please fill in all courier documents and vehicle info.';
+          !licenseUploaded) {
+        errorMsg = 'Please provide your vehicle details, OR/CR, driver\'s license, and license expiry date.';
         return false;
       }
     }
@@ -941,6 +934,7 @@ class _AuthScreenState extends State<AuthScreen> {
   // ==================== API Calls ====================
 
   Future<bool> _sendVerificationCode(String email) async {
+    if (isSendingCode) return false;
     setState(() {
       isSendingCode = true;
       errorMsg = '';
@@ -1473,7 +1467,6 @@ class _AuthScreenState extends State<AuthScreen> {
       'password_confirmation': confirmPassword.text,
       'role': selectedRole ?? 'buyer',
       ..._personalAddressData(),
-      'id_type': idType,
     };
 
     if (selectedRole == 'seller') {
@@ -1482,7 +1475,9 @@ class _AuthScreenState extends State<AuthScreen> {
     } else if (selectedRole == 'courier') {
       data['vehicle'] = vehicle;
       data['plate_number'] = plateNumber.text.trim();
+      data['license_expires_on'] = _isoDate(courierLicenseExpiresOn);
     }
+    if (selectedRole != 'courier') data['id_type'] = idType;
 
     return data;
   }
@@ -1989,14 +1984,20 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _continueToStep(String step) async {
+    if (isContinuingSignup || isSubmitting || isSendingCode) return;
+    setState(() => isContinuingSignup = true);
     final currentStep = signupStep;
-    await goToStep(step);
-    if (!mounted || signupStep != currentStep) return;
-    final fieldError = validationErrors.values.where((message) => message.isNotEmpty).firstOrNull;
-    final message = errorMsg.isNotEmpty
-        ? errorMsg
-        : (fieldError ?? 'Please correct the highlighted fields before continuing.');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    try {
+      await goToStep(step);
+      if (!mounted || signupStep != currentStep) return;
+      final fieldError = validationErrors.values.where((message) => message.isNotEmpty).firstOrNull;
+      final message = errorMsg.isNotEmpty
+          ? errorMsg
+          : (fieldError ?? 'Please correct the highlighted fields before continuing.');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => isContinuingSignup = false);
+    }
   }
 
   void _handleBackNavigation() {
@@ -2157,10 +2158,14 @@ class _AuthScreenState extends State<AuthScreen> {
           border: Border(top: BorderSide(color: AppColors.slate200)),
         ),
         child: SolidButton(
-          label: isLast ? (isSubmitting ? 'Submitting...' : 'Submit') : 'Continue',
-          icon: isLast ? null : Icons.arrow_forward_rounded,
-          onPressed: isSubmitting ? null : () => isLast ? submitRegistration() : _continueToStep(keys[idx + 1]),
-          loading: isLast && isSubmitting,
+          label: isLast
+              ? (isSubmitting ? 'Submitting...' : 'Submit')
+              : (isContinuingSignup ? 'Continuing...' : 'Continue'),
+          icon: isLast || isContinuingSignup ? null : Icons.arrow_forward_rounded,
+          onPressed: isSubmitting || isContinuingSignup || isSendingCode
+              ? null
+              : () => isLast ? submitRegistration() : _continueToStep(keys[idx + 1]),
+          loading: isSubmitting || isContinuingSignup,
         ),
       ),
     );
@@ -3063,7 +3068,7 @@ class _AuthScreenState extends State<AuthScreen> {
           label: 'Vehicle',
           required: true,
           value: vehicle.isEmpty ? null : vehicle,
-          items: const ['Motorcycle', 'Car', 'Van', 'Bicycle'],
+          items: const ['Motorcycle', 'Car', 'Van', 'Bicycle', 'Truck'],
           icon: Icons.two_wheeler_outlined,
           onChanged: (v) => setState(() => vehicle = v ?? ''),
         ),
@@ -3075,7 +3080,7 @@ class _AuthScreenState extends State<AuthScreen> {
             hint: 'ABC123',
             icon: Icons.pin_outlined,
             textCapitalization: TextCapitalization.characters,
-            maxLength: 6,
+            maxLength: 20,
             inputFormatters: [_PlateNumberFormatter()]),
         const SizedBox(height: 20),
         const SectionDivider(label: 'Verification documents'),
@@ -3087,17 +3092,35 @@ class _AuthScreenState extends State<AuthScreen> {
             fileName: _orcrFileName,
             onTap: () => _pickFile('orcrFile')),
         const SizedBox(height: 10),
-        // For a courier the ID-type dropdown describes the license upload
-        // below it rather than a separate valid ID — that's the
-        // `drivers_license` doc_type in AuthController::PRIMARY_ID_DOC_TYPE.
-        _idTypeDropdown(idType, (v) => setState(() => idType = v)),
-        const SizedBox(height: 12),
         SolidUploadRow(
-            label: "Upload ID / Driver's License",
+            label: "Upload Driver's License",
             required: true,
             uploaded: licenseUploaded,
             fileName: _licenseFileName,
             onTap: () => _pickFile('licenseFile')),
+        const SizedBox(height: 12),
+        const Align(alignment: Alignment.centerLeft, child: Text("Driver's license expiry date", style: TextStyle(fontWeight: FontWeight.w600))),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            onPressed: () async {
+              final today = DateUtils.dateOnly(DateTime.now());
+              final current = courierLicenseExpiresOn;
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: current != null && !current.isBefore(today) ? current : today,
+                firstDate: today,
+                lastDate: DateTime(today.year + 30),
+                helpText: 'Select the license expiry date',
+              );
+              if (picked != null && mounted) setState(() => courierLicenseExpiresOn = DateUtils.dateOnly(picked));
+            },
+            icon: const Icon(Icons.calendar_today_outlined),
+            label: Text(courierLicenseExpiresOn == null ? 'Select expiry date' : _isoDate(courierLicenseExpiresOn)),
+          ),
+        ),
       ]);
     }
 

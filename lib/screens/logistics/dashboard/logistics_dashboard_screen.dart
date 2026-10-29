@@ -3,6 +3,7 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 
 import '../logistics_models.dart';
+import '../logistics_theme.dart';
 
 class LogisticsDashboardScreen extends StatelessWidget {
   const LogisticsDashboardScreen({
@@ -14,6 +15,9 @@ class LogisticsDashboardScreen extends StatelessWidget {
     required this.error,
     required this.onRefresh,
     required this.onOpenInventory,
+    required this.onOpenNextParcel,
+    required this.onOpenRoute,
+    required this.onOpenParcel,
     required this.unreadNotifications,
     required this.onOpenNotifications,
   });
@@ -25,11 +29,14 @@ class LogisticsDashboardScreen extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenInventory;
+  final VoidCallback onOpenNextParcel;
+  final ValueChanged<InventoryOrigin> onOpenRoute;
+  final ValueChanged<InventoryParcel> onOpenParcel;
   final int unreadNotifications;
   final VoidCallback onOpenNotifications;
 
-  static const _teal = Color(0xFF0D9488);
-  static const _paper = Color(0xFFF8FAFC);
+  static const _teal = LogisticsTheme.primary;
+  static const _paper = LogisticsTheme.canvas;
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +109,13 @@ class LogisticsDashboardScreen extends StatelessWidget {
                         Expanded(
                           flex: 3,
                           child: _ScannerHero(
-                              count: pending.length,
-                              loading: loading,
-                              oldest: oldest?.forInventoryAt,
-                              onTap: onOpenInventory),
+                            count: pending.length,
+                            loading: loading,
+                            oldest: oldest?.forInventoryAt,
+                            onTap: pending.isEmpty
+                                ? onOpenInventory
+                                : onOpenNextParcel,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -124,7 +134,9 @@ class LogisticsDashboardScreen extends StatelessWidget {
                         count: pending.length,
                         loading: loading,
                         oldest: oldest?.forInventoryAt,
-                        onTap: onOpenInventory),
+                        onTap: pending.isEmpty
+                            ? onOpenInventory
+                            : onOpenNextParcel),
                     const SizedBox(height: 12),
                     _StatusMonitor(
                       pendingCount: pending.length,
@@ -135,7 +147,8 @@ class LogisticsDashboardScreen extends StatelessWidget {
                   ],
                   if (!loading && delayed > 0 && oldest != null) ...[
                     const SizedBox(height: 18),
-                    _AttentionCard(parcel: oldest, onTap: onOpenInventory),
+                    _AttentionCard(
+                        parcel: oldest, onTap: () => onOpenParcel(oldest)),
                   ],
                   const SizedBox(height: 22),
                   _SectionHeading(
@@ -150,7 +163,8 @@ class LogisticsDashboardScreen extends StatelessWidget {
                               subtitle: 'Pickup',
                               count: loading ? null : pickup,
                               accent: _teal,
-                              onTap: onOpenInventory)),
+                              onTap: () =>
+                                  onOpenRoute(InventoryOrigin.pickup))),
                       const SizedBox(width: 10),
                       Expanded(
                           child: _RouteCard(
@@ -159,7 +173,8 @@ class LogisticsDashboardScreen extends StatelessWidget {
                               subtitle: 'Inbound',
                               count: loading ? null : inbound,
                               accent: const Color(0xFF2563EB),
-                              onTap: onOpenInventory)),
+                              onTap: () => onOpenRoute(
+                                  InventoryOrigin.transferReceipt))),
                       const SizedBox(width: 10),
                       Expanded(
                           child: _RouteCard(
@@ -168,14 +183,15 @@ class LogisticsDashboardScreen extends StatelessWidget {
                               subtitle: 'Outbound',
                               count: loading ? null : outbound,
                               accent: const Color(0xFF7C3AED),
-                              onTap: onOpenInventory)),
+                              onTap: () => onOpenRoute(
+                                  InventoryOrigin.transferDeparture))),
                     ])
                   else
                     _RouteBreakdown(
                         pickup: loading ? null : pickup,
                         inbound: loading ? null : inbound,
                         outbound: loading ? null : outbound,
-                        onTap: onOpenInventory),
+                        onOpenRoute: onOpenRoute),
                   if (recentScans.isNotEmpty) ...[
                     const SizedBox(height: 22),
                     _SectionHeading(
@@ -183,7 +199,7 @@ class LogisticsDashboardScreen extends StatelessWidget {
                     const SizedBox(height: 9),
                     _RecentActivity(
                         parcels: recentScans.take(3).toList(),
-                        onTap: onOpenInventory),
+                        onTap: onOpenParcel),
                   ],
                   const SizedBox(height: 16),
                   const _SecurityNote(),
@@ -209,7 +225,8 @@ class _DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(
                 child: Image.asset(
@@ -266,7 +283,7 @@ class _ScannerHero extends StatelessWidget {
   final DateTime? oldest;
   final VoidCallback onTap;
 
-  static const _teal = Color(0xFF0D9488);
+  static const _teal = LogisticsTheme.primary;
 
   String get _oldestLabel {
     if (oldest == null) return 'Ready for the next courier handover.';
@@ -302,7 +319,7 @@ class _ScannerHero extends StatelessWidget {
                           child: const Text('RECEIVING TERMINAL',
                               style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 9,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 1.05))),
                       const Spacer(),
@@ -368,7 +385,7 @@ class _ScannerHero extends StatelessWidget {
                                   const Text('PARCELS IN QUEUE',
                                       style: TextStyle(
                                           color: Color(0xFFD1FAE5),
-                                          fontSize: 8,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: .8)),
                                 ]),
@@ -389,7 +406,7 @@ class _ScannerHero extends StatelessWidget {
                           child: Text(
                               count == 0
                                   ? 'View parcel records'
-                                  : 'Open parcel queue',
+                                  : 'Review next parcel',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -450,7 +467,7 @@ class _StatusMonitor extends StatelessWidget {
                 child: Text('TODAY AT A GLANCE',
                     style: TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2))),
             Icon(Icons.monitor_heart_outlined,
@@ -512,7 +529,7 @@ class _MiniStat extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+                  color: color, fontSize: 12, fontWeight: FontWeight.w700)),
         ]),
       );
 }
@@ -534,7 +551,7 @@ class _SectionHeading extends StatelessWidget {
         Text(caption,
             style: const TextStyle(
                 color: Color(0xFF94A3B8),
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1)),
       ]);
@@ -545,11 +562,11 @@ class _RouteBreakdown extends StatelessWidget {
       {required this.pickup,
       required this.inbound,
       required this.outbound,
-      required this.onTap});
+      required this.onOpenRoute});
   final int? pickup;
   final int? inbound;
   final int? outbound;
-  final VoidCallback onTap;
+  final ValueChanged<InventoryOrigin> onOpenRoute;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -563,8 +580,8 @@ class _RouteBreakdown extends StatelessWidget {
               title: 'Seller collection',
               subtitle: 'Pickup',
               count: pickup,
-              accent: const Color(0xFF0D9488),
-              onTap: onTap),
+              accent: LogisticsTheme.primary,
+              onTap: () => onOpenRoute(InventoryOrigin.pickup)),
           const Divider(
               height: 1, indent: 14, endIndent: 14, color: Color(0xFFF1F5F9)),
           _RouteRow(
@@ -572,8 +589,8 @@ class _RouteBreakdown extends StatelessWidget {
               title: 'Hub transfer in',
               subtitle: 'Inbound',
               count: inbound,
-              accent: const Color(0xFF2563EB),
-              onTap: onTap),
+              accent: LogisticsTheme.primary,
+              onTap: () => onOpenRoute(InventoryOrigin.transferReceipt)),
           const Divider(
               height: 1, indent: 14, endIndent: 14, color: Color(0xFFF1F5F9)),
           _RouteRow(
@@ -581,8 +598,8 @@ class _RouteBreakdown extends StatelessWidget {
               title: 'Hub transfer out',
               subtitle: 'Outbound',
               count: outbound,
-              accent: const Color(0xFF7C3AED),
-              onTap: onTap),
+              accent: LogisticsTheme.primary,
+              onTap: () => onOpenRoute(InventoryOrigin.transferDeparture)),
         ]),
       );
 }
@@ -623,7 +640,7 @@ class _RouteRow extends StatelessWidget {
                   Text(subtitle.toUpperCase(),
                       style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 8,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: .8)),
                 ])),
@@ -688,7 +705,7 @@ class _RouteCard extends StatelessWidget {
                     Text(subtitle.toUpperCase(),
                         style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 8,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: .7)),
                   ])),
@@ -772,7 +789,7 @@ class _AttentionCard extends StatelessWidget {
                     const Text('NEEDS ATTENTION',
                         style: TextStyle(
                             color: Color(0xFFC2410C),
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: .8)),
                     const SizedBox(height: 3),
@@ -790,7 +807,7 @@ class _AttentionCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: Color(0xFF9A3412),
-                            fontSize: 10.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600)),
                   ])),
               const SizedBox(width: 8),
@@ -810,7 +827,7 @@ class _AttentionCard extends StatelessWidget {
 class _RecentActivity extends StatelessWidget {
   const _RecentActivity({required this.parcels, required this.onTap});
   final List<InventoryParcel> parcels;
-  final VoidCallback onTap;
+  final ValueChanged<InventoryParcel> onTap;
 
   String _time(DateTime? value) {
     if (value == null) return '';
@@ -829,7 +846,7 @@ class _RecentActivity extends StatelessWidget {
         child: Column(children: [
           for (var i = 0; i < parcels.length; i++) ...[
             InkWell(
-              onTap: onTap,
+              onTap: () => onTap(parcels[i]),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
@@ -859,7 +876,7 @@ class _RecentActivity extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: Color(0xFF1E293B),
-                                fontSize: 11.5,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w800)),
                         const SizedBox(height: 2),
                         Text(
@@ -868,7 +885,7 @@ class _RecentActivity extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 9.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w500)),
                       ])),
                   const Icon(Icons.chevron_right_rounded,

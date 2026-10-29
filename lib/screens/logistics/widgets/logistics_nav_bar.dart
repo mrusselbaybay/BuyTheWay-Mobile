@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../logistics_theme.dart';
 
 class LogisticsNavBar extends StatelessWidget {
   const LogisticsNavBar(
@@ -13,16 +14,16 @@ class LogisticsNavBar extends StatelessWidget {
   final Map<int, int> badges;
 
   static const _items = [
+    (index: 0, icon: Icons.grid_view_rounded, label: 'Today'),
     (index: 1, icon: Icons.qr_code_scanner_rounded, label: 'Parcels'),
-    (index: 0, icon: Icons.grid_view_rounded, label: 'Overview'),
     (index: 2, icon: Icons.person_outline_rounded, label: 'Account'),
   ];
 
   @override
   Widget build(BuildContext context) => Container(
         decoration: const BoxDecoration(
-            color: Color(0xFFF3F2EC),
-            border: Border(top: BorderSide(color: Color(0xFFE2E4DD)))),
+            color: LogisticsTheme.surface,
+            border: Border(top: BorderSide(color: LogisticsTheme.border))),
         child: SafeArea(
           top: false,
           child: SizedBox(
@@ -42,7 +43,8 @@ class LogisticsNavBar extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Badge(
-                              isLabelVisible: (badges[_items[i].index] ?? 0) > 0,
+                              isLabelVisible:
+                                  (badges[_items[i].index] ?? 0) > 0,
                               label: Text((badges[_items[i].index] ?? 0) > 99
                                   ? '99+'
                                   : '${badges[_items[i].index]}'),
@@ -52,13 +54,15 @@ class LogisticsNavBar extends StatelessWidget {
                                 height: 26,
                                 alignment: Alignment.center,
                                 decoration: currentIndex == _items[i].index
-                                    ? BoxDecoration(color: const Color(0xFFDDF1EC), borderRadius: BorderRadius.circular(8))
+                                    ? BoxDecoration(
+                                        color: LogisticsTheme.primarySoft,
+                                        borderRadius: BorderRadius.circular(8))
                                     : null,
                                 child: Icon(_items[i].icon,
                                     size: 20,
                                     color: currentIndex == _items[i].index
-                                        ? const Color(0xFF0D9488)
-                                        : const Color(0xFF84938A)),
+                                        ? LogisticsTheme.primary
+                                        : LogisticsTheme.muted),
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -69,8 +73,8 @@ class LogisticsNavBar extends StatelessWidget {
                                         ? FontWeight.w800
                                         : FontWeight.w500,
                                     color: currentIndex == _items[i].index
-                                        ? const Color(0xFF0D9488)
-                                        : const Color(0xFF84938A))),
+                                        ? LogisticsTheme.primary
+                                        : LogisticsTheme.muted)),
                           ]),
                     ),
                   ),

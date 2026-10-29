@@ -250,6 +250,233 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   final ApiService _api = ApiService();
 
+  Future<void> _reportParcelIssue() => _flow(_reportParcelIssueFlow);
+
+  Future<void> _reportParcelIssueFlow() async {
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('What happened?', style: DriverText.title),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.search_off_rounded),
+                title: const Text('Report as lost'),
+                subtitle: const Text('The parcel cannot be located.'),
+                onTap: () => Navigator.pop(context, 'lost'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.broken_image_outlined),
+                title: const Text('Report as damaged'),
+                subtitle: const Text('A photo of the damage is required.'),
+                onTap: () => Navigator.pop(context, 'damaged'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (type == null || !mounted) return;
+
+    final description = TextEditingController();
+    DateTime incidentDate = DateTime.now();
+    Uint8List? photoBytes;
+    String? photoName;
+    bool saving = false;
+    String? error;
+    final picker = ImagePicker();
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          String dateValue(DateTime value) =>
+              '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                  20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        type == 'lost'
+                            ? 'Report parcel as lost'
+                            : 'Report parcel as damaged',
+                        style: DriverText.title),
+                    const SizedBox(height: 14),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today_rounded),
+                      title: Text(type == 'lost'
+                          ? 'Date lost / last seen'
+                          : 'Date damaged'),
+                      subtitle: Text(dateValue(incidentDate)),
+                      onTap: saving
+                          ? null
+                          : () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: incidentDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                              );
+                              if (picked != null) {
+                                setSheetState(() => incidentDate = picked);
+                              }
+                            },
+                    ),
+                    TextField(
+                      controller: description,
+                      minLines: 3,
+                      maxLines: 5,
+                      maxLength: 2000,
+                      decoration: InputDecoration(
+                        labelText: 'What happened?',
+                        hintText:
+                            'Describe where and when the parcel was last handled.',
+                        border: const OutlineInputBorder(),
+                        errorText: description.text.trim().isNotEmpty &&
+                                description.text.trim().length < 10
+                            ? 'Enter at least 10 characters.'
+                            : null,
+                      ),
+                    ),
+                    if (type == 'damaged') ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                final source = await showModalBottomSheet<ImageSource>(
+                                  context: context,
+                                  showDragHandle: true,
+                                  builder: (context) => SafeArea(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(Icons.camera_alt_outlined),
+                                          title: const Text('Take a photo'),
+                                          onTap: () => Navigator.pop(context, ImageSource.camera),
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(Icons.photo_library_outlined),
+                                          title: const Text('Choose from gallery'),
+                                          onTap: () => Navigator.pop(context, ImageSource.gallery),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                                if (source == null || !context.mounted) return;
+                                final image = await picker.pickImage(
+                                  source: source,
+                                  imageQuality: 82,
+                                  maxWidth: 1600,
+                                );
+                                if (image == null) return;
+                                final bytes = await image.readAsBytes();
+                                if (bytes.length > 5 * 1024 * 1024) {
+                                  setSheetState(() => error =
+                                      'Choose an image smaller than 5 MB.');
+                                  return;
+                                }
+                                setSheetState(() {
+                                  photoBytes = bytes;
+                                  photoName = image.name;
+                                  error = null;
+                                });
+                              },
+                        icon: Icon(photoBytes == null
+                            ? Icons.camera_alt_outlined
+                            : Icons.check_circle_outline),
+                        label: Text(photoBytes == null
+                            ? 'Add damage photo (required)'
+                            : 'Damage photo attached'),
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(error!,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
+                    ],
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                final details = description.text.trim();
+                                if (details.length < 10 ||
+                                    (type == 'damaged' && photoBytes == null)) {
+                                  setSheetState(() => error = type ==
+                                              'damaged' &&
+                                          photoBytes == null
+                                      ? 'Attach a photo before submitting a damage report.'
+                                      : 'Please describe what happened (at least 10 characters).');
+                                  return;
+                                }
+                                setSheetState(() {
+                                  saving = true;
+                                  error = null;
+                                });
+                                try {
+                                  await _api.reportDeliveryException(
+                                    parcelAssignmentId: widget.delivery.id,
+                                    accessToken: widget.accessToken,
+                                    type: type,
+                                    incidentDate: dateValue(incidentDate),
+                                    description: details,
+                                    photoBytes: photoBytes,
+                                    photoFileName: photoName,
+                                  );
+                                  if (context.mounted) {
+                                    Navigator.pop(context, true);
+                                  }
+                                } on ApiException catch (e) {
+                                  setSheetState(() {
+                                    saving = false;
+                                    error = e.message;
+                                  });
+                                } catch (_) {
+                                  setSheetState(() {
+                                    saving = false;
+                                    error =
+                                        'Could not submit the report. Check your connection and try again.';
+                                  });
+                                }
+                              },
+                        child: Text(
+                            saving ? 'Submitting report...' : 'Submit report'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    description.dispose();
+    if (submitted == true && mounted) {
+      DriverTopNotification.show(context,
+          message: 'Parcel issue reported to logistics.');
+    }
+  }
+
   String? _photoFileName;
   Uint8List? _photoBytes;
   String? _photoFilePath;
@@ -950,7 +1177,30 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          if (d.status != AssignedDeliveryStatus.delivered &&
+              d.status != AssignedDeliveryStatus.transferred &&
+              d.status != AssignedDeliveryStatus.handedOver) ...[
+            const SizedBox(height: 16),
+            _sectionCard(
+              icon: Icons.report_problem_outlined,
+              title: 'Report a parcel issue',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'Report a parcel that is lost or damaged while in your care.',
+                      style: DriverText.caption),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _inFlow ? null : _reportParcelIssue,
+                    icon: const Icon(Icons.add_alert_rounded),
+                    label: const Text('Report lost or damaged'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           if (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned) ...[
             _sectionCard(
               icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,

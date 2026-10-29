@@ -538,6 +538,8 @@ class DriverAccount {
 
   // ---- Vehicle & documents (read-only — driver_details/courier_details) ----
   String licenseNumber;
+  String licenseExpiresOn;
+  String vehicleVerificationStatus;
   String? logisticsCompanyName;
 
   /// Shift availability behind the Settings screen's "Go online" toggle —
@@ -584,6 +586,8 @@ class DriverAccount {
     required this.street,
     this.houseNo = '',
     required this.licenseNumber,
+    this.licenseExpiresOn = '',
+    this.vehicleVerificationStatus = 'pending',
     this.logisticsCompanyName,
     this.deliveryStatus = 'unavailable',
     this.accountStatus = 'Active',
@@ -645,6 +649,10 @@ class DriverAccount {
       street: str(address?['street']),
       houseNo: str(address?['house_no']),
       licenseNumber: str(vehicle['license_number']),
+      licenseExpiresOn: str(vehicle['license_expires_on']),
+      vehicleVerificationStatus: str(vehicle['vehicle_verification_status']).isEmpty
+          ? 'pending'
+          : str(vehicle['vehicle_verification_status']),
       logisticsCompanyName: str(vehicle['logistics_company_name']).isEmpty ? null : str(vehicle['logistics_company_name']),
       deliveryStatus: str(vehicle['delivery_status']) == 'available' ? 'available' : 'unavailable',
       accountStatus: str(profile['account_status']).isEmpty ? 'active' : str(profile['account_status']),
@@ -683,6 +691,8 @@ class DriverAccount {
     street = other.street;
     houseNo = other.houseNo;
     licenseNumber = other.licenseNumber;
+    licenseExpiresOn = other.licenseExpiresOn;
+    vehicleVerificationStatus = other.vehicleVerificationStatus;
     logisticsCompanyName = other.logisticsCompanyName;
     deliveryStatus = other.deliveryStatus;
     accountStatus = other.accountStatus;

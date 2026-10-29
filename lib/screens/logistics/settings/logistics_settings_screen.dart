@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../../widgets/sign_in_methods_section.dart';
 import '../../driver/driver_theme.dart';
+import '../logistics_theme.dart';
 import '../../driver/settings/widgets/settings_widgets.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../../remittances/payment_qr_screen.dart';
@@ -129,12 +129,14 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
       _address['municipality_name'],
       _address['barangay'],
     ];
-    return values.where((value) => value?.toString().trim().isNotEmpty == true).length;
+    return values
+        .where((value) => value?.toString().trim().isNotEmpty == true)
+        .length;
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: DriverColors.background,
+        backgroundColor: LogisticsTheme.canvas,
         body: SafeArea(
             child: DriverRefreshable(
           onRefresh: _refresh,
@@ -185,14 +187,6 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
                             context,
                             MaterialPageRoute(
                                 builder: (_) => const _SecurityScreen()))),
-                    SettingsNavTile(
-                        icon: Icons.brightness_6_outlined,
-                        title: 'Appearance',
-                        subtitle: 'Light, dark or system setting',
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const _AppearanceScreen()))),
                   ]),
                   if (_company.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -238,8 +232,8 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
                   SettingsGroupCard(children: [
                     SettingsNavTile(
                         icon: Icons.notifications_none_rounded,
-                        title: 'Notifications',
-                        subtitle: 'Team alerts and automatic company emails',
+                        title: 'Notification guide',
+                        subtitle: 'Alerts and automatic company emails',
                         onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -270,13 +264,7 @@ class _SettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Settings',
-              style: TextStyle(
-                  color: DriverColors.textPrimary,
-                  fontSize: 28,
-                  height: 1,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1.05)),
+          const Text('Settings', style: LogisticsTheme.pageTitle),
           const SizedBox(height: 7),
           const Text('Manage your team identity, hub and portal preferences.',
               style: TextStyle(
@@ -336,9 +324,8 @@ class _ProfileProgress extends StatelessWidget {
                     value: progress,
                     strokeWidth: 4,
                     backgroundColor: Colors.white,
-                    color: complete
-                        ? DriverColors.success
-                        : DriverColors.warning),
+                    color:
+                        complete ? DriverColors.success : DriverColors.warning),
                 Text('${(progress * 100).round()}',
                     style: const TextStyle(
                         fontSize: 9, fontWeight: FontWeight.w800)),
@@ -574,10 +561,10 @@ class _SettingsEditorState extends State<_SettingsEditor> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: DriverColors.background,
+        backgroundColor: LogisticsTheme.canvas,
         appBar: AppBar(
             title: Text(_title),
-            backgroundColor: DriverColors.background,
+            backgroundColor: LogisticsTheme.canvas,
             surfaceTintColor: Colors.transparent),
         body: Form(
             key: _form,
@@ -644,10 +631,10 @@ class _SecurityScreen extends StatelessWidget {
   const _SecurityScreen();
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: DriverColors.background,
+      backgroundColor: LogisticsTheme.canvas,
       appBar: AppBar(
           title: const Text('Security'),
-          backgroundColor: DriverColors.background,
+          backgroundColor: LogisticsTheme.canvas,
           surfaceTintColor: Colors.transparent),
       body: ListView(
           padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
@@ -657,65 +644,6 @@ class _SecurityScreen extends StatelessWidget {
             const SizedBox(height: 22),
             const SignInMethodsSection()
           ]));
-}
-
-class _AppearanceScreen extends StatefulWidget {
-  const _AppearanceScreen();
-  @override
-  State<_AppearanceScreen> createState() => _AppearanceScreenState();
-}
-
-class _AppearanceScreenState extends State<_AppearanceScreen> {
-  String _value = 'system';
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted)
-      setState(() => _value = prefs.getString('logistics_theme') ?? 'system');
-  }
-
-  Future<void> _set(String value) async {
-    await (await SharedPreferences.getInstance())
-        .setString('logistics_theme', value);
-    if (mounted) setState(() => _value = value);
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-      backgroundColor: DriverColors.background,
-      appBar: AppBar(
-          title: const Text('Appearance'),
-          backgroundColor: DriverColors.background,
-          surfaceTintColor: Colors.transparent),
-      body: ListView(padding: const EdgeInsets.all(22), children: [
-        const Text('Choose how the Logistics app looks on this device.',
-            style: DriverText.body),
-        const SizedBox(height: 18),
-        SettingsGroupCard(children: [
-          for (final option in const [
-            ('light', 'Light', Icons.light_mode_outlined),
-            ('dark', 'Dark', Icons.dark_mode_outlined),
-            ('system', 'System', Icons.settings_suggest_outlined)
-          ])
-            RadioListTile<String>(
-                value: option.$1,
-                groupValue: _value,
-                onChanged: (value) {
-                  if (value != null) _set(value);
-                },
-                title: Text(option.$2),
-                secondary: Icon(option.$3))
-        ]),
-        const SizedBox(height: 12),
-        const Text(
-            'Saved on this device. Full app-wide dark styling is being rolled out screen by screen.',
-            style: TextStyle(color: DriverColors.textSecondary, fontSize: 12)),
-      ]));
 }
 
 class _NotificationsScreen extends StatelessWidget {
@@ -739,10 +667,10 @@ class _NotificationsScreen extends StatelessWidget {
   ];
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: DriverColors.background,
+      backgroundColor: LogisticsTheme.canvas,
       appBar: AppBar(
-          title: const Text('Notifications'),
-          backgroundColor: DriverColors.background,
+          title: const Text('Notification guide'),
+          backgroundColor: LogisticsTheme.canvas,
           surfaceTintColor: Colors.transparent),
       body: ListView(padding: const EdgeInsets.all(22), children: [
         const SettingsSectionLabel('Needs attention'),

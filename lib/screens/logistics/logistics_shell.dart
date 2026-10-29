@@ -10,7 +10,9 @@ import '../auth/auth_screen.dart';
 import '../driver/driver_theme.dart';
 import 'dashboard/logistics_dashboard_screen.dart';
 import 'inventory/logistics_inventory_screen.dart';
+import 'inventory/inventory_detail_screen.dart';
 import 'logistics_models.dart';
+import 'logistics_theme.dart';
 import 'notifications/logistics_notifications_screen.dart';
 import 'settings/logistics_settings_screen.dart';
 import 'widgets/logistics_nav_bar.dart';
@@ -38,6 +40,8 @@ class _LogisticsShellState extends State<LogisticsShell> {
   final ApiService _api = ApiService();
 
   int _tabIndex = 0;
+  InventoryOrigin? _inventoryOrigin;
+  int _inventoryViewVersion = 0;
 
   String? _accessToken;
   LogisticsAccount? _account;
@@ -415,6 +419,28 @@ class _LogisticsShellState extends State<LogisticsShell> {
     if (i != 2) unawaited(_poller.refreshIfStale());
   }
 
+  void _openInventoryRoute(InventoryOrigin origin) {
+    setState(() {
+      _inventoryOrigin = origin;
+      _inventoryViewVersion++;
+      _tabIndex = 1;
+    });
+  }
+
+  Future<void> _openParcel(InventoryParcel parcel) async {
+    final token = _accessToken;
+    if (token == null) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => InventoryDetailScreen(
+        parcelId: parcel.id,
+        accessToken: token,
+        onScanActive: _setScanActive,
+        onScanned: _onParcelScanned,
+      ),
+    ));
+    if (mounted) await _refreshAll();
+  }
+
   Future<void> _signOutToLogin() async {
     _poller.stop();
     await PushService.instance
@@ -487,10 +513,28 @@ class _LogisticsShellState extends State<LogisticsShell> {
         error: _inventoryError,
         onRefresh: _refreshAll,
         onOpenInventory: () => _selectTab(1),
+        onOpenNextParcel: () {
+          if (_pending.isEmpty) {
+            _selectTab(1);
+            return;
+          }
+          final ordered = [..._pending]..sort((a, b) {
+              final aTime = a.forInventoryAt;
+              final bTime = b.forInventoryAt;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return aTime.compareTo(bTime);
+            });
+          _openParcel(ordered.first);
+        },
+        onOpenRoute: _openInventoryRoute,
+        onOpenParcel: _openParcel,
         unreadNotifications: _notifUnread,
         onOpenNotifications: _openNotifications,
       ),
       LogisticsInventoryScreen(
+        initialOrigin: _inventoryOrigin,
+        viewVersion: _inventoryViewVersion,
         pending: _pending,
         scanned: _scanned,
         loading: _loadingInventory,
@@ -512,7 +556,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
     ];
 
     return Scaffold(
-      backgroundColor: DriverColors.background,
+      backgroundColor: LogisticsTheme.canvas,
       body: IndexedStack(index: _tabIndex, children: pages),
       bottomNavigationBar: LogisticsNavBar(
           currentIndex: _tabIndex,

@@ -8,6 +8,7 @@ import '../../driver/deliveries/qr_scan_screen.dart';
 import '../../driver/driver_theme.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../logistics_models.dart';
+import '../logistics_theme.dart';
 
 /// Full detail for one parcel — reached from either Inventory tab.
 ///
@@ -332,7 +333,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final parcel = _parcel;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F1),
+      backgroundColor: LogisticsTheme.canvas,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -374,7 +375,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                         parcel?.trackingNumber ?? parcel?.orderNumber ?? 'Parcel',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Color(0xFF172923), fontSize: 27, height: 1.08, fontWeight: FontWeight.w800, letterSpacing: -.8),
+                        style: LogisticsTheme.pageTitle,
                       )),
                       if ((parcel?.trackingNumber ?? parcel?.orderNumber) != null)
                         IconButton(
