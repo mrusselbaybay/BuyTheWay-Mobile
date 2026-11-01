@@ -400,22 +400,6 @@ class _DriverVehicleDocumentsScreenState
                       textCapitalization: TextCapitalization.characters,
                     ),
                     const SizedBox(height: 12),
-                    SettingsDateField(
-                      label: "Driver's license expiry date",
-                      value: _licenseExpiryDate,
-                      enabled: !_savingVehicle,
-                      onTap: _chooseLicenseExpiry,
-                    ),
-                    const SizedBox(height: 8),
-                    const SettingsInfoNote(
-                        "To change this date, choose the new expiry and upload the renewed driver's license below. Logistics reviews them together."),
-                    const SizedBox(height: 10),
-                    SettingsInfoNote(
-                      a.vehicleVerificationStatus == 'pending'
-                          ? 'Changes are visible to Logistics and need re-verification.'
-                          : 'Changes to vehicle details are sent to Logistics for re-verification.',
-                    ),
-                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -456,9 +440,19 @@ class _DriverVehicleDocumentsScreenState
                   const SizedBox(height: 10),
                   _documentTile('drivers_license', "Driver's license",
                       Icons.badge_outlined),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+                  SettingsDateField(
+                    label: "Driver's license expiry date",
+                    value: _licenseExpiryDate,
+                    enabled: !_savingVehicle,
+                    onTap: _chooseLicenseExpiry,
+                  ),
+                  const SizedBox(height: 8),
                   const SettingsInfoNote(
-                      'A replacement is sent to Logistics for review. You can cancel it while it is pending.'),
+                      "To update the expiry date, select the new date and upload the renewed driver's license above. Logistics reviews them together."),
+                  const SizedBox(height: 8),
+                  const SettingsInfoNote(
+                      'The license and expiry are sent as one replacement request. While Logistics review is pending, you can cancel it and restore your previous license and expiry.'),
                 ],
               ] else
                 const SizedBox(height: 14),
