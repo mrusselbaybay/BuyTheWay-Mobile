@@ -1247,6 +1247,20 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> getDriverParcelTracking({
+    required String parcelAssignmentId,
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/driver/deliveries/$parcelAssignmentId/tracking'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+    return _handleResponse(response);
+  }
+
   Future<Map<String, dynamic>> decideHandoff({
     required String parcelAssignmentId,
     required String requestId,

@@ -1,9 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/api_service.dart';
 import '../../widgets/brand_logo.dart';
 import '../auth/auth_screen.dart';
+import '../buyer/buyer_shell.dart';
+import '../driver/driver_shell.dart';
+import '../logistics/logistics_shell.dart';
 
 /// App-launch splash: the shopping bag drops in, its handle is drawn on,
 /// the pathway is "paved" through the bag, then the wordmark rises in.
@@ -16,6 +21,8 @@ class BrandSplashScreen extends StatefulWidget {
 }
 
 class _BrandSplashScreenState extends State<BrandSplashScreen> with SingleTickerProviderStateMixin {
+  final ApiService _api = ApiService();
+
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2200),
@@ -27,12 +34,63 @@ class _BrandSplashScreenState extends State<BrandSplashScreen> with SingleTicker
     _controller.forward().whenComplete(() async {
       await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
+      final destination = await _resolveDestination();
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 450),
-        pageBuilder: (_, __, ___) => const AuthScreen(),
+        pageBuilder: (_, __, ___) => destination,
         transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
       ));
     });
+  }
+
+  Future<Widget> _resolveDestination() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) return const AuthScreen();
+
+    final cachedRole = prefs.getString('last_auth_role');
+    try {
+      final user = await _api.getUser(token);
+      final metadata = (user['user_metadata'] as Map?) ?? {};
+      final role = (metadata['role'] ?? user['role'] ?? '').toString();
+      final status = (metadata['status'] ?? '').toString();
+      final destination = _dashboardFor(role);
+      if (destination != null && status != 'rejected') {
+        await prefs.setString('last_auth_role', role);
+        return destination;
+      }
+
+      await prefs.remove('auth_token');
+      await prefs.remove('last_auth_role');
+      return const AuthScreen();
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 419) {
+        await prefs.remove('auth_token');
+        await prefs.remove('last_auth_role');
+        return const AuthScreen();
+      }
+      return _dashboardFor(cachedRole ?? '') ?? const AuthScreen();
+    } catch (_) {
+      // If the device is temporarily offline, the role saved at sign-in lets
+      // the correct shell handle its own connection/session state.
+      return _dashboardFor(cachedRole ?? '') ?? const AuthScreen();
+    }
+  }
+
+  Widget? _dashboardFor(String role) {
+    switch (role) {
+      case 'buyer':
+        return const BuyerShell();
+      case 'courier':
+      case 'driver':
+        return const DriverShell();
+      case 'logistics':
+      case 'logistics_admin':
+        return const LogisticsShell();
+      default:
+        return null;
+    }
   }
 
   @override

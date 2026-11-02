@@ -13,6 +13,7 @@ import '../../../services/poller.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../remittances/remittance_format.dart';
 import '../../remittances/remittances_screen.dart';
+import '../../buyer/orders/parcel_tracking.dart';
 import '../chat/driver_chat_controller.dart';
 import '../chat/driver_delivery_message_screen.dart';
 import '../driver_models.dart';
@@ -1181,6 +1182,89 @@ class _AssignedDeliveryDetailScreenState
     }
   }
 
+  Widget _parcelHeader(
+      AssignedDelivery d, String status, Color statusColor, IconData statusIcon) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 6, 16, 14),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: DriverColors.heroGradient,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Material(
+            color: Colors.white.withOpacity(0.14),
+            shape: const CircleBorder(),
+            child: IconButton(
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              padding: EdgeInsets.zero,
+              tooltip: 'Back to deliveries',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('#${d.trackingNumber ?? d.orderNumber}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3)),
+                const SizedBox(height: 2),
+                Text('For ${d.customerName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.86),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(16)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(statusIcon, size: 14, color: statusColor),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800)),
+              ),
+            ]),
+          ),
+        ]),
+        if (d.isReturn) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 52),
+            child: DriverReturnChip(returned: d.isReturned),
+          ),
+        ],
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = widget.delivery;
@@ -1192,24 +1276,7 @@ class _AssignedDeliveryDetailScreenState
         bottom: false,
         child: Column(
           children: [
-            DriverGradientHeader(
-              title: d.customerName,
-              subtitle:
-                  '#${d.orderNumber}${d.trackingNumber != null ? ' · Tracking ${d.trackingNumber}' : ''}',
-              onBack: () => Navigator.of(context).pop(),
-              trailing: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DriverStatusBadge(
-                      label: tagLabel, color: tagColor, icon: tagIcon),
-                  if (d.isReturn) ...[
-                    const SizedBox(height: 4),
-                    DriverReturnChip(returned: d.isReturned),
-                  ],
-                ],
-              ),
-            ),
+            _parcelHeader(d, tagLabel, tagColor, tagIcon),
             if (d.financialFlow == 'manual' &&
                 d.paymentMethod == 'cod' &&
                 d.status == AssignedDeliveryStatus.delivered &&
@@ -1356,6 +1423,16 @@ class _AssignedDeliveryDetailScreenState
               ),
               const SizedBox(height: 16),
             ],
+            const Text('Parcel tracking', style: DriverText.sectionTitle),
+            const SizedBox(height: 10),
+            ParcelMapCard(
+              orderNumber: d.orderNumber,
+              history: const [],
+              accessToken: widget.accessToken,
+              parcelAssignmentId: d.id,
+              showUnavailable: true,
+              showTimeline: false,
+            ),
             DriverDispatchChip(label: d.dispatchedByLabel),
             if (d.status == AssignedDeliveryStatus.waitingApproval) ...[
               const SizedBox(height: 12),
@@ -1432,46 +1509,53 @@ class _AssignedDeliveryDetailScreenState
             const SizedBox(height: 16),
             _sectionCard(
               icon: Icons.route_rounded,
-              title: 'Route',
+              title: 'Pickup & drop-off',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    const Icon(Icons.storefront_rounded,
-                        size: 15, color: DriverColors.textSecondary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: Text(
-                      d.isReturn
-                          ? (d.returnPickupAddress ?? d.pickupLabel)
-                          : (d.pickupAddress ??
-                              (d.status == AssignedDeliveryStatus.assigned &&
-                                      d.handedOffAt == null
-                                  ? 'Seller pickup address unavailable — contact the seller or Logistics before traveling.'
-                                  : d.pickupLabel)),
-                      style: DriverText.body,
-                    )),
-                  ]),
+                  _routeLocation(
+                    icon: Icons.storefront_rounded,
+                    label: d.isReturn ? 'COLLECT FROM' : 'PICK UP FROM',
+                    address: d.isReturn
+                        ? (d.returnPickupAddress ?? d.pickupLabel)
+                        : (d.pickupAddress ??
+                            (d.status == AssignedDeliveryStatus.assigned &&
+                                    d.handedOffAt == null
+                                ? 'Seller pickup address unavailable — contact the seller or Logistics before traveling.'
+                                : d.pickupLabel)),
+                    emphasized: d.status == AssignedDeliveryStatus.assigned ||
+                        d.status == AssignedDeliveryStatus.transferAssigned,
+                  ),
                   if (d.pickupAddressIsPartial &&
                       d.status == AssignedDeliveryStatus.assigned &&
                       !d.isReturn &&
                       d.handedOffAt == null) ...[
                     const SizedBox(height: 6),
                     const Padding(
-                      padding: EdgeInsets.only(left: 23),
+                      padding: EdgeInsets.only(left: 38),
                       child: Text(
                           'Pickup address details may be incomplete. Call the seller before traveling.',
                           style: DriverText.caption),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    const Icon(Icons.flag_rounded,
-                        size: 15, color: DriverColors.textSecondary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                        child: Text(d.dropoffLabel, style: DriverText.body)),
-                  ]),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 15),
+                    child: Container(
+                      width: 2,
+                      height: 22,
+                      margin: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                          color: DriverColors.primary.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  _routeLocation(
+                    icon: Icons.flag_rounded,
+                    label: d.isTransfer ? 'HAND OFF AT' : 'DELIVER TO',
+                    address: d.dropoffLabel,
+                    emphasized: d.status == AssignedDeliveryStatus.pickedUp ||
+                        d.status == AssignedDeliveryStatus.readyToTransfer,
+                  ),
                   if (d.deliveryArea != null) ...[
                     const SizedBox(height: 8),
                     Row(children: [
@@ -2253,6 +2337,50 @@ class _AssignedDeliveryDetailScreenState
   /// one row per line item (name, variant/SKU, size + weight, quantity),
   /// mirroring the web seller's order-details item list. Falls back to the
   /// plain parcel count for an order with no items on file.
+  Widget _routeLocation({
+    required IconData icon,
+    required String label,
+    required String address,
+    required bool emphasized,
+  }) {
+    final accent = emphasized ? DriverColors.primary : DriverColors.textSecondary;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: emphasized ? DriverColors.primarySurface : const Color(0xFFF1F5F5),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Icon(icon, size: 17, color: accent),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.75,
+                    color: emphasized
+                        ? DriverColors.primaryDark
+                        : DriverColors.textSecondary)),
+            const SizedBox(height: 3),
+            Text(address,
+                style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                    color: DriverColors.textPrimary)),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
   Widget _parcelContents(AssignedDelivery d) {
     final shop = d.sellerShopName ?? d.sellerName;
     if (d.items.isEmpty) {
@@ -2355,25 +2483,21 @@ class _AssignedDeliveryDetailScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
-          ]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: DriverColors.border),
+          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.025), blurRadius: 12, offset: const Offset(0, 4))]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                   color: DriverColors.primarySurface,
-                  borderRadius: BorderRadius.circular(9)),
-              child: Icon(icon, size: 15, color: DriverColors.primaryDark),
+                  borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, size: 17, color: DriverColors.primaryDark),
             ),
             const SizedBox(width: 10),
             Text(title, style: DriverText.sectionTitle),

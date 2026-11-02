@@ -447,6 +447,7 @@ class _LogisticsShellState extends State<LogisticsShell> {
         .unregister(); // needs the session, so before it is cleared
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('last_auth_role');
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(

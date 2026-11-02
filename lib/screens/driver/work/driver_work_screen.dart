@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../driver_theme.dart';
 import 'document_viewer_screen.dart';
 
 // ============================================================
@@ -374,14 +375,14 @@ class UserProfile {
 class WorkAppColors {
   WorkAppColors._();
 
-  static const Color primary = Color(0xFF0F9B8E);
-  static const Color primaryDark = Color(0xFF0B6E64);
-  static const Color primaryDeep = Color(0xFF0D7A70);
-  static const Color primaryLight = Color(0xFF5FC9BC);
-  static const Color primarySurface = Color(0xFFE6F7F5);
-  static const Color accent = Color(0xFF00C2A8);
+  static const Color primary = DriverColors.primary;
+  static const Color primaryDark = DriverColors.primaryDark;
+  static const Color primaryDeep = DriverColors.primary;
+  static const Color primaryLight = DriverColors.primaryLight;
+  static const Color primarySurface = DriverColors.primarySurface;
+  static const Color accent = DriverColors.primaryLight;
 
-  static const Color background = Color(0xFFF2F9F8);
+  static const Color background = DriverColors.background;
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF11221F);
   static const Color textSecondary = Color(0xFF5A6C69);
@@ -397,7 +398,7 @@ class WorkAppColors {
   static const Color rejected = coralDark;
   static const Color rejectedSurface = coralSurface;
 
-  static const List<Color> primaryGradient = [primary, primaryDeep];
+  static const List<Color> primaryGradient = DriverColors.primaryGradient;
   static const List<Color> coralGradient = [Color(0xFFFF8A7A), coralDark];
 }
 

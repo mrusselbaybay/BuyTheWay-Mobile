@@ -83,6 +83,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
+      await prefs.setString('last_auth_role', role);
       // DriverShell always needs the token from storage for this running
       // session, but DriverSplashScreen only auto-continues past login on
       // the next launch when this was set — that's what "remember me"

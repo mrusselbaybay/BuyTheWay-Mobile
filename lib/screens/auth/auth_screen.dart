@@ -494,6 +494,11 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _authToken = token);
   }
 
+  Future<void> _saveRole(String role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_auth_role', role);
+  }
+
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
@@ -502,6 +507,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('last_auth_role');
     setState(() => _authToken = null);
   }
 
@@ -1091,6 +1097,8 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
+      await _saveRole(role);
+
       final String firstName = userMetadata['first_name'] ?? '';
       final String lastName = userMetadata['last_name'] ?? '';
       final String name = '$firstName $lastName'.trim();
@@ -1170,6 +1178,8 @@ class _AuthScreenState extends State<AuthScreen> {
           return;
         }
 
+        await _saveRole(role);
+
         setState(() {
           loggedInUser = {
             'email': userData['email'] ?? email.text.trim(),
@@ -1194,6 +1204,8 @@ class _AuthScreenState extends State<AuthScreen> {
           });
           return;
         }
+
+        await _saveRole(role.toString());
 
         setState(() {
           loggedInUser = {
@@ -1726,6 +1738,7 @@ class _AuthScreenState extends State<AuthScreen> {
         };
         _authToken = token;
       });
+      await _saveRole(role);
 
       // Continue straight into the app instead of stranding an
       // already-valid session on the static "You're in!" screen. Every

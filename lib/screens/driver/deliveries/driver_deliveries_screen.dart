@@ -20,10 +20,9 @@ import '../../remittances/remittances_screen.dart';
 /// from here.
 ///
 /// Backed by a real fetch — `GET /api/driver/deliveries`, loaded by
-/// DriverShell into [deliveries] — not hardcoded data. The "Live Pulse"
-/// counts, the "Priority Alert" pick, and the delayed-item heuristic below
-/// are all derived client-side from that same list, since the API doesn't
-/// (yet) carry a due-by/SLA field of its own — see [_isAtRisk]'s docblock.
+/// DriverShell into [deliveries]. Queue counts and the six-hour attention
+/// hint are derived from that list because the API does not yet carry a
+/// due-by/SLA field.
 ///
 /// History remains one tap away via the app-bar icon shortcut — same
 /// "demoted from a tab to a compact action" pattern already used for
@@ -54,26 +53,17 @@ class DriverDeliveriesScreen extends StatefulWidget {
   State<DriverDeliveriesScreen> createState() => _DriverDeliveriesScreenState();
 }
 
-/// A quick filter driven by tapping either a Live Pulse card or a status
-/// chip — [delayed] has no matching [AssignedDeliveryStatus] since it's a
-/// derived, not a stored, state (see [_isAtRisk]).
-enum _QuickFilter { all, toPickUp, toDeliver, delivered, delayed }
+/// A quick queue filter. Attention is derived from assignment age, not a
+/// backend delivery status (see [_isAtRisk]).
+enum _QuickFilter { all, toPickUp, toDeliver, attention, done }
 
 class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   _QuickFilter _filter = _QuickFilter.all;
-  bool _alertExpanded = true;
 
-  /// Heuristic "this needs attention" flag — the schema has no per-order
-  /// due-by/SLA timestamp to compare against, so this stands in for one:
-  /// anything not yet delivered that's been sitting for more than half a
-  /// working day since it was assigned. Good enough to surface genuinely
-  /// stale rows on today's queue; not a substitute for a real SLA field if
-  /// one gets added to the API later.
+  /// Local age heuristic until the API supplies per-order due times.
   static const _atRiskAfter = Duration(hours: 6);
 
-  /// Every status a delivery is "done" at from this rider's perspective —
-  /// nothing left to act on. Includes the cross-region transfer leg's own
-  /// terminal state (transferred) alongside the normal delivered/handedOver.
+  /// Every status where there is no further action for this courier.
   bool _isDone(AssignedDelivery d) =>
       d.status == AssignedDeliveryStatus.delivered ||
       d.status == AssignedDeliveryStatus.handedOver ||
@@ -87,6 +77,11 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
     return DateTime.now().difference(since) > _atRiskAfter;
   }
 
+  bool _needsAttention(AssignedDelivery d) =>
+      _isAtRisk(d) ||
+      d.status == AssignedDeliveryStatus.failedAttempt ||
+      d.status == AssignedDeliveryStatus.needsDispatcherReview;
+
   List<AssignedDelivery> get _filtered {
     final all = widget.deliveries;
     switch (_filter) {
@@ -94,32 +89,35 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
         return all;
       case _QuickFilter.toPickUp:
         return all
-            .where((d) => d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned || d.status == AssignedDeliveryStatus.waitingApproval)
+            .where((d) =>
+                d.status == AssignedDeliveryStatus.assigned ||
+                d.status == AssignedDeliveryStatus.transferAssigned ||
+                d.status == AssignedDeliveryStatus.waitingApproval)
             .toList();
       case _QuickFilter.toDeliver:
         return all
-            .where((d) => d.status == AssignedDeliveryStatus.pickedUp || d.status == AssignedDeliveryStatus.readyToTransfer)
+            .where((d) =>
+                d.status == AssignedDeliveryStatus.pickedUp ||
+                d.status == AssignedDeliveryStatus.readyToTransfer)
             .toList();
-      case _QuickFilter.delivered:
+      case _QuickFilter.done:
         return all.where(_isDone).toList();
-      case _QuickFilter.delayed:
-        return all.where(_isAtRisk).toList();
+      case _QuickFilter.attention:
+        return all.where(_needsAttention).toList();
     }
   }
 
   void _setFilter(_QuickFilter f) {
     HapticFeedback.selectionClick();
-    setState(() => _filter = _filter == f ? _QuickFilter.all : f);
+    setState(() => _filter = f);
   }
 
-  /// The single most-at-risk row across the whole list (not just the
-  /// current filter) — oldest not-yet-delivered assignment first. Null
-  /// when nothing qualifies, in which case the banner just doesn't render.
-  AssignedDelivery? get _priorityAlert {
-    final candidates = widget.deliveries
-        .where((d) => !_isDone(d) && d.assignedAt != null)
-        .toList()
-      ..sort((a, b) => a.assignedAt!.compareTo(b.assignedAt!));
+  /// The oldest parcel needing attention. Age is a local heuristic, not an
+  /// SLA or dispatch priority.
+  AssignedDelivery? get _attentionDelivery {
+    final candidates = widget.deliveries.where(_needsAttention).toList()
+      ..sort((a, b) => (a.assignedAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(b.assignedAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
     return candidates.isEmpty ? null : candidates.first;
   }
 
@@ -132,7 +130,9 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not start a call. Please dial manually.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not start a call. Please dial manually.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -140,7 +140,11 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   Future<void> _openDetail(AssignedDelivery delivery) async {
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AssignedDeliveryDetailScreen(delivery: delivery, accessToken: widget.accessToken, controller: widget.controller)),
+      MaterialPageRoute(
+          builder: (_) => AssignedDeliveryDetailScreen(
+              delivery: delivery,
+              accessToken: widget.accessToken,
+              controller: widget.controller)),
     );
     if (mounted) setState(() {});
   }
@@ -150,11 +154,13 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
     final results = _filtered;
     final total = widget.deliveries.length;
     final inProgress = widget.deliveries
-        .where((d) => d.status == AssignedDeliveryStatus.pickedUp || d.status == AssignedDeliveryStatus.readyToTransfer)
+        .where((d) =>
+            d.status == AssignedDeliveryStatus.pickedUp ||
+            d.status == AssignedDeliveryStatus.readyToTransfer)
         .length;
-    final delayed = widget.deliveries.where(_isAtRisk).length;
+    final needsAttention = widget.deliveries.where(_needsAttention).length;
     final completed = widget.deliveries.where(_isDone).length;
-    final alert = _priorityAlert;
+    final attention = _attentionDelivery;
 
     return Scaffold(
       backgroundColor: DriverColors.background,
@@ -162,22 +168,13 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
         bottom: false,
         child: Column(
           children: [
-            DriverGradientHeader(
-              title: 'Deliveries',
-              subtitle: "Mission control for today's run",
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                IconButton(
-                  tooltip: 'Remittances',
-                  icon: const Icon(Icons.currency_exchange_rounded, color: Colors.white),
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemittancesScreen(accessToken: widget.accessToken, role: RemittanceRole.courier))),
-                ),
-                IconButton(
-                onPressed: widget.onOpenHistory,
-                tooltip: 'History',
-                icon: const Icon(Icons.history_rounded, color: Colors.white),
-                style: IconButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.15)),
-              ),
-              ]),
+            _CourierDispatchHeader(
+              total: total,
+              onHistory: widget.onOpenHistory,
+              onRemittances: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => RemittancesScreen(
+                      accessToken: widget.accessToken,
+                      role: RemittanceRole.courier))),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -187,72 +184,90 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
                     ? _errorList()
                     : ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
                         children: [
                           if (widget.capacity != null) ...[
-                            Text(
-                              'Currently handling ${widget.capacity!['used_units']} units',
-                              style: DriverText.label,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Small ${(widget.capacity!['breakdown'] as Map?)?['Small'] ?? 0} · '
-                              'Medium ${(widget.capacity!['breakdown'] as Map?)?['Medium'] ?? 0} · '
-                              'Large ${(widget.capacity!['breakdown'] as Map?)?['Large'] ?? 0}',
-                              style: DriverText.caption,
-                            ),
-                            const SizedBox(height: 12),
+                            _CapacityRibbon(capacity: widget.capacity!),
+                            const SizedBox(height: 16),
                           ],
-                          _LivePulseStrip(
-                            total: total,
-                            inProgress: inProgress,
-                            delayed: delayed,
-                            completed: completed,
+                          if (attention != null) ...[
+                            _AttentionRibbon(
+                              delivery: attention,
+                              onTap: () => _openDetail(attention),
+                              onCall: attention.customerContactNo == null
+                                  ? null
+                                  : () => _call(attention.customerContactNo),
+                            ),
+                            const SizedBox(height: 18),
+                          ],
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('YOUR QUEUE',
+                                        style: DriverText.label.copyWith(
+                                            color: DriverColors.primaryDark,
+                                            letterSpacing: 1.2)),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                        widget.loading
+                                            ? 'Finding your parcels'
+                                            : 'Parcels in your care',
+                                        style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            color: DriverColors.textPrimary,
+                                            letterSpacing: -0.5)),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                  widget.loading
+                                      ? '…'
+                                      : '${results.length} shown',
+                                  style: DriverText.caption),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _QueueFilterBar(
                             active: _filter,
-                            onTapTotal: () => _setFilter(_QuickFilter.all),
-                            onTapInProgress: () => _setFilter(_QuickFilter.toDeliver),
-                            onTapDelayed: () => _setFilter(_QuickFilter.delayed),
-                            onTapCompleted: () => _setFilter(_QuickFilter.delivered),
+                            counts: {
+                              _QuickFilter.all: total,
+                              _QuickFilter.toPickUp: widget.deliveries
+                                  .where((d) =>
+                                      d.status ==
+                                          AssignedDeliveryStatus.assigned ||
+                                      d.status ==
+                                          AssignedDeliveryStatus
+                                              .transferAssigned ||
+                                      d.status ==
+                                          AssignedDeliveryStatus
+                                              .waitingApproval)
+                                  .length,
+                              _QuickFilter.toDeliver: inProgress,
+                              _QuickFilter.attention: needsAttention,
+                              _QuickFilter.done: completed,
+                            },
+                            onSelect: _setFilter,
                           ),
-                          if (alert != null) ...[
-                            const SizedBox(height: 14),
-                            _PriorityAlertBanner(
-                              delivery: alert,
-                              expanded: _alertExpanded,
-                              onToggle: () => setState(() => _alertExpanded = !_alertExpanded),
-                              onCall: () => _call(alert.customerContactNo),
-                              onTap: () => _openDetail(alert),
-                            ),
-                          ],
                           const SizedBox(height: 14),
-                          SizedBox(
-                            height: 34,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              children: [
-                                _filterChip('All', _filter == _QuickFilter.all, () => _setFilter(_QuickFilter.all)),
-                                const SizedBox(width: 8),
-                                _filterChip('To pick up', _filter == _QuickFilter.toPickUp, () => _setFilter(_QuickFilter.toPickUp)),
-                                const SizedBox(width: 8),
-                                _filterChip('To deliver', _filter == _QuickFilter.toDeliver, () => _setFilter(_QuickFilter.toDeliver)),
-                                const SizedBox(width: 8),
-                                _filterChip('Delivered', _filter == _QuickFilter.delivered, () => _setFilter(_QuickFilter.delivered)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            widget.loading ? 'Loading…' : '${results.length} deliver${results.length == 1 ? 'y' : 'ies'}',
-                            style: DriverText.caption,
-                          ),
-                          const SizedBox(height: 10),
                           if (widget.loading && widget.deliveries.isEmpty)
-                            ...List.generate(3, (_) => const Padding(padding: EdgeInsets.only(bottom: 10), child: DriverShimmerBox(height: 158, radius: 16)))
+                            ...List.generate(
+                                3,
+                                (_) => const Padding(
+                                    padding: EdgeInsets.only(bottom: 10),
+                                    child: DriverShimmerBox(
+                                        height: 158, radius: 16)))
                           else if (results.isEmpty)
                             DriverEmptyState(
                               icon: Icons.inventory_2_rounded,
                               title: 'No deliveries assigned',
-                              subtitle: widget.deliveries.isEmpty ? 'Deliveries the logistics team assigns to you will show up here.' : 'No deliveries match this filter.',
+                              subtitle: widget.deliveries.isEmpty
+                                  ? 'Deliveries the logistics team assigns to you will show up here.'
+                                  : 'No deliveries match this filter.',
                             )
                           else
                             ...results.map((d) => Padding(
@@ -261,7 +276,9 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
                                     delivery: d,
                                     atRisk: _isAtRisk(d),
                                     onTap: () => _openDetail(d),
-                                    onCall: d.customerContactNo == null ? null : () => _call(d.customerContactNo),
+                                    onCall: d.customerContactNo == null
+                                        ? null
+                                        : () => _call(d.customerContactNo),
                                   ),
                                 )),
                         ],
@@ -281,24 +298,32 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-          decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(
+              color: DriverColors.errorSurface,
+              borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
               Container(
                 width: 56,
                 height: 56,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.wifi_off_rounded, color: DriverColors.error, size: 24),
+                decoration: const BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle),
+                child: const Icon(Icons.wifi_off_rounded,
+                    color: DriverColors.error, size: 24),
               ),
               const SizedBox(height: 12),
-              const Text('Couldn\'t load deliveries', style: DriverText.sectionTitle, textAlign: TextAlign.center),
+              const Text('Couldn\'t load deliveries',
+                  style: DriverText.sectionTitle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(widget.error!, style: DriverText.caption, textAlign: TextAlign.center),
+              Text(widget.error!,
+                  style: DriverText.caption, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: widget.onRefresh,
-                style: ElevatedButton.styleFrom(backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: DriverColors.primary,
+                    foregroundColor: Colors.white),
                 child: const Text('Try again'),
               ),
             ],
@@ -307,251 +332,400 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
       ],
     );
   }
-
-  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(color: selected ? DriverColors.primary : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: selected ? Colors.transparent : DriverColors.border)),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? Colors.white : DriverColors.textSecondary)),
-      ),
-    );
-  }
 }
 
-/// The "Live Pulse" horizontal stat strip — tap any card to filter the list
-/// below to that state.
-class _LivePulseStrip extends StatelessWidget {
+class _CourierDispatchHeader extends StatelessWidget {
+  const _CourierDispatchHeader(
+      {required this.total,
+      required this.onHistory,
+      required this.onRemittances});
+
   final int total;
-  final int inProgress;
-  final int delayed;
-  final int completed;
-  final _QuickFilter active;
-  final VoidCallback onTapTotal;
-  final VoidCallback onTapInProgress;
-  final VoidCallback onTapDelayed;
-  final VoidCallback onTapCompleted;
-
-  const _LivePulseStrip({
-    required this.total,
-    required this.inProgress,
-    required this.delayed,
-    required this.completed,
-    required this.active,
-    required this.onTapTotal,
-    required this.onTapInProgress,
-    required this.onTapDelayed,
-    required this.onTapCompleted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 108,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _PulseCard(label: 'Total', value: '$total', icon: Icons.inventory_2_rounded, selected: active == _QuickFilter.all, onTap: onTapTotal),
-          const SizedBox(width: 10),
-          _PulseCard(label: 'In progress', value: '$inProgress', icon: Icons.local_shipping_rounded, selected: active == _QuickFilter.toDeliver, onTap: onTapInProgress, pulse: inProgress > 0),
-          const SizedBox(width: 10),
-          _PulseCard(label: 'Delayed', value: '$delayed', icon: Icons.warning_amber_rounded, selected: active == _QuickFilter.delayed, onTap: onTapDelayed, warn: delayed > 0),
-          const SizedBox(width: 10),
-          _PulseCard(label: 'Completed', value: '$completed', icon: Icons.check_circle_rounded, selected: active == _QuickFilter.delivered, onTap: onTapCompleted),
-        ],
-      ),
-    );
-  }
-}
-
-class _PulseCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final bool selected;
-  final bool pulse;
-  final bool warn;
-  final VoidCallback onTap;
-
-  const _PulseCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-    this.pulse = false,
-    this.warn = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = warn ? DriverColors.warning : DriverColors.primary;
-    return GestureDetector(
-      onTap: onTap,
-      // These are small, fixed-size stat tiles, not body copy — clamping
-      // text scaling here (rather than fighting an ever-larger pixel
-      // budget) is what actually guarantees no overflow no matter what
-      // font-size the device's accessibility settings use. The strip's
-      // own height (108) still gives normal-scale text comfortable room.
-      child: MediaQuery.withNoTextScaling(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 118,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? accent : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: selected ? Colors.transparent : DriverColors.border),
-            boxShadow: selected ? DriverColors.glow(accent, blur: 14, spread: 0.5) : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 16, color: selected ? Colors.white : accent),
-                  if (pulse) ...[const SizedBox(width: 5), _PulsingDot(color: selected ? Colors.white : DriverColors.primary)],
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: selected ? Colors.white : DriverColors.textPrimary)),
-              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: selected ? Colors.white.withOpacity(0.9) : DriverColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A small breathing dot used for "live" states — no animation package
-/// required, just a looping AnimationController driving opacity.
-class _PulsingDot extends StatefulWidget {
-  final Color color;
-  const _PulsingDot({required this.color});
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween(begin: 0.35, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
-      child: Container(width: 6, height: 6, decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle)),
-    );
-  }
-}
-
-/// Collapsible "most urgent delivery" banner — glowing Teal border, quick
-/// call action.
-class _PriorityAlertBanner extends StatelessWidget {
-  final AssignedDelivery delivery;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final VoidCallback onCall;
-  final VoidCallback onTap;
-
-  const _PriorityAlertBanner({
-    required this.delivery,
-    required this.expanded,
-    required this.onToggle,
-    required this.onCall,
-    required this.onTap,
-  });
+  final VoidCallback onHistory;
+  final VoidCallback onRemittances;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: DriverColors.primary.withOpacity(0.5), width: 1.4),
-        boxShadow: DriverColors.glow(DriverColors.primary, blur: 20, spread: 0),
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF073B3A), Color(0xFF0D766F), Color(0xFF0D9488)]),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.priority_high_rounded, size: 16, color: DriverColors.primary),
-                  const SizedBox(width: 6),
-                  const Text('Priority alert', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: DriverColors.primary)),
-                  const Spacer(),
-                  AnimatedRotation(
-                    duration: const Duration(milliseconds: 180),
-                    turns: expanded ? 0.5 : 0,
-                    child: const Icon(Icons.expand_more_rounded, color: DriverColors.primary),
+          Positioned(
+              right: -58,
+              top: -118,
+              child: Container(
+                  width: 190,
+                  height: 190,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          width: 24)))),
+          Positioned(
+              right: 70,
+              bottom: -122,
+              child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          width: 1.5)))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 6, 14, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('COURIER  /  FIELD ROUTE',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.15)),
+                      const SizedBox(height: 3),
+                      const Text('Deliveries',
+                          style: TextStyle(
+                              fontSize: 25,
+                              height: 1.05,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.6)),
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                                color: Color(0xFF9AF2C8),
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text(
+                            '$total ${total == 1 ? 'parcel' : 'parcels'} assigned',
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.82),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500)),
+                      ]),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                _HeaderAction(
+                    icon: Icons.payments_outlined,
+                    tooltip: 'Remittances',
+                    onTap: onRemittances),
+                const SizedBox(width: 6),
+                _HeaderAction(
+                    icon: Icons.history_toggle_off_rounded,
+                    tooltip: 'History',
+                    onTap: onHistory),
+              ],
             ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            child: !expanded
-                ? const SizedBox(width: double.infinity)
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: onTap,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text('#${delivery.orderNumber}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                                    const SizedBox(width: 8),
-                                    Flexible(child: Text(delivery.customerName, style: DriverText.caption, overflow: TextOverflow.ellipsis)),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    DriverDispatchChip(label: delivery.dispatchedByLabel),
-                                    if (delivery.isReturn)
-                                      DriverReturnChip(returned: delivery.isReturned),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (delivery.customerContactNo != null) ...[
-                            const SizedBox(width: 10),
-                            DriverCallFab(onTap: onCall),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
           ),
         ],
       ),
     );
   }
+}
+
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction(
+      {required this.icon, required this.tooltip, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        tooltip: tooltip,
+        onPressed: onTap,
+        constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+        padding: EdgeInsets.zero,
+        style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+            foregroundColor: Colors.white),
+        icon: Icon(icon, size: 19),
+      );
+}
+
+class _CapacityRibbon extends StatelessWidget {
+  const _CapacityRibbon({required this.capacity});
+  final Map<String, dynamic> capacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final used = (capacity['used_units'] as num?)?.toDouble() ?? 0;
+    final max = (capacity['max_units'] as num?)?.toDouble() ?? 0;
+    final ratio = max <= 0 ? 0.0 : (used / max).clamp(0.0, 1.0);
+    final breakdown = capacity['breakdown'] as Map?;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 11),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: DriverColors.border.withValues(alpha: 0.8)),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF0F766E).withValues(alpha: 0.045),
+                blurRadius: 16,
+                offset: const Offset(0, 5))
+          ]),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: DriverColors.primarySurface,
+                      borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.inventory_2_outlined,
+                      size: 17, color: DriverColors.primaryDark)),
+              const SizedBox(width: 10),
+              const Expanded(
+                  child: Text('Vehicle load',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: DriverColors.textPrimary))),
+              Text(
+                  '${used.toStringAsFixed(used == used.roundToDouble() ? 0 : 1)}',
+                  style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: DriverColors.primaryDark)),
+              Text(
+                  ' / ${max.toStringAsFixed(max == max.roundToDouble() ? 0 : 1)} units',
+                  style: DriverText.caption),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: ratio),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => LinearProgressIndicator(
+                    value: value,
+                    minHeight: 5,
+                    backgroundColor: DriverColors.primarySurface,
+                    color: ratio >= 0.9
+                        ? DriverColors.warning
+                        : DriverColors.primary),
+              )),
+          const SizedBox(height: 7),
+          Row(children: [
+            _LoadSize(label: 'S', value: breakdown?['Small']),
+            const SizedBox(width: 12),
+            _LoadSize(label: 'M', value: breakdown?['Medium']),
+            const SizedBox(width: 12),
+            _LoadSize(label: 'L', value: breakdown?['Large']),
+            const Spacer(),
+            Text(
+              max <= 0
+                  ? 'CAPACITY UNKNOWN'
+                  : used >= max
+                      ? 'FULL LOAD'
+                      : '${(max - used).clamp(0, double.infinity).toStringAsFixed((max - used) == (max - used).roundToDouble() ? 0 : 1)} UNITS FREE',
+              style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.75,
+                  color: ratio >= 0.9
+                      ? DriverColors.warning
+                      : DriverColors.textSecondary),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadSize extends StatelessWidget {
+  const _LoadSize({required this.label, required this.value});
+  final String label;
+  final dynamic value;
+
+  @override
+  Widget build(BuildContext context) => Text('$label  ${value ?? 0}',
+      style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: DriverColors.textSecondary));
+}
+
+class _AttentionRibbon extends StatelessWidget {
+  const _AttentionRibbon(
+      {required this.delivery, required this.onTap, this.onCall});
+  final AssignedDelivery delivery;
+  final VoidCallback onTap;
+  final VoidCallback? onCall;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: const Color(0xFFFFF7E8),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(13, 12, 8, 12),
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF2D39A))),
+            child: Row(children: [
+              Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFFE9BD),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.schedule_outlined,
+                      size: 18, color: Color(0xFFAD6200))),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(
+                        delivery.status ==
+                                AssignedDeliveryStatus.needsDispatcherReview
+                            ? 'Needs dispatch review'
+                            : delivery.status ==
+                                    AssignedDeliveryStatus.failedAttempt
+                                ? 'Delivery attempt failed'
+                                : 'No update in 6h+',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF70420A))),
+                    const SizedBox(height: 2),
+                    Text(
+                        '#${delivery.orderNumber}  ·  ${delivery.customerName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF805B2B),
+                            fontWeight: FontWeight.w500)),
+                  ])),
+              if (onCall != null)
+                IconButton(
+                    tooltip: 'Call customer',
+                    onPressed: onCall,
+                    icon: const Icon(Icons.call_outlined,
+                        size: 18, color: DriverColors.primaryDark)),
+              if (onCall == null)
+                const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Icon(Icons.arrow_forward_rounded,
+                        size: 18, color: Color(0xFF805B2B))),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _QueueFilterBar extends StatelessWidget {
+  const _QueueFilterBar(
+      {required this.active, required this.counts, required this.onSelect});
+  final _QuickFilter active;
+  final Map<_QuickFilter, int> counts;
+  final ValueChanged<_QuickFilter> onSelect;
+
+  static const _items = [
+    (_QuickFilter.all, 'All', Icons.view_list_outlined),
+    (_QuickFilter.toPickUp, 'Pickup', Icons.storefront_outlined),
+    (_QuickFilter.toDeliver, 'On route', Icons.local_shipping_outlined),
+    (_QuickFilter.attention, 'Needs a look', Icons.schedule_outlined),
+    (_QuickFilter.done, 'Done by you', Icons.task_alt_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 7),
+          itemBuilder: (context, index) {
+            final (filter, label, icon) = _items[index];
+            final selected = active == filter;
+            final count = counts[filter] ?? 0;
+            return Semantics(
+              button: true,
+              selected: selected,
+              label: '$label, $count parcels',
+              child: Material(
+                color: selected ? DriverColors.primaryDark : Colors.white,
+                borderRadius: BorderRadius.circular(13),
+                child: InkWell(
+                  onTap: () => onSelect(filter),
+                  borderRadius: BorderRadius.circular(13),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 210),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                            color: selected
+                                ? DriverColors.primaryDark
+                                : DriverColors.border)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(icon,
+                          size: 14,
+                          color: selected
+                              ? Colors.white
+                              : DriverColors.textSecondary),
+                      const SizedBox(width: 6),
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: selected
+                                  ? Colors.white
+                                  : DriverColors.textSecondary)),
+                      const SizedBox(width: 6),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                                scale: animation, child: child)),
+                        child: Text('$count',
+                            key: ValueKey('$filter-$count-$selected'),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: selected
+                                    ? const Color(0xFFD4FFF5)
+                                    : DriverColors.primaryDark)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
 }
 
 /// A delivery card with swipe-to-reveal actions: swipe left reveals Call
@@ -565,34 +739,62 @@ class _MissionCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onCall;
 
-  const _MissionCard({required this.delivery, required this.atRisk, required this.onTap, required this.onCall});
+  const _MissionCard(
+      {required this.delivery,
+      required this.atRisk,
+      required this.onTap,
+      required this.onCall});
 
   @override
   State<_MissionCard> createState() => _MissionCardState();
 }
 
 class _MissionCardState extends State<_MissionCard> {
-  static const double _actionsWidth = 96;
+  static const double _actionsWidth = 116;
   double _drag = 0;
 
   (String, Color, IconData) get _actionTag {
     switch (widget.delivery.status) {
       case AssignedDeliveryStatus.failedAttempt:
-        return ('Failed Attempt', DriverColors.warning, Icons.warning_amber_rounded);
+        return (
+          'Failed Attempt',
+          DriverColors.warning,
+          Icons.warning_amber_outlined
+        );
       case AssignedDeliveryStatus.needsDispatcherReview:
-        return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
+        return (
+          'Needs Dispatcher Review',
+          DriverColors.error,
+          Icons.support_agent_outlined
+        );
       case AssignedDeliveryStatus.assigned:
-        return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
+        return ('To pick up', DriverColors.warning, Icons.storefront_outlined);
       case AssignedDeliveryStatus.waitingApproval:
-        return ('Waiting approval', DriverColors.warning, Icons.hourglass_top_rounded);
+        return (
+          'Waiting approval',
+          DriverColors.warning,
+          Icons.hourglass_empty_rounded
+        );
       case AssignedDeliveryStatus.pickedUp:
-        return ('To deliver', DriverColors.info, Icons.local_shipping_rounded);
+        return ('To deliver', DriverColors.info, Icons.local_shipping_outlined);
       case AssignedDeliveryStatus.delivered:
-        return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
+        return (
+          'Delivered',
+          DriverColors.success,
+          Icons.check_circle_outline_rounded
+        );
       case AssignedDeliveryStatus.handedOver:
-        return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+        return (
+          'Handed over',
+          DriverColors.textSecondary,
+          Icons.assignment_turned_in_outlined
+        );
       case AssignedDeliveryStatus.awaitingInventory:
-        return ('Picked up', DriverColors.success, Icons.check_circle_rounded);
+        return (
+          'Picked up',
+          DriverColors.success,
+          Icons.check_circle_outline_rounded
+        );
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
       // Only reached when dispatch had to hand this leg to a courier who
       // didn't already have the parcel (no one to reuse from the pickup
@@ -603,11 +805,15 @@ class _MissionCardState extends State<_MissionCard> {
       // ParcelAssignmentController::acceptTransferRequest on the web
       // side).
       case AssignedDeliveryStatus.transferAssigned:
-        return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
+        return ('To pick up', DriverColors.warning, Icons.storefront_outlined);
       case AssignedDeliveryStatus.readyToTransfer:
         return ('To deliver', DriverColors.info, Icons.compare_arrows_rounded);
       case AssignedDeliveryStatus.transferred:
-        return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
+        return (
+          'Delivered',
+          DriverColors.success,
+          Icons.check_circle_outline_rounded
+        );
     }
   }
 
@@ -641,9 +847,31 @@ class _MissionCardState extends State<_MissionCard> {
   Widget build(BuildContext context) {
     final d = widget.delivery;
     final (tagLabel, tagColor, tagIcon) = _actionTag;
-    final completed = d.status == AssignedDeliveryStatus.delivered || d.status == AssignedDeliveryStatus.transferred;
-    final handedOver = d.status == AssignedDeliveryStatus.handedOver || d.status == AssignedDeliveryStatus.awaitingInventory;
+    final completed = d.status == AssignedDeliveryStatus.delivered ||
+        d.status == AssignedDeliveryStatus.transferred;
+    final handedOver = d.status == AssignedDeliveryStatus.handedOver ||
+        d.status == AssignedDeliveryStatus.awaitingInventory;
     final done = completed || handedOver;
+    final nextIsPickup = d.status == AssignedDeliveryStatus.assigned ||
+        d.status == AssignedDeliveryStatus.transferAssigned ||
+        d.status == AssignedDeliveryStatus.waitingApproval;
+    final nextStop = switch (d.status) {
+      AssignedDeliveryStatus.awaitingInventory =>
+        'Picked up · waiting for logistics scan',
+      AssignedDeliveryStatus.handedOver => 'Handed back to Logistics',
+      AssignedDeliveryStatus.delivered => 'Delivered to the customer',
+      AssignedDeliveryStatus.transferred => 'Transferred to the next hub',
+      _ => nextIsPickup
+          ? (d.isReturn
+              ? (d.returnPickupAddress ?? d.pickupLabel)
+              : (d.pickupAddress ?? d.pickupLabel))
+          : d.dropoffLabel,
+    };
+    final nextStopLabel = nextIsPickup
+        ? (d.status == AssignedDeliveryStatus.waitingApproval
+            ? 'HANDOFF REQUEST'
+            : 'PICK UP FROM')
+        : (done ? 'LATEST UPDATE' : 'DELIVER TO');
     final barColor = widget.atRisk
         ? DriverColors.warning
         : (done ? DriverColors.border : DriverColors.primary);
@@ -662,10 +890,18 @@ class _MissionCardState extends State<_MissionCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (widget.onCall != null) ...[
-                    _RevealAction(icon: Icons.call_rounded, color: DriverColors.primary, onTap: widget.onCall!),
+                    _RevealAction(
+                        icon: Icons.call_outlined,
+                        label: 'Call customer',
+                        color: DriverColors.primary,
+                        onTap: widget.onCall!),
                     const SizedBox(width: 8),
                   ],
-                  _RevealAction(icon: Icons.arrow_forward_ios_rounded, color: DriverColors.textSecondary, onTap: widget.onTap),
+                  _RevealAction(
+                      icon: Icons.arrow_forward_ios_rounded,
+                      label: 'Open parcel details',
+                      color: DriverColors.textSecondary,
+                      onTap: widget.onTap),
                 ],
               ),
             ),
@@ -676,7 +912,20 @@ class _MissionCardState extends State<_MissionCard> {
             child: Transform.translate(
               offset: Offset(_drag, 0),
               child: Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: DriverColors.border)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                      color: widget.atRisk
+                          ? const Color(0xFFECCB8C)
+                          : DriverColors.border.withValues(alpha: 0.9)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFF123A38).withValues(alpha: 0.045),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5))
+                  ],
+                ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: widget.onTap,
@@ -684,71 +933,185 @@ class _MissionCardState extends State<_MissionCard> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(width: 5, decoration: BoxDecoration(color: barColor, borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)))),
+                        Container(
+                            width: 5,
+                            decoration: BoxDecoration(
+                                color: barColor,
+                                borderRadius: const BorderRadius.horizontal(
+                                    left: Radius.circular(16)))),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(8)),
-                                      child: Text('#${d.orderNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: DriverColors.primaryDark)),
-                                    ),
-                                    const Spacer(),
-                                    if (widget.atRisk) ...[
-                                      const Icon(Icons.warning_amber_rounded, size: 13, color: DriverColors.warning),
-                                      const SizedBox(width: 3),
-                                    ],
-                                    Text(_timeAgo(completed ? d.deliveredAt : (d.handedOffAt ?? d.assignedAt)), style: DriverText.caption),
+                                Row(children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 9, vertical: 5),
+                                    decoration: BoxDecoration(
+                                        color: DriverColors.primarySurface,
+                                        borderRadius: BorderRadius.circular(9)),
+                                    child: Text('#${d.orderNumber}',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: DriverColors.primaryDark,
+                                            letterSpacing: 0.2)),
+                                  ),
+                                  const Spacer(),
+                                  if (widget.atRisk) ...[
+                                    const Icon(Icons.schedule_outlined,
+                                        size: 13, color: DriverColors.warning),
+                                    const SizedBox(width: 4),
                                   ],
-                                ),
-                                const SizedBox(height: 6),
-                                if (d.deliveryAttempt.reason != null && (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview))
-                                  Text(d.deliveryAttempt.reason!, style: DriverText.caption, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                Text(d.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
-                                      // A return's first leg is collected at the buyer's door.
-                                      ? (d.isReturn ? (d.returnPickupAddress ?? d.pickupLabel) : (d.pickupAddress ?? (d.status == AssignedDeliveryStatus.assigned && d.handedOffAt == null ? 'Seller pickup address unavailable' : d.pickupLabel)))
-                                      : d.dropoffLabel,
-                                  style: DriverText.body,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                DriverDispatchChip(label: d.dispatchedByLabel),
-                                  const SizedBox(height: 6),
-                                  Text("You'll earn ₱${d.earningPreviewCents ~/ 100}.${(d.earningPreviewCents % 100).toString().padLeft(2, '0')}", style: const TextStyle(color: DriverColors.primaryDark, fontWeight: FontWeight.w700)),
-                                  if (d.earningIsEstimate) const Text('Estimate until the final route is confirmed', style: DriverText.caption),
-                                const SizedBox(height: 10),
+                                  Text(
+                                      _timeAgo(completed
+                                          ? (d.deliveredAt ?? d.transferredAt)
+                                          : (d.handedOffAt ?? d.assignedAt)),
+                                      style: DriverText.caption),
+                                ]),
+                                const SizedBox(height: 9),
+                                if (d.deliveryAttempt.reason != null &&
+                                    (d.status ==
+                                            AssignedDeliveryStatus
+                                                .failedAttempt ||
+                                        d.status ==
+                                            AssignedDeliveryStatus
+                                                .needsDispatcherReview))
+                                  Padding(
+                                      padding: const EdgeInsets.only(bottom: 5),
+                                      child: Text(d.deliveryAttempt.reason!,
+                                          style: DriverText.caption,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis)),
+                                Text(d.customerName,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                        color: DriverColors.textPrimary,
+                                        letterSpacing: -0.25)),
+                                const SizedBox(height: 7),
+                                Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                          width: 25,
+                                          height: 25,
+                                          margin: const EdgeInsets.only(top: 1),
+                                          decoration: BoxDecoration(
+                                              color: nextIsPickup
+                                                  ? DriverColors.primarySurface
+                                                  : const Color(0xFFECF4F5),
+                                              borderRadius:
+                                                  BorderRadius.circular(8)),
+                                          child: Icon(
+                                              nextIsPickup
+                                                  ? Icons.storefront_outlined
+                                                  : Icons.flag_outlined,
+                                              size: 14,
+                                              color: nextIsPickup
+                                                  ? DriverColors.primaryDark
+                                                  : const Color(0xFF527177))),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                            Text(nextStopLabel,
+                                                style: TextStyle(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 0.9,
+                                                    color: nextIsPickup
+                                                        ? DriverColors
+                                                            .primaryDark
+                                                        : DriverColors
+                                                            .textSecondary)),
+                                            const SizedBox(height: 2),
+                                            Text(nextStop,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    height: 1.25,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: DriverColors
+                                                        .textPrimary),
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis),
+                                          ])),
+                                    ]),
+                                const SizedBox(height: 9),
+                                Row(children: [
+                                  const Icon(Icons.local_shipping_outlined,
+                                      size: 13,
+                                      color: DriverColors.textSecondary),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                      child: Text(d.dispatchedByLabel,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: DriverText.caption)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                      '₱${(d.earningPreviewCents / 100).toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          color: DriverColors.primaryDark,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 12)),
+                                  if (d.earningIsEstimate)
+                                    const Text(' est.',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: DriverColors.textSecondary,
+                                            fontWeight: FontWeight.w600)),
+                                ]),
+                                const SizedBox(height: 9),
                                 Row(
                                   children: [
                                     // Status and return tag stack vertically.
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+                                        DriverStatusBadge(
+                                            label: tagLabel,
+                                            color: tagColor,
+                                            icon: tagIcon),
                                         if (d.isReturn) ...[
                                           const SizedBox(height: 4),
-                                          DriverReturnChip(returned: d.isReturned),
+                                          DriverReturnChip(
+                                              returned: d.isReturned),
                                         ],
                                       ],
                                     ),
                                     const SizedBox(width: 8),
-                                    const Icon(Icons.inventory_2_outlined, size: 13, color: DriverColors.textSecondary),
+                                    Container(
+                                        width: 1,
+                                        height: 20,
+                                        color: DriverColors.border),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.inventory_2_outlined,
+                                        size: 13,
+                                        color: DriverColors.textSecondary),
                                     const SizedBox(width: 4),
-                                    Text('${d.parcels}', style: DriverText.caption),
-                                    const Spacer(),
                                     Text(
-                                      done ? 'Tap for details' : 'Swipe or tap',
-                                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: DriverColors.primary),
-                                    ),
+                                        '${d.parcels} ${d.parcels == 1 ? 'parcel' : 'parcels'}',
+                                        style: DriverText.caption),
+                                    const Spacer(),
+                                    const Text('DETAILS',
+                                        style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.9,
+                                            color: DriverColors.primaryDark)),
+                                    const SizedBox(width: 3),
+                                    const Icon(Icons.arrow_forward_rounded,
+                                        size: 14,
+                                        color: DriverColors.primaryDark),
                                   ],
                                 ),
                               ],
@@ -770,19 +1133,32 @@ class _MissionCardState extends State<_MissionCard> {
 
 class _RevealAction extends StatelessWidget {
   final IconData icon;
+  final String label;
   final Color color;
   final VoidCallback onTap;
-  const _RevealAction({required this.icon, required this.color, required this.onTap});
+  const _RevealAction(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: DriverColors.border)),
-        child: Icon(icon, size: 16, color: color),
+      child: Semantics(
+        button: true,
+        label: label,
+        child: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: DriverColors.border)),
+          child: Icon(icon, size: 16, color: color),
+        ),
       ),
     );
   }

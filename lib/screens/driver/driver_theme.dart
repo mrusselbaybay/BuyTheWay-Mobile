@@ -28,13 +28,41 @@ class DriverColors {
   static const Color errorSurface = Color(0xFFFEE2E2);
   static const Color info = primary;
 
-  static const List<Color> primaryGradient = [primaryLight, primaryDark];
+  static const List<Color> primaryGradient = [primaryDark, primary];
 
   // ---- "Mission control" dashboard accents (Deliveries + History) ----
   // A darker teal-leaning gradient for hero/header surfaces, distinct from
   // [primaryGradient] (used on smaller elements like the nav FAB) — this
   // one is meant to cover a full-width band.
   static const List<Color> heroGradient = [Color(0xFF0F766E), Color(0xFF0D9488)];
+
+  /// Applies the courier palette to the full courier navigation subtree,
+  /// including Material controls and screens pushed above the tab shell.
+  static ThemeData courierTheme(ThemeData base) => base.copyWith(
+        colorScheme: base.colorScheme.copyWith(
+          primary: primary,
+          onPrimary: Colors.white,
+          primaryContainer: primarySurface,
+          onPrimaryContainer: primaryDark,
+          secondary: primaryDark,
+          onSecondary: Colors.white,
+          secondaryContainer: primarySurface,
+          onSecondaryContainer: primaryDark,
+          surface: surface,
+          onSurface: textPrimary,
+        ),
+        scaffoldBackgroundColor: background,
+        appBarTheme: base.appBarTheme.copyWith(
+          backgroundColor: background,
+          foregroundColor: textPrimary,
+        ),
+        snackBarTheme: base.snackBarTheme.copyWith(
+          backgroundColor: primaryDark,
+        ),
+        progressIndicatorTheme: base.progressIndicatorTheme.copyWith(
+          color: primary,
+        ),
+      );
 
   /// A soft outer glow in [color] — used for the "pulsing" live/urgent
   /// indicators the Mission Control dashboard calls for, without pulling in

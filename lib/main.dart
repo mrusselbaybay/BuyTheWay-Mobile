@@ -3,6 +3,7 @@ import 'screens/buyer/buyer_shell.dart';
 import 'screens/splash/brand_splash_screen.dart';
 import 'screens/driver/auth/driver_splash_screen.dart';
 import 'screens/driver/driver_shell.dart';
+import 'screens/driver/driver_theme.dart';
 import 'screens/logistics/logistics_shell.dart';
 import 'screens/pickup_courier/courier_dashboard.dart';
 import 'services/push_service.dart';
@@ -43,8 +44,14 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const BuyerShell(),
 
-        '/courier_dashboard': (context) => const CourierDashboard(),
-        '/driver': (context) => const DriverSplashScreen(),
+        '/courier_dashboard': (context) => Theme(
+              data: DriverColors.courierTheme(Theme.of(context)),
+              child: const CourierDashboard(),
+            ),
+        '/driver': (context) => Theme(
+              data: DriverColors.courierTheme(Theme.of(context)),
+              child: const DriverSplashScreen(),
+            ),
         '/driver_dashboard': (context) => const DriverShell(),
         '/logistics_dashboard': (context) => const LogisticsShell(),
       },

@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart';
 import '../buyer_models.dart';
 import '../buyer_store.dart';
 import '../buyer_theme.dart';
+import '../../../services/buyer_api_service.dart';
+import '../../../services/api_service.dart';
 
 const _osmTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const _userAgent = 'com.buytheway.app';
@@ -16,28 +18,54 @@ const _pollEvery = Duration(seconds: 20);
 /// still moving. Shared by the collapsed card and the expanded screen so
 /// opening the map never triggers a second request.
 class ParcelJourneyController extends ChangeNotifier {
-  ParcelJourneyController(this.orderNumber) {
+  ParcelJourneyController(this.orderNumber, {this.accessToken, this.parcelAssignmentId}) {
     _load();
   }
 
   final String orderNumber;
+  final String? accessToken;
+  final String? parcelAssignmentId;
   ParcelJourney? journey;
   bool loading = true;
   bool failed = false;
+  String? failureMessage;
   Timer? _timer;
   bool _disposed = false;
 
   Future<void> _load() async {
     try {
-      final j = await BuyerStore.instance.api.orderTracking(orderNumber);
+      final ParcelJourney j;
+      if (parcelAssignmentId != null && accessToken != null) {
+        final body = await ApiService().getDriverParcelTracking(
+          parcelAssignmentId: parcelAssignmentId!,
+          accessToken: accessToken!,
+        );
+        j = ParcelJourney.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+      } else {
+        final api = accessToken == null
+            ? BuyerStore.instance.api
+            : BuyerApiService(token: accessToken);
+        j = await api.orderTracking(orderNumber);
+      }
       if (_disposed) return;
       journey = j;
       failed = false;
+      failureMessage = null;
       _timer?.cancel();
       if (j.active) _timer = Timer(_pollEvery, _load);
+    } on ApiException catch (error) {
+      if (_disposed) return;
+      failed = journey == null;
+      failureMessage = switch (error.statusCode) {
+        401 || 403 => 'The tracking service denied access to this courier account.',
+        404 => 'The tracking service could not find this order.',
+        0 || 408 => 'Check your connection, then try again.',
+        _ => error.message,
+      };
     } catch (_) {
       if (_disposed) return;
       failed = journey == null;
+      failureMessage = 'Could not load tracking data. Try again.';
     }
     loading = false;
     notifyListeners();
@@ -46,6 +74,7 @@ class ParcelJourneyController extends ChangeNotifier {
   Future<void> retry() {
     loading = true;
     failed = false;
+    failureMessage = null;
     notifyListeners();
     return _load();
   }
@@ -63,17 +92,29 @@ class ParcelJourneyController extends ChangeNotifier {
 // ============================================================
 
 class ParcelMapCard extends StatefulWidget {
-  const ParcelMapCard({super.key, required this.orderNumber, required this.history});
+  const ParcelMapCard({
+    super.key,
+    required this.orderNumber,
+    required this.history,
+    this.accessToken,
+    this.parcelAssignmentId,
+    this.showUnavailable = false,
+    this.showTimeline = true,
+  });
 
   final String orderNumber;
   final List<StatusEvent> history;
+  final String? accessToken;
+  final String? parcelAssignmentId;
+  final bool showUnavailable;
+  final bool showTimeline;
 
   @override
   State<ParcelMapCard> createState() => _ParcelMapCardState();
 }
 
 class _ParcelMapCardState extends State<ParcelMapCard> {
-  late final _ctrl = ParcelJourneyController(widget.orderNumber);
+  late final _ctrl = ParcelJourneyController(widget.orderNumber, accessToken: widget.accessToken, parcelAssignmentId: widget.parcelAssignmentId);
 
   @override
   void dispose() {
@@ -83,7 +124,7 @@ class _ParcelMapCardState extends State<ParcelMapCard> {
 
   void _expand() => Navigator.of(context).push(PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (_, __, ___) => ParcelTrackingScreen(controller: _ctrl, history: widget.history),
+        pageBuilder: (_, __, ___) => ParcelTrackingScreen(controller: _ctrl, history: widget.history, showTimeline: widget.showTimeline),
         transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
       ));
 
@@ -93,7 +134,16 @@ class _ParcelMapCardState extends State<ParcelMapCard> {
         builder: (context, _) {
           final j = _ctrl.journey;
           if (_ctrl.loading && j == null) return const _MapSkeleton();
-          if (j == null || !j.mappable) return const SizedBox.shrink();
+          if (j == null || !j.mappable) {
+            if (!widget.showUnavailable) return const SizedBox.shrink();
+            return _MapUnavailable(
+              message: _ctrl.failed
+                  ? (_ctrl.failureMessage ?? 'Could not load tracking data.')
+                  : 'The tracking service has no location coordinates for this parcel yet.',
+              failed: _ctrl.failed,
+              onRetry: _ctrl.retry,
+            );
+          }
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: ClipRRect(
@@ -120,6 +170,42 @@ class _MapSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: Container(height: 124, decoration: BoxDecoration(color: BColors.divider, borderRadius: BorderRadius.circular(16))),
+      );
+}
+
+class _MapUnavailable extends StatelessWidget {
+  const _MapUnavailable({required this.message, required this.failed, required this.onRetry});
+  final String message;
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: BColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: BColors.divider),
+        ),
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: BColors.brand.withValues(alpha: .09), shape: BoxShape.circle),
+            child: const Icon(Icons.map_outlined, color: BColors.brand, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(failed ? 'Could not load parcel map' : 'No map route yet', style: const TextStyle(color: BColors.ink, fontSize: 13.5, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              Text(message, style: const TextStyle(color: BColors.faint, fontSize: 11.5)),
+            ]),
+          ),
+          if (failed)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ]),
       );
 }
 
@@ -249,10 +335,11 @@ class JourneyMap extends StatelessWidget {
 // ============================================================
 
 class ParcelTrackingScreen extends StatelessWidget {
-  const ParcelTrackingScreen({super.key, required this.controller, required this.history});
+  const ParcelTrackingScreen({super.key, required this.controller, required this.history, this.showTimeline = true});
 
   final ParcelJourneyController controller;
   final List<StatusEvent> history;
+  final bool showTimeline;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +347,7 @@ class ParcelTrackingScreen extends StatelessWidget {
       backgroundColor: BColors.surface,
       body: Column(children: [
         Expanded(
-          flex: 4,
+          flex: showTimeline ? 4 : 1,
           child: ListenableBuilder(
             listenable: controller,
             builder: (context, _) {
@@ -278,7 +365,7 @@ class ParcelTrackingScreen extends StatelessWidget {
             },
           ),
         ),
-        Expanded(
+        if (showTimeline) Expanded(
           flex: 6,
           child: Container(
             decoration: const BoxDecoration(

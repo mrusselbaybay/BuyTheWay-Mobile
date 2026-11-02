@@ -138,6 +138,7 @@ class BuyerStore extends ChangeNotifier {
     unawaited(PushService.instance.unregister(authToken: current));
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('last_auth_role');
     // The cart lives on the account now; don't leave it for the next person on this device.
     _pushTimer?.cancel();
     _persistTimer?.cancel();

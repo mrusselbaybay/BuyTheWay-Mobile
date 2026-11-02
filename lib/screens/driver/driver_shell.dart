@@ -549,6 +549,7 @@ class _DriverShellState extends State<DriverShell> {
     PushService.instance.clearTap();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('last_auth_role');
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -791,6 +792,13 @@ class _DriverShellState extends State<DriverShell> {
 
   @override
   Widget build(BuildContext context) {
+    return Theme(
+      data: DriverColors.courierTheme(Theme.of(context)),
+      child: _buildCourierContent(context),
+    );
+  }
+
+  Widget _buildCourierContent(BuildContext context) {
     if (_loadingAccount) {
       return const Scaffold(
         backgroundColor: DriverColors.background,

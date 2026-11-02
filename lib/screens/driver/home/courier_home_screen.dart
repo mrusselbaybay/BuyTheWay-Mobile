@@ -10,21 +10,20 @@ import '../chat/driver_chat_controller.dart';
 import '../deliveries/assigned_delivery_detail_screen.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
-import '../notifications/driver_notification_bell.dart';
 import '../widgets/driver_shared_widgets.dart';
 
 // ---- Visual tokens for this screen ----
-const Color _bg = Color(0xFFF2F7F6);
-const Color _ink = Color(0xFF0B2B28);
-const Color _inkSoft = Color(0xFF5B7571);
-const Color _line = Color(0xFFE3ECEA);
-const Color _teal = Color(0xFF0F766E);
-const Color _tealDeep = Color(0xFF0A4F4A);
-const Color _tealSoft = Color(0xFFE3F4F1);
-const Color _amber = Color(0xFFB45309);
+const Color _bg = DriverColors.background;
+const Color _ink = DriverColors.textPrimary;
+const Color _inkSoft = DriverColors.textSecondary;
+const Color _line = DriverColors.border;
+const Color _teal = DriverColors.primary;
+const Color _tealDeep = DriverColors.primaryDark;
+const Color _tealSoft = DriverColors.primarySurface;
+const Color _amber = Color(0xFF9B682D);
 const Color _gold = Color(0xFFE8A026);
-const Color _rose = Color(0xFFD64560);
-const List<Color> _coveragePalette = [Color(0xFF0F766E), Color(0xFF45B8AA), Color(0xFFE8A026), Color(0xFF5B94C9)];
+const Color _rose = Color(0xFFB95137);
+const List<Color> _coveragePalette = [_teal, Color(0xFF5D9C8B), Color(0xFF8FB6A4), Color(0xFFBCCFC0)];
 const double _radius = 24;
 
 /// The courier's Home tab: today's route, the next stop, money + COD on
@@ -214,6 +213,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             else ...[
               reveal('next', _section('Next stop', action: queue.isEmpty ? null : 'View route', onAction: widget.onOpenDeliveries, child: queue.isEmpty ? _emptyStop() : _nextStop(queue.first))),
               if (queue.length > 1) reveal('upnext', Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _upNext(queue.skip(1).take(3).toList(), queue.length - 1))),
+              reveal('route', Padding(padding: const EdgeInsets.fromLTRB(16, 22, 16, 0), child: _routeCard())),
             ],
             reveal('money', _section('Money', child: _moneyCard())),
             reveal('cod', _codCard()),
@@ -267,98 +267,72 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
 
   // ------------------------------------------------------------------- hero
 
-  static const _weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  /// Teal header with the route card floating across its bottom edge.
-  /// The gradient is a [Positioned] backdrop inset from the bottom so the
-  /// card overlaps it without any negative-margin tricks.
+  /// Mirrors the logistics dashboard header: shared logo, name, and alert
+  /// control, with courier availability kept beside the driver's name.
   Widget _hero({required bool initialLoad, required bool hardError}) {
-    final now = DateTime.now();
-    final greeting = now.hour < 12 ? 'Good morning' : now.hour < 18 ? 'Good afternoon' : 'Good evening';
-    final company = widget.account.logisticsCompanyName;
-    final online = widget.isOnline;
     final top = MediaQuery.of(context).padding.top;
-
-    return Stack(
-      children: [
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: initialLoad || hardError ? 0 : 92,
-          child: Container(
-            decoration: const BoxDecoration(
-              color: _teal,
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)),
-            ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, top + 10, 18, initialLoad || hardError ? 24 : 8),
+      child: Row(children: [
+        Expanded(
+          child: Image.asset(
+              'assets/images/logo-buytheway.png',
+              width: 130,
+              height: 35,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+              semanticLabel: 'BuyTheWay',
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, top + 18, 16, initialLoad || hardError ? 28 : 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.16), border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5)),
-                  child: Text(widget.account.avatarInitial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 21)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(greeting, style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 13.5, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 1),
-                    Text(widget.account.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-                  ]),
-                ),
-                _onlinePill(online),
-                const SizedBox(width: 4),
-                DriverNotificationBell(unread: widget.unreadNotifications, onTap: widget.onOpenNotifications),
-              ]),
-              const SizedBox(height: 16),
-              Row(children: [
-                _glassChip(Icons.local_shipping_outlined, company ?? 'Independent courier'),
-                const SizedBox(width: 8),
-                _glassChip(Icons.calendar_today_rounded, '${_weekdays[now.weekday - 1].substring(0, 3)}, ${_months[now.month - 1].substring(0, 3)} ${now.day}'),
-              ]),
-              if (!initialLoad && !hardError) ...[const SizedBox(height: 20), _routeCard()],
-            ],
-          ),
-        ),
-      ],
+        const SizedBox(width: 8),
+        _availabilityBadge(widget.isOnline),
+        const SizedBox(width: 8),
+        _courierNotificationButton(),
+      ]),
     );
   }
 
-  Widget _onlinePill(bool online) => Semantics(
+  Widget _availabilityBadge(bool online) => Semantics(
         label: online ? 'You are online' : 'You are offline',
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: Colors.black.withOpacity(0.22), borderRadius: BorderRadius.circular(20)),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            color: online ? const Color(0xFFDDF1EC) : const Color(0xFFE9ECE7),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: online ? const Color(0xFFB8D9CF) : _line),
+          ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: online ? const Color(0xFF6EE7B7) : Colors.white54, boxShadow: online ? [BoxShadow(color: const Color(0xFF6EE7B7).withOpacity(0.7), blurRadius: 8)] : null),
-            ),
-            const SizedBox(width: 7),
-            Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            Container(width: 6, height: 6, decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: online ? const Color(0xFF287A5A) : const Color(0xFF89938A),
+            )),
+            const SizedBox(width: 5),
+            Text(online ? 'Online' : 'Offline', style: TextStyle(
+              color: online ? const Color(0xFF245D48) : _inkSoft,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            )),
           ]),
         ),
       );
 
-  Widget _glassChip(IconData icon, String label) => Flexible(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.2))),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 14, color: Colors.white.withOpacity(0.9)),
-            const SizedBox(width: 6),
-            Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600))),
-          ]),
+  Widget _courierNotificationButton() => Badge(
+        isLabelVisible: widget.unreadNotifications > 0,
+        label: Text(widget.unreadNotifications > 99 ? '99+' : '${widget.unreadNotifications}'),
+        backgroundColor: const Color(0xFFB95137),
+        child: IconButton(
+          onPressed: widget.onOpenNotifications,
+          tooltip: 'Notifications',
+          icon: const Icon(Icons.notifications_none_rounded, size: 21),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: _inkSoft,
+            minimumSize: const Size(42, 42),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            side: const BorderSide(color: _line),
+          ),
         ),
       );
 
@@ -370,81 +344,76 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final failed = widget.deliveries.where(_isFailed).length;
     final total = done + pending + failed;
     final pct = total == 0 ? 0.0 : done / total;
+    final complete = total > 0 && pct >= 1;
+    final routeStateColor = failed > 0
+        ? _rose
+        : complete
+            ? const Color(0xFF15803D)
+            : _tealDeep;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [BoxShadow(color: _tealDeep.withOpacity(0.18), blurRadius: 30, offset: const Offset(0, 14))],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _line),
+        boxShadow: [BoxShadow(color: _ink.withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 8))],
       ),
-      child: Column(children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          SizedBox(
-            width: 68,
-            height: 68,
-            child: Stack(alignment: Alignment.center, children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: pct),
-                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                builder: (_, v, __) => SizedBox.expand(child: CircularProgressIndicator(value: v, strokeWidth: 7, strokeCap: StrokeCap.round, backgroundColor: _tealSoft, color: _teal)),
-              ),
-              Text('${(pct * 100).round()}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
-            ]),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Today’s route', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _inkSoft)),
-              const SizedBox(height: 2),
-              Text(total == 0 ? 'No parcels yet' : '$done of $total delivered', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: _ink)),
-              const SizedBox(height: 2),
-              Text(pending == 0 ? (total == 0 ? 'Assignments will appear here' : 'Route complete') : '$pending left to go', style: const TextStyle(fontSize: 12.5, color: _inkSoft)),
+          const Text('ROUTE CONTROL', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2, color: _inkSoft)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: complete ? const Color(0xFFE4F0E8) : failed > 0 ? const Color(0xFFF7E9E4) : _tealSoft, borderRadius: BorderRadius.circular(20)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: failed > 0 ? _rose : complete ? const Color(0xFF16A34A) : _teal)),
+              const SizedBox(width: 6),
+            Text(
+              failed > 0
+                  ? 'NEEDS ATTENTION'
+                  : pending > 0
+                      ? 'IN PROGRESS'
+                      : total == 0
+                          ? 'NO STOPS'
+                          : 'COMPLETE',
+              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: routeStateColor),
+            ),
             ]),
           ),
         ]),
-        const SizedBox(height: 16),
-        Row(children: [
-          _statTile(Icons.inventory_2_rounded, '$total', 'Assigned', _teal),
-          const SizedBox(width: 10),
-          _statTile(Icons.check_rounded, '$done', 'Delivered', const Color(0xFF16A34A)),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+          Text('$done', style: const TextStyle(fontSize: 38, height: 1, fontWeight: FontWeight.w900, letterSpacing: -1.6, color: _ink, fontFeatures: [FontFeature.tabularFigures()])),
+          const SizedBox(width: 6),
+          Flexible(child: Text('/ $total stops completed', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _inkSoft), maxLines: 1, overflow: TextOverflow.ellipsis)),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
+        ClipRRect(borderRadius: BorderRadius.circular(5), child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: pct),
+          duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 7, backgroundColor: const Color(0xFFE7EBE5), color: _teal),
+        )),
+        const SizedBox(height: 14),
         Row(children: [
-          _statTile(Icons.schedule_rounded, '$pending', 'Pending', const Color(0xFFD98A0B)),
-          const SizedBox(width: 10),
-          _statTile(Icons.priority_high_rounded, '$failed', 'Failed', _rose),
+          Expanded(child: _routeStat(Icons.schedule_rounded, 'In progress', '$pending', const Color(0xFFD98A0B))),
+          Container(width: 1, height: 36, margin: const EdgeInsets.symmetric(horizontal: 16), color: _line),
+          Expanded(child: _routeStat(failed > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline_rounded, 'Issues', failed > 0 ? '$failed' : 'None', failed > 0 ? _rose : const Color(0xFF16A34A))),
         ]),
       ]),
     );
   }
 
-  Widget _statTile(IconData icon, String value, String label, Color color) => Expanded(
-        child: Semantics(
-          label: '$value $label',
-          excludeSemantics: true,
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(18)),
-            child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(13)),
-                child: Icon(icon, size: 21, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(value, style: const TextStyle(fontSize: 22, height: 1.05, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: _ink, fontFeatures: [FontFeature.tabularFigures()])),
-                  const SizedBox(height: 1),
-                  Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _inkSoft)),
-                ]),
-              ),
-            ]),
-          ),
-        ),
-      );
+  Widget _routeStat(IconData icon, String label, String value, Color color) => Row(children: [
+        Container(width: 34, height: 34, decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 18, color: color)),
+        const SizedBox(width: 9),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _inkSoft)),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: value == 'None' ? color : _ink, fontFeatures: const [FontFeature.tabularFigures()])),
+        ])),
+      ]);
 
   // -------------------------------------------------------------- next stop
 
@@ -466,10 +435,85 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         ]),
       );
 
+  Widget _activeRouteRail(AssignedDelivery d, {required bool toPickup}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 13, 13, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F3ED),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      child: Column(children: [
+        _activeRoutePoint(
+          icon: d.isReturn ? Icons.assignment_return_rounded : Icons.storefront_rounded,
+          label: d.isReturn ? 'COLLECT RETURN' : 'PICK UP',
+          address: d.pickupLabel,
+          active: toPickup,
+          complete: !toPickup,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 15),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 20,
+              width: 2,
+            decoration: BoxDecoration(color: _teal.withOpacity(0.32), borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+        ),
+        _activeRoutePoint(
+          icon: d.isTransfer ? Icons.compare_arrows_rounded : Icons.location_on_rounded,
+          label: d.isTransfer ? 'HAND OFF' : 'DELIVER TO',
+          address: d.dropoffLabel,
+          active: !toPickup,
+          complete: false,
+        ),
+      ]),
+    );
+  }
+
+  Widget _activeRoutePoint({
+    required IconData icon,
+    required String label,
+    required String address,
+    required bool active,
+    required bool complete,
+  }) {
+    final color = active || complete ? _tealDeep : _inkSoft;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? _teal : complete ? const Color(0xFF16A34A) : Colors.white,
+          shape: BoxShape.circle,
+          border: active || complete ? null : Border.all(color: _line, width: 1.5),
+        ),
+        child: Icon(complete ? Icons.check_rounded : icon, size: 17, color: active || complete ? Colors.white : _inkSoft),
+      ),
+      const SizedBox(width: 10),
+      Expanded(child: Padding(
+        padding: const EdgeInsets.only(top: 1),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.7, color: active ? _tealDeep : _inkSoft)),
+            if (active) ...[
+              const SizedBox(width: 7),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _tealSoft, borderRadius: BorderRadius.circular(8)), child: const Text('NEXT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: _tealDeep, letterSpacing: 0.4))),
+            ],
+          ]),
+          const SizedBox(height: 3),
+          Text(address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, height: 1.3, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _ink : color)),
+        ]),
+      )),
+    ]);
+  }
+
   Widget _nextStop(AssignedDelivery d) {
     final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned ||
         (d.status == AssignedDeliveryStatus.waitingApproval && d.handedOffAt == null);
-    final place = toPickup ? d.pickupLabel : d.dropoffLabel;
     final (primaryLabel, primaryIcon) = switch (d.status) {
       AssignedDeliveryStatus.pickedUp => ('Delivered', Icons.check_rounded),
       AssignedDeliveryStatus.readyToTransfer => ('Hand over', Icons.check_rounded),
@@ -498,29 +542,24 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
               const Spacer(),
               Flexible(child: Text('#${d.trackingNumber ?? d.orderNumber}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _inkSoft))),
             ]),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Row(children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: _teal, borderRadius: BorderRadius.circular(15)),
-                child: const Text('01', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 14.5)),
+                decoration: BoxDecoration(color: _tealSoft, borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.person_pin_circle_rounded, color: _tealDeep, size: 25),
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(d.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: _ink))),
+              const SizedBox(width: 11),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('DELIVERY FOR', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.9, color: _inkSoft)),
+                const SizedBox(height: 2),
+                Text(d.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: _ink)),
+              ])),
             ]),
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(16)),
-              child: Row(children: [
-                Container(width: 36, height: 36, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.location_on_rounded, color: _teal, size: 20)),
-                const SizedBox(width: 10),
-                Expanded(child: Text(place, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.3, color: _ink))),
-              ]),
-            ),
+            const SizedBox(height: 16),
+            _activeRouteRail(d, toPickup: toPickup),
             const SizedBox(height: 16),
             Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               Expanded(
@@ -610,7 +649,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       label: label,
       child: Material(
         color: filled && enabled ? _tealSoft : Colors.transparent,
-        shape: CircleBorder(side: BorderSide(color: enabled ? const Color(0xFFBFE3DD) : _line)),
+          shape: CircleBorder(side: BorderSide(color: enabled ? const Color(0xFFB8D9CF) : _line)),
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
@@ -671,7 +710,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 decoration: BoxDecoration(color: _tealSoft, shape: BoxShape.circle, border: Border.all(color: _teal, width: 2)),
                 child: Text('$number', style: const TextStyle(fontWeight: FontWeight.w800, color: _tealDeep, fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()])),
               ),
-              if (!last) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 3), decoration: BoxDecoration(color: const Color(0xFFBFE3DD), borderRadius: BorderRadius.circular(2)))),
+              if (!last) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 3), decoration: BoxDecoration(color: const Color(0xFFB8D9CF), borderRadius: BorderRadius.circular(2)))),
             ]),
           ),
           const SizedBox(width: 12),
@@ -725,19 +764,13 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
               Row(children: [
                 Icon(Icons.account_balance_wallet_outlined, size: 16, color: Colors.white.withOpacity(0.8)),
                 const SizedBox(width: 6),
-                Text('Available to cash out', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8))),
+                Text('Available balance', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8))),
               ]),
               const SizedBox(height: 6),
               loading
                   ? const DriverShimmerBox(height: 32, width: 150)
                   : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v('available_cents'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white))),
             ]),
-          ),
-          const SizedBox(width: 12),
-          FilledButton(
-            onPressed: widget.onOpenRemittances,
-            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: _tealDeep, minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Cash out'), SizedBox(width: 6), Icon(Icons.arrow_forward_rounded, size: 17)]),
           ),
         ]),
         const SizedBox(height: 16),
@@ -1024,8 +1057,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final type = '${r['type']}';
     final (label, icon, color) = switch (type) {
       'delivery' => ('Delivery earnings', Icons.local_shipping_rounded, _teal),
-      'pickup' => ('Pickup earnings', Icons.inventory_2_rounded, const Color(0xFF3B82C4)),
-      'transfer' => ('Transfer earnings', Icons.swap_horiz_rounded, const Color(0xFF7C5CC4)),
+      'pickup' => ('Pickup earnings', Icons.inventory_2_rounded, const Color(0xFF5D9C8B)),
+      'transfer' => ('Transfer earnings', Icons.swap_horiz_rounded, const Color(0xFF8FB6A4)),
       'failed_attempt' => ('Failed attempt fee', Icons.replay_rounded, _gold),
       'bonus' => ('Bonus', Icons.workspace_premium_rounded, _gold),
       'deduction' => ('Deduction', Icons.remove_circle_rounded, _rose),
