@@ -179,20 +179,13 @@ void main() {
         home: RemittancesScreen(
             accessToken: 't', role: RemittanceRole.seller, api: api)));
     await tester.pumpAndSettle();
-    final button = find.widgetWithText(FilledButton, 'Confirm receipt');
-    await tester.scrollUntilVisible(button, 200,
-        scrollable: find
-            .byWidgetPredicate(
-                (w) => w is Scrollable && w.axisDirection == AxisDirection.down)
-            .last);
+    final button = find.text('Confirm receipt');
+    await tester.ensureVisible(button);
     await tester.tap(button);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(button, 200,
-        scrollable: find
-            .byWidgetPredicate(
-                (w) => w is Scrollable && w.axisDirection == AxisDirection.down)
-            .last);
-    await tester.tap(button);
+    final submitButton = find.widgetWithText(FilledButton, 'Confirm receipt');
+    await tester.ensureVisible(submitButton);
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
     expect(api.reviews, 0);
     expect(
@@ -201,7 +194,7 @@ void main() {
         findsOneWidget);
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pump();
-    await tester.tap(button);
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
     expect(api.reviews, 1);
     expect(api.status, 'verified');

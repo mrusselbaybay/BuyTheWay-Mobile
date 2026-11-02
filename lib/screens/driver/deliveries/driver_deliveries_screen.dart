@@ -714,7 +714,7 @@ class _MissionCardState extends State<_MissionCard> {
                                 Text(
                                   (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned)
                                       // A return's first leg is collected at the buyer's door.
-                                      ? (d.returnPickupAddress ?? d.pickupLabel)
+                                      ? (d.isReturn ? (d.returnPickupAddress ?? d.pickupLabel) : (d.pickupAddress ?? (d.status == AssignedDeliveryStatus.assigned && d.handedOffAt == null ? 'Seller pickup address unavailable' : d.pickupLabel)))
                                       : d.dropoffLabel,
                                   style: DriverText.body,
                                   maxLines: 1,

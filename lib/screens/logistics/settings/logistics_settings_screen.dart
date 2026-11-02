@@ -91,22 +91,27 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    final yes = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('Sign out?'),
-              content: const Text(
-                  'You will need to sign in again to access the Logistics app.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel')),
-                TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Sign out'))
-              ],
-            ));
-    if (yes == true) widget.onSignOut();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+            'You will need to sign in again to access the Logistics app.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) widget.onSignOut();
   }
 
   String _joinAddress() {

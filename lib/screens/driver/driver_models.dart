@@ -240,6 +240,8 @@ class AssignedDelivery {
   final String? sellerContactNo;
   final String? sellerShopName;
   final String pickupLabel;
+  final String? pickupAddress;
+  final bool pickupAddressIsPartial;
   final String dropoffLabel;
   final String? deliveryArea;
   final int parcels;
@@ -311,6 +313,8 @@ class AssignedDelivery {
     this.sellerContactNo,
     this.sellerShopName,
     required this.pickupLabel,
+    this.pickupAddress,
+    this.pickupAddressIsPartial = false,
     required this.dropoffLabel,
     this.deliveryArea,
     required this.parcels,
@@ -374,6 +378,8 @@ class AssignedDelivery {
       sellerContactNo: str(json['seller_contact_no']).isEmpty ? null : str(json['seller_contact_no']),
       sellerShopName: str(json['seller_shop_name']).isEmpty ? null : str(json['seller_shop_name']),
       pickupLabel: str(json['pickup_label']).isEmpty ? 'Sorting hub' : str(json['pickup_label']),
+      pickupAddress: str(json['pickup_address']).isEmpty ? null : str(json['pickup_address']),
+      pickupAddressIsPartial: json['pickup_address_is_partial'] == true,
       dropoffLabel: str(json['dropoff_label']).isEmpty ? 'Address on file' : str(json['dropoff_label']),
       deliveryArea: str(json['delivery_area']).isEmpty ? null : str(json['delivery_area']),
       parcels: (json['parcels'] as num?)?.toInt() ?? 0,
@@ -431,6 +437,8 @@ class AssignedDelivery {
         confirmationToken,
         items.length,
         pickupLabel,
+        pickupAddress,
+        pickupAddressIsPartial,
         dropoffLabel,
       ].join('|');
 

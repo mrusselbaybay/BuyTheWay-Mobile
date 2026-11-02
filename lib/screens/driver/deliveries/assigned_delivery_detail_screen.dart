@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../services/api_service.dart';
 import '../../../services/poller.dart';
 import '../../../services/remittance_api_service.dart';
+import '../../remittances/remittance_format.dart';
 import '../../remittances/remittances_screen.dart';
 import '../chat/driver_chat_controller.dart';
 import '../chat/driver_delivery_message_screen.dart';
@@ -65,13 +66,20 @@ class AssignedDeliveryDetailScreen extends StatefulWidget {
   /// ends or this screen closes), so a shell can hold badge updates meanwhile.
   final ValueChanged<bool>? onBusyChanged;
 
-  const AssignedDeliveryDetailScreen({super.key, required this.delivery, required this.accessToken, required this.controller, this.onBusyChanged});
+  const AssignedDeliveryDetailScreen(
+      {super.key,
+      required this.delivery,
+      required this.accessToken,
+      required this.controller,
+      this.onBusyChanged});
 
   @override
-  State<AssignedDeliveryDetailScreen> createState() => _AssignedDeliveryDetailScreenState();
+  State<AssignedDeliveryDetailScreen> createState() =>
+      _AssignedDeliveryDetailScreenState();
 }
 
-class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScreen> {
+class _AssignedDeliveryDetailScreenState
+    extends State<AssignedDeliveryDetailScreen> {
   Timer? _midnightTimer;
   Timer? _approvalTicker;
 
@@ -97,18 +105,26 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     _reportedBusy = busy;
     widget.onBusyChanged?.call(busy);
   }
+
   int _epoch = 0;
   ModalRoute<dynamic>? _route;
 
   late final Poller _poller = Poller(
     (isActive) async {
       final epoch = _epoch;
-      final response = await _api.getDriverDeliveries(accessToken: widget.accessToken);
+      final response =
+          await _api.getDriverDeliveries(accessToken: widget.accessToken);
       final match = (response['data'] as List? ?? [])
-          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
+          .map((row) =>
+              AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)))
           .where((row) => row.id == widget.delivery.id)
           .firstOrNull;
-      if (!isActive() || !mounted || epoch != _epoch || _submitting || _capturing || _inFlow) return;
+      if (!isActive() ||
+          !mounted ||
+          epoch != _epoch ||
+          _submitting ||
+          _capturing ||
+          _inFlow) return;
       if (match == null) {
         if (!_gone) setState(() => _gone = true);
         return;
@@ -124,7 +140,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       }
     },
     interval: const Duration(seconds: 30),
-    shouldSkip: () => _submitting || _capturing || _inFlow || _route?.isCurrent == false,
+    shouldSkip: () =>
+        _submitting || _capturing || _inFlow || _route?.isCurrent == false,
   );
 
   /// Wraps a capture flow (camera, picker, sheet) so polls stay out of it.
@@ -157,7 +174,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   void initState() {
     super.initState();
     _approvalTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && widget.delivery.status == AssignedDeliveryStatus.waitingApproval) setState(() {});
+      if (mounted &&
+          widget.delivery.status == AssignedDeliveryStatus.waitingApproval)
+        setState(() {});
     });
     _scheduleEligibilityRefresh();
     _poller.start();
@@ -173,7 +192,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     _midnightTimer?.cancel();
     final attempt = widget.delivery.deliveryAttempt;
     final retryAt = attempt.retryAt;
-    if (widget.delivery.status != AssignedDeliveryStatus.failedAttempt || retryAt == null || attempt.eligible) return;
+    if (widget.delivery.status != AssignedDeliveryStatus.failedAttempt ||
+        retryAt == null ||
+        attempt.eligible) return;
     final wait = retryAt.difference(DateTime.now().toUtc());
     if (wait.isNegative) return;
     _midnightTimer = Timer(wait + const Duration(seconds: 1), () {
@@ -196,7 +217,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   Future<void> _failAttemptFlow() async {
     final reason = await showModalBottomSheet<(String, String?)>(
-      context: context, isScrollControlled: true, useSafeArea: true,
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => const FailedAttemptSheet(),
     );
     if (reason == null || !mounted || _submitting) return;
@@ -204,7 +227,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     if (source == null || !mounted) return;
     XFile? proof;
     try {
-      proof = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+      proof = await ImagePicker()
+          .pickImage(source: source, maxWidth: 1600, imageQuality: 85);
     } catch (_) {
       _showProofError('Could not capture proof. Please try again.');
       return;
@@ -212,26 +236,40 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     if (proof == null || !mounted) return;
     final bytes = await proof.readAsBytes();
     if (!mounted) return;
-    await _submitAttemptAction(() => _api.markDeliveryFailed(
-      parcelAssignmentId: widget.delivery.id, accessToken: widget.accessToken,
-      reasonCode: reason.$1, description: reason.$2, photoBytes: bytes, photoFileName: proof!.name,
-    ), 'Failed delivery attempt recorded.');
+    await _submitAttemptAction(
+        () => _api.markDeliveryFailed(
+              parcelAssignmentId: widget.delivery.id,
+              accessToken: widget.accessToken,
+              reasonCode: reason.$1,
+              description: reason.$2,
+              photoBytes: bytes,
+              photoFileName: proof!.name,
+            ),
+        'Failed delivery attempt recorded.');
   }
 
-  Future<void> _reattempt() => _submitAttemptAction(() => _api.startDeliveryReattempt(
-    parcelAssignmentId: widget.delivery.id, accessToken: widget.accessToken,
-  ), 'Delivery re-attempt started.');
+  Future<void> _reattempt() => _submitAttemptAction(
+      () => _api.startDeliveryReattempt(
+            parcelAssignmentId: widget.delivery.id,
+            accessToken: widget.accessToken,
+          ),
+      'Delivery re-attempt started.');
 
-  Future<void> _submitAttemptAction(Future<Map<String, dynamic>> Function() action, String message) async {
+  Future<void> _submitAttemptAction(
+      Future<Map<String, dynamic>> Function() action, String message) async {
     if (_submitting) return;
     setState(() => _submitting = true);
     try {
       final response = await action();
       final data = response['data'];
-      if (data is! Map) throw ApiException(message: 'Invalid delivery response. Refresh and try again.', statusCode: 500);
+      if (data is! Map)
+        throw ApiException(
+            message: 'Invalid delivery response. Refresh and try again.',
+            statusCode: 500);
       if (!mounted) return;
       setState(() {
-        widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+        widget.delivery.applyFrom(
+            AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
         _photoBytes = null;
         _photoFilePath = null;
         _photoFileName = null;
@@ -240,9 +278,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       _scheduleEligibilityRefresh();
       DriverTopNotification.show(context, message: message);
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update this delivery. Check your connection and refresh before retrying.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not update this delivery. Check your connection and refresh before retrying.')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -357,7 +400,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                         onPressed: saving
                             ? null
                             : () async {
-                                final source = await showModalBottomSheet<ImageSource>(
+                                final source =
+                                    await showModalBottomSheet<ImageSource>(
                                   context: context,
                                   showDragHandle: true,
                                   builder: (context) => SafeArea(
@@ -365,14 +409,19 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         ListTile(
-                                          leading: const Icon(Icons.camera_alt_outlined),
+                                          leading: const Icon(
+                                              Icons.camera_alt_outlined),
                                           title: const Text('Take a photo'),
-                                          onTap: () => Navigator.pop(context, ImageSource.camera),
+                                          onTap: () => Navigator.pop(
+                                              context, ImageSource.camera),
                                         ),
                                         ListTile(
-                                          leading: const Icon(Icons.photo_library_outlined),
-                                          title: const Text('Choose from gallery'),
-                                          onTap: () => Navigator.pop(context, ImageSource.gallery),
+                                          leading: const Icon(
+                                              Icons.photo_library_outlined),
+                                          title:
+                                              const Text('Choose from gallery'),
+                                          onTap: () => Navigator.pop(
+                                              context, ImageSource.gallery),
                                         ),
                                       ],
                                     ),
@@ -481,6 +530,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   Uint8List? _photoBytes;
   String? _photoFilePath;
   bool _submittingValue = false;
+  bool _codPromptOpen = false;
 
   /// Any change invalidates a poll already in flight (it started before the action ended).
   bool get _submitting => _submittingValue;
@@ -489,6 +539,7 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     _epoch++;
     _reportBusy();
   }
+
   bool _openingPhoto = false;
 
   /// Set only once a scanned/decoded QR value has been checked against
@@ -515,7 +566,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   Future<void> _pickLegacyPhotoFlow() async {
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: kIsWeb);
+      final result = await FilePicker.platform
+          .pickFiles(type: FileType.image, withData: kIsWeb);
       if (result == null || result.files.isEmpty) return;
       final f = result.files.single;
       setState(() {
@@ -526,7 +578,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the photo picker. Please try again.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not open the photo picker. Please try again.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -548,7 +602,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   Future<void> _scanQrFlow() async {
     if (kIsWeb) {
-      _showProofError("Scanning isn't supported in this preview. Please use the mobile app.");
+      _showProofError(
+          "Scanning isn't supported in this preview. Please use the mobile app.");
       return;
     }
 
@@ -558,12 +613,16 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       return;
     }
 
-    final isPickup = widget.delivery.status == AssignedDeliveryStatus.assigned ||
-        widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
-    final isTransfer = widget.delivery.status == AssignedDeliveryStatus.readyToTransfer;
+    final isPickup =
+        widget.delivery.status == AssignedDeliveryStatus.assigned ||
+            widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
+    final isTransfer =
+        widget.delivery.status == AssignedDeliveryStatus.readyToTransfer;
     final scanTitle = isPickup
         ? 'Scan to confirm pickup'
-        : (isTransfer ? 'Scan to confirm transfer' : 'Scan to confirm delivery');
+        : (isTransfer
+            ? 'Scan to confirm transfer'
+            : 'Scan to confirm delivery');
     final result = await Navigator.of(context).push<QrScanResult>(
       MaterialPageRoute(
         builder: (_) => QrScanScreen(
@@ -573,7 +632,11 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       ),
     );
     if (result == null || !mounted) return;
-    _applyScannedProof(rawValue: result.rawValue, photoBytes: result.photoBytes, photoFilePath: null, fileNameHint: 'qr-scan');
+    _applyScannedProof(
+        rawValue: result.rawValue,
+        photoBytes: result.photoBytes,
+        photoFilePath: null,
+        fileNameHint: 'qr-scan');
   }
 
   /// Lets the driver choose Camera or Gallery, then decodes any QR code
@@ -589,7 +652,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
     setState(() => _capturing = true);
     try {
-      final file = await ImagePicker().pickImage(source: source, imageQuality: 90);
+      final file =
+          await ImagePicker().pickImage(source: source, imageQuality: 90);
       if (file == null) {
         setState(() => _capturing = false);
         return;
@@ -597,11 +661,13 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
       if (kIsWeb) {
         setState(() => _capturing = false);
-        _showProofError("Attaching a QR picture isn't supported in this preview. Please use the mobile app.");
+        _showProofError(
+            "Attaching a QR picture isn't supported in this preview. Please use the mobile app.");
         return;
       }
 
-      final scanner = MobileScannerController(formats: const [BarcodeFormat.qrCode]);
+      final scanner =
+          MobileScannerController(formats: const [BarcodeFormat.qrCode]);
       BarcodeCapture? capture;
       try {
         capture = await scanner.analyzeImage(file.path);
@@ -609,16 +675,23 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         scanner.dispose();
       }
 
-      final raw = (capture?.barcodes.isNotEmpty ?? false) ? capture!.barcodes.first.rawValue : null;
+      final raw = (capture?.barcodes.isNotEmpty ?? false)
+          ? capture!.barcodes.first.rawValue
+          : null;
       if (!mounted) return;
       if (raw == null || raw.trim().isEmpty) {
         setState(() => _capturing = false);
-        _showProofError("No QR code found in that photo. Please retake a clear photo of the parcel's QR code.");
+        _showProofError(
+            "No QR code found in that photo. Please retake a clear photo of the parcel's QR code.");
         return;
       }
 
       setState(() => _capturing = false);
-      _applyScannedProof(rawValue: raw, photoBytes: null, photoFilePath: file.path, fileNameHint: 'qr-photo');
+      _applyScannedProof(
+          rawValue: raw,
+          photoBytes: null,
+          photoFilePath: file.path,
+          fileNameHint: 'qr-photo');
     } catch (_) {
       if (!mounted) return;
       setState(() => _capturing = false);
@@ -635,30 +708,39 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       builder: (sheetContext) => SafeArea(
         child: Container(
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
-                child: Align(alignment: Alignment.centerLeft, child: Text('Attach a picture of the QR code', style: DriverText.sectionTitle)),
+                child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Attach a picture of the QR code',
+                        style: DriverText.sectionTitle)),
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Make sure the parcel's QR code is clear and in frame.", style: DriverText.caption),
+                  child: Text(
+                      "Make sure the parcel's QR code is clear and in frame.",
+                      style: DriverText.caption),
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_camera_rounded, color: DriverColors.primary),
+                leading: const Icon(Icons.photo_camera_rounded,
+                    color: DriverColors.primary),
                 title: const Text('Take a photo'),
                 onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: DriverColors.primary),
+                leading: const Icon(Icons.photo_library_rounded,
+                    color: DriverColors.primary),
                 title: const Text('Choose from gallery'),
-                onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(ImageSource.gallery),
               ),
               const SizedBox(height: 8),
             ],
@@ -686,15 +768,18 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       return;
     }
 
-    if (widget.delivery.hasConfirmationQr && widget.delivery.confirmationToken != token) {
-      _showProofError("This QR code doesn't belong to this parcel. Make sure you're scanning the right package.");
+    if (widget.delivery.hasConfirmationQr &&
+        widget.delivery.confirmationToken != token) {
+      _showProofError(
+          "This QR code doesn't belong to this parcel. Make sure you're scanning the right package.");
       return;
     }
 
     setState(() {
       _photoBytes = photoBytes;
       _photoFilePath = photoFilePath;
-      _photoFileName = '$fileNameHint-${DateTime.now().millisecondsSinceEpoch}.jpg';
+      _photoFileName =
+          '$fileNameHint-${DateTime.now().millisecondsSinceEpoch}.jpg';
       _scannedToken = token;
     });
   }
@@ -702,7 +787,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   void _showProofError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, backgroundColor: DriverColors.error),
+      SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: DriverColors.error),
     );
   }
 
@@ -724,7 +812,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// this is disabled until [_hasPhoto] is true (see [_buildActionBar]),
   /// so by the time this runs a photo is already attached.
   Future<void> _confirmPickup() async {
-    final wasTransfer = widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
+    final wasTransfer =
+        widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
     setState(() => _submitting = true);
     try {
       final response = await _api.markDeliveryPickedUp(
@@ -737,11 +826,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       );
       final data = response['data'];
       if (data is! Map) {
-        throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+        throw ApiException(
+            message: 'The server returned an invalid response.',
+            statusCode: 500);
       }
 
       if (!mounted) return;
-      widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+      widget.delivery
+          .applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
       setState(() => _submitting = false);
       DriverTopNotification.show(
         context,
@@ -753,12 +845,15 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not confirm this pickup. Please try again.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not confirm this pickup. Please try again.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -766,7 +861,100 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// Marks a 'pickedUp' delivery delivered — the button that calls this is
   /// disabled until [_hasPhoto] is true (see [_buildActionBar]), so by the
   /// time this runs a photo is already attached.
+  int? _parseCodAmountCents(String input) {
+    final raw = input.trim();
+    if (!RegExp(r'^(?:\d{1,10}|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$')
+        .hasMatch(raw)) return null;
+    final value = raw.replaceAll(',', '');
+    final parts = value.split('.');
+    final pesos = int.tryParse(parts.first);
+    final centavos =
+        parts.length == 1 ? 0 : int.tryParse(parts[1].padRight(2, '0'));
+    if (pesos == null || centavos == null || pesos > 1000000000) return null;
+    return pesos * 100 + centavos;
+  }
+
+  Future<int?> _requestCodAmount() async {
+    final controller = TextEditingController();
+    String? error;
+    try {
+      return await showDialog<int>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Confirm COD collected'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'Expected full order total: ${remittanceMoney(widget.delivery.codAmountCents)}'),
+                const SizedBox(height: 8),
+                const Text(
+                    'Enter the total cash you collected from the buyer.'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: 'Amount collected (₱)',
+                    hintText: 'e.g. 1250.00',
+                    errorText: error,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final amount = _parseCodAmountCents(controller.text);
+                  if (amount == null) {
+                    setDialogState(() => error =
+                        'Enter a valid amount with up to 2 decimal places.');
+                  } else if (amount != widget.delivery.codAmountCents) {
+                    setDialogState(() =>
+                        error = 'The amount must match the full order total.');
+                  } else {
+                    Navigator.of(dialogContext).pop(amount);
+                  }
+                },
+                child: const Text('Confirm amount'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
   Future<void> _markDelivered() async {
+    if (_submitting || _codPromptOpen) return;
+
+    final paymentMethod = widget.delivery.paymentMethod.trim().toLowerCase();
+    final isCod = !widget.delivery.isReturn &&
+        const {'cod', 'cash on delivery', 'cash_on_delivery'}
+            .contains(paymentMethod);
+    int? codAmountCents;
+    if (isCod) {
+      _codPromptOpen = true;
+      try {
+        codAmountCents = await _requestCodAmount();
+      } finally {
+        _codPromptOpen = false;
+      }
+      if (!mounted || codAmountCents == null) return;
+    }
+
     setState(() => _submitting = true);
     try {
       final response = await _api.markDeliveryDelivered(
@@ -776,26 +964,33 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         photoBytes: _photoBytes,
         photoFilePath: _photoFilePath,
         confirmationToken: _scannedToken,
+        codAmountCents: codAmountCents,
       );
       final data = response['data'];
       if (data is! Map) {
-        throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+        throw ApiException(
+            message: 'The server returned an invalid response.',
+            statusCode: 500);
       }
 
       if (!mounted) return;
-      widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+      widget.delivery
+          .applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
       setState(() => _submitting = false);
       DriverTopNotification.show(context, message: 'Delivery completed!');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not mark this delivered. Please try again.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not mark this delivered. Please try again.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -817,23 +1012,29 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       );
       final data = response['data'];
       if (data is! Map) {
-        throw ApiException(message: 'The server returned an invalid response.', statusCode: 500);
+        throw ApiException(
+            message: 'The server returned an invalid response.',
+            statusCode: 500);
       }
 
       if (!mounted) return;
-      widget.delivery.applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
+      widget.delivery
+          .applyFrom(AssignedDelivery.fromApi(Map<String, dynamic>.from(data)));
       setState(() => _submitting = false);
       DriverTopNotification.show(context, message: 'Transfer confirmed!');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not confirm this transfer. Please try again.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not confirm this transfer. Please try again.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -841,16 +1042,22 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   Future<void> _viewDeliveryPhoto() async {
     setState(() => _openingPhoto = true);
     try {
-      final response = await _api.getDeliveryPhoto(parcelAssignmentId: widget.delivery.id, accessToken: widget.accessToken);
+      final response = await _api.getDeliveryPhoto(
+          parcelAssignmentId: widget.delivery.id,
+          accessToken: widget.accessToken);
       final url = response['url'] as String?;
       final uri = url == null ? null : Uri.tryParse(url);
-      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (uri == null ||
+          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw Exception('Could not launch delivery photo URL.');
       }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the delivery photo. Please try again.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content:
+                Text('Could not open the delivery photo. Please try again.'),
+            behavior: SnackBarBehavior.floating),
       );
     } finally {
       if (mounted) setState(() => _openingPhoto = false);
@@ -860,11 +1067,14 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   Future<void> _call(String? phone) async {
     if (phone == null || phone.trim().isEmpty) return;
     try {
-      if (!await launchUrl(Uri(scheme: 'tel', path: phone.trim()))) throw Exception('launch failed');
+      if (!await launchUrl(Uri(scheme: 'tel', path: phone.trim())))
+        throw Exception('launch failed');
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not start a call. Please dial manually.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('Could not start a call. Please dial manually.'),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -888,12 +1098,12 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     setState(() => _navigatingToMessage = true);
     Navigator.of(context)
         .push(MaterialPageRoute(
-          builder: (_) => DriverDeliveryMessageScreen(
-            controller: widget.controller,
-            parcelAssignmentId: widget.delivery.id,
-            contact: contact,
-          ),
-        ))
+      builder: (_) => DriverDeliveryMessageScreen(
+        controller: widget.controller,
+        parcelAssignmentId: widget.delivery.id,
+        contact: contact,
+      ),
+    ))
         .whenComplete(() {
       if (mounted) setState(() => _navigatingToMessage = false);
     });
@@ -902,7 +1112,20 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   String _formatDate(DateTime? d) {
     if (d == null) return 'Unknown time';
     final local = d.toUtc().add(const Duration(hours: 8));
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final m = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
@@ -912,19 +1135,35 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   (String, Color, IconData) _actionTag(AssignedDeliveryStatus status) {
     switch (status) {
       case AssignedDeliveryStatus.failedAttempt:
-        return ('Failed Attempt', DriverColors.warning, Icons.warning_amber_rounded);
+        return (
+          'Failed Attempt',
+          DriverColors.warning,
+          Icons.warning_amber_rounded
+        );
       case AssignedDeliveryStatus.needsDispatcherReview:
-        return ('Needs Dispatcher Review', DriverColors.error, Icons.support_agent_rounded);
+        return (
+          'Needs Dispatcher Review',
+          DriverColors.error,
+          Icons.support_agent_rounded
+        );
       case AssignedDeliveryStatus.assigned:
         return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.waitingApproval:
-        return ('Waiting approval', DriverColors.warning, Icons.hourglass_top_rounded);
+        return (
+          'Waiting approval',
+          DriverColors.warning,
+          Icons.hourglass_top_rounded
+        );
       case AssignedDeliveryStatus.pickedUp:
         return ('To deliver', DriverColors.info, Icons.local_shipping_rounded);
       case AssignedDeliveryStatus.delivered:
         return ('Delivered', DriverColors.success, Icons.check_circle_rounded);
       case AssignedDeliveryStatus.handedOver:
-        return ('Handed over', DriverColors.textSecondary, Icons.assignment_turned_in_rounded);
+        return (
+          'Handed over',
+          DriverColors.textSecondary,
+          Icons.assignment_turned_in_rounded
+        );
       case AssignedDeliveryStatus.awaitingInventory:
         return ('Picked up', DriverColors.success, Icons.check_circle_rounded);
       // Cross-region transfer leg — see AssignedDeliveryStatus's docblock.
@@ -955,13 +1194,15 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
           children: [
             DriverGradientHeader(
               title: d.customerName,
-              subtitle: '#${d.orderNumber}${d.trackingNumber != null ? ' · Tracking ${d.trackingNumber}' : ''}',
+              subtitle:
+                  '#${d.orderNumber}${d.trackingNumber != null ? ' · Tracking ${d.trackingNumber}' : ''}',
               onBack: () => Navigator.of(context).pop(),
               trailing: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DriverStatusBadge(label: tagLabel, color: tagColor, icon: tagIcon),
+                  DriverStatusBadge(
+                      label: tagLabel, color: tagColor, icon: tagIcon),
                   if (d.isReturn) ...[
                     const SizedBox(height: 4),
                     DriverReturnChip(returned: d.isReturned),
@@ -969,26 +1210,43 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 ],
               ),
             ),
-            if (d.financialFlow == 'manual' && d.paymentMethod == 'cod' && d.status == AssignedDeliveryStatus.delivered && !d.isReturn && !d.isTransfer)
+            if (d.financialFlow == 'manual' &&
+                d.paymentMethod == 'cod' &&
+                d.status == AssignedDeliveryStatus.delivered &&
+                !d.isReturn &&
+                !d.isTransfer)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: SizedBox(width: double.infinity, child: FilledButton.icon(
-                  icon: const Icon(Icons.currency_exchange_rounded),
-                  label: const Text('Remit COD to seller'),
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemittancesScreen(accessToken: widget.accessToken, role: RemittanceRole.courier, orderNumber: d.orderNumber))),
-                )),
+                child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.currency_exchange_rounded),
+                      label: const Text('Remit COD to seller'),
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => RemittancesScreen(
+                                  accessToken: widget.accessToken,
+                                  role: RemittanceRole.courier,
+                                  orderNumber: d.orderNumber))),
+                    )),
               ),
             if (_updated != null && !_gone)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-                  decoration: BoxDecoration(color: DriverColors.warningSurface, borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(
+                      color: DriverColors.warningSurface,
+                      borderRadius: BorderRadius.circular(14)),
                   child: Row(children: [
-                    const Icon(Icons.sync_problem_rounded, size: 18, color: DriverColors.warning),
+                    const Icon(Icons.sync_problem_rounded,
+                        size: 18, color: DriverColors.warning),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text('This delivery was updated', style: DriverText.caption)),
-                    TextButton(onPressed: _reloadUpdated, child: const Text('Reload')),
+                    const Expanded(
+                        child: Text('This delivery was updated',
+                            style: DriverText.caption)),
+                    TextButton(
+                        onPressed: _reloadUpdated, child: const Text('Reload')),
                   ]),
                 ),
               ),
@@ -997,17 +1255,28 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-                  decoration: BoxDecoration(color: DriverColors.errorSurface, borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(
+                      color: DriverColors.errorSurface,
+                      borderRadius: BorderRadius.circular(14)),
                   child: Row(children: [
-                    const Icon(Icons.search_off_rounded, size: 18, color: DriverColors.error),
+                    const Icon(Icons.search_off_rounded,
+                        size: 18, color: DriverColors.error),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text('This delivery is no longer assigned to you', style: DriverText.caption)),
-                    TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back')),
+                    const Expanded(
+                        child: Text(
+                            'This delivery is no longer assigned to you',
+                            style: DriverText.caption)),
+                    TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Back')),
                   ]),
                 ),
               ),
             Expanded(child: _buildBody(context, d)),
-            if (_updated != null || _gone) _staleActionBar() else _buildActionBar(context, d),
+            if (_updated != null || _gone)
+              _staleActionBar()
+            else
+              _buildActionBar(context, d),
           ],
         ),
       ),
@@ -1020,10 +1289,12 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// handed over) shows up here and on the Deliveries list at once.
   Future<void> _refresh() async {
     try {
-      final response = await _api.getDriverDeliveries(accessToken: widget.accessToken);
-      final rows = (response['data'] as List? ?? [])
-          .map((row) => AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)));
-      final match = rows.where((row) => row.id == widget.delivery.id).firstOrNull;
+      final response =
+          await _api.getDriverDeliveries(accessToken: widget.accessToken);
+      final rows = (response['data'] as List? ?? []).map((row) =>
+          AssignedDelivery.fromApi(Map<String, dynamic>.from(row as Map)));
+      final match =
+          rows.where((row) => row.id == widget.delivery.id).firstOrNull;
       if (!mounted) return;
       if (match == null) {
         setState(() => _gone = true);
@@ -1039,7 +1310,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not refresh this delivery. Check your connection.'),
+          content:
+              Text('Could not refresh this delivery. Check your connection.'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: DriverColors.error,
         ),
@@ -1051,287 +1323,388 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     return DriverRefreshable(
       onRefresh: _refresh,
       child: SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (d.deliveryAttempt.reason != null) ...[
-            _sectionCard(
-              icon: Icons.warning_amber_rounded,
-              title: 'Failed attempt ${d.deliveryAttempt.count}',
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(d.deliveryAttempt.reason!, style: DriverText.body),
-                if (d.deliveryAttempt.description != null) Text(d.deliveryAttempt.description!, style: DriverText.body),
-                Text(_formatDate(d.deliveryAttempt.failedAt), style: DriverText.caption),
-                if (d.status == AssignedDeliveryStatus.needsDispatcherReview)
-                  Text(d.deliveryAttempt.returnFlaggedAt != null ? 'Flagged for the separate return process. Courier re-attempts are blocked.' : 'Waiting for dispatcher review. You cannot start another attempt yet.', style: DriverText.caption)
-                else if (d.status == AssignedDeliveryStatus.failedAttempt)
-                  Text('Re-attempt available from ${_formatDate(d.deliveryAttempt.retryAt)}.', style: DriverText.caption),
-              ]),
-            ),
-            const SizedBox(height: 16),
-          ],
-          DriverDispatchChip(label: d.dispatchedByLabel),
-          if (d.status == AssignedDeliveryStatus.waitingApproval) ...[
-            const SizedBox(height: 12),
-            _sectionCard(
-              icon: Icons.hourglass_top_rounded,
-              title: 'Waiting for your approval',
-              child: Text('Review this parcel and accept or reject before ${_formatDate(d.handoffExpiresAt)}.', style: DriverText.body),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (d.packageSize != null) ...[
-            Text('Parcel: ${d.packageSize} · ${d.parcelUnits ?? '?'} capacity units', style: DriverText.body),
-            const SizedBox(height: 16),
-          ],
-          if (d.isReturn) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: DriverColors.warningSurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.assignment_return_outlined, size: 18, color: DriverColors.warning),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Return to seller', style: TextStyle(fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
-                        const SizedBox(height: 2),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (d.deliveryAttempt.reason != null) ...[
+              _sectionCard(
+                icon: Icons.warning_amber_rounded,
+                title: 'Failed attempt ${d.deliveryAttempt.count}',
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(d.deliveryAttempt.reason!, style: DriverText.body),
+                      if (d.deliveryAttempt.description != null)
+                        Text(d.deliveryAttempt.description!,
+                            style: DriverText.body),
+                      Text(_formatDate(d.deliveryAttempt.failedAt),
+                          style: DriverText.caption),
+                      if (d.status ==
+                          AssignedDeliveryStatus.needsDispatcherReview)
                         Text(
-                          'Reason: ${d.returnReason ?? 'Not specified'}',
-                          style: DriverText.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                            d.deliveryAttempt.returnFlaggedAt != null
+                                ? 'Flagged for the separate return process. Courier re-attempts are blocked.'
+                                : 'Waiting for dispatcher review. You cannot start another attempt yet.',
+                            style: DriverText.caption)
+                      else if (d.status == AssignedDeliveryStatus.failedAttempt)
+                        Text(
+                            'Re-attempt available from ${_formatDate(d.deliveryAttempt.retryAt)}.',
+                            style: DriverText.caption),
+                    ]),
               ),
-            ),
+              const SizedBox(height: 16),
+            ],
+            DriverDispatchChip(label: d.dispatchedByLabel),
+            if (d.status == AssignedDeliveryStatus.waitingApproval) ...[
+              const SizedBox(height: 12),
+              _sectionCard(
+                icon: Icons.hourglass_top_rounded,
+                title: 'Waiting for your approval',
+                child: Text(
+                    'Review this parcel and accept or reject before ${_formatDate(d.handoffExpiresAt)}.',
+                    style: DriverText.body),
+              ),
+            ],
             const SizedBox(height: 16),
-          ],
-          _sectionCard(
-            icon: Icons.contacts_rounded,
-            title: 'Contacts',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _contactRow(role: 'Buyer', contact: 'buyer', name: d.customerName, phone: d.customerContactNo),
-                const Divider(height: 24),
-                _contactRow(role: 'Seller', contact: 'seller', name: d.sellerName ?? 'Not on file', phone: d.sellerContactNo),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _sectionCard(
-            icon: Icons.route_rounded,
-            title: 'Route',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  const Icon(Icons.storefront_rounded, size: 15, color: DriverColors.textSecondary),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(d.returnPickupAddress ?? d.pickupLabel, style: DriverText.body)),
-                ]),
-                const SizedBox(height: 8),
-                Row(children: [
-                  const Icon(Icons.flag_rounded, size: 15, color: DriverColors.textSecondary),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(d.dropoffLabel, style: DriverText.body)),
-                ]),
-                if (d.deliveryArea != null) ...[
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    const Icon(Icons.map_outlined, size: 15, color: DriverColors.textSecondary),
-                    const SizedBox(width: 8),
-                    Text(d.deliveryArea!, style: DriverText.body),
-                  ]),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _sectionCard(
-            icon: Icons.inventory_2_outlined,
-            title: 'Parcel contents',
-            child: _parcelContents(d),
-          ),
-          const SizedBox(height: 16),
-          _sectionCard(
-            icon: Icons.schedule_rounded,
-            title: 'Timeline',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _timelineRow('Assigned to you', d.assignedAt),
-                if (d.handedOffAt != null) _timelineRow('Handed to you', d.handedOffAt),
-                if (d.deliveredAt != null) _timelineRow('Delivered', d.deliveredAt),
-              ],
-            ),
-          ),
-          if (d.status != AssignedDeliveryStatus.delivered &&
-              d.status != AssignedDeliveryStatus.transferred &&
-              d.status != AssignedDeliveryStatus.handedOver) ...[
-            const SizedBox(height: 16),
+            if (d.packageSize != null) ...[
+              Text(
+                  'Parcel: ${d.packageSize} · ${d.parcelUnits ?? '?'} capacity units',
+                  style: DriverText.body),
+              const SizedBox(height: 16),
+            ],
+            if (d.isReturn) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: DriverColors.warningSurface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.assignment_return_outlined,
+                        size: 18, color: DriverColors.warning),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Return to seller',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: DriverColors.textPrimary)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Reason: ${d.returnReason ?? 'Not specified'}',
+                            style: DriverText.caption,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             _sectionCard(
-              icon: Icons.report_problem_outlined,
-              title: 'Report a parcel issue',
+              icon: Icons.contacts_rounded,
+              title: 'Contacts',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                      'Report a parcel that is lost or damaged while in your care.',
-                      style: DriverText.caption),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _inFlow ? null : _reportParcelIssue,
-                    icon: const Icon(Icons.add_alert_rounded),
-                    label: const Text('Report lost or damaged'),
-                  ),
+                  _contactRow(
+                      role: 'Buyer',
+                      contact: 'buyer',
+                      name: d.customerName,
+                      phone: d.customerContactNo),
+                  const Divider(height: 24),
+                  _contactRow(
+                      role: 'Seller',
+                      contact: 'seller',
+                      name: d.sellerName ?? 'Not on file',
+                      phone: d.sellerContactNo),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-          ],
-          if (d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned) ...[
+            const SizedBox(height: 16),
             _sectionCard(
-              icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
-              title: 'Proof of pickup',
-              child: d.hasConfirmationQr
-                  ? _qrProofSection("Scan the parcel's QR code, or attach a picture of it, to confirm pickup (required)")
-                  : _legacyPhotoAttachTile('Attach a photo of the parcel at pickup (required)'),
+              icon: Icons.route_rounded,
+              title: 'Route',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.storefront_rounded,
+                        size: 15, color: DriverColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(
+                      d.isReturn
+                          ? (d.returnPickupAddress ?? d.pickupLabel)
+                          : (d.pickupAddress ??
+                              (d.status == AssignedDeliveryStatus.assigned &&
+                                      d.handedOffAt == null
+                                  ? 'Seller pickup address unavailable — contact the seller or Logistics before traveling.'
+                                  : d.pickupLabel)),
+                      style: DriverText.body,
+                    )),
+                  ]),
+                  if (d.pickupAddressIsPartial &&
+                      d.status == AssignedDeliveryStatus.assigned &&
+                      !d.isReturn &&
+                      d.handedOffAt == null) ...[
+                    const SizedBox(height: 6),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 23),
+                      child: Text(
+                          'Pickup address details may be incomplete. Call the seller before traveling.',
+                          style: DriverText.caption),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.flag_rounded,
+                        size: 15, color: DriverColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(d.dropoffLabel, style: DriverText.body)),
+                  ]),
+                  if (d.deliveryArea != null) ...[
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      const Icon(Icons.map_outlined,
+                          size: 15, color: DriverColors.textSecondary),
+                      const SizedBox(width: 8),
+                      Text(d.deliveryArea!, style: DriverText.body),
+                    ]),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              d.status == AssignedDeliveryStatus.transferAssigned
-                  ? "Scan or attach the parcel's QR code once you have it in hand to confirm pickup and start the transfer run to ${d.dropoffLabel}."
-                  : "Waiting to be handed to you at the sorting hub? Scan or attach the parcel's QR code once you have it in hand to confirm pickup yourself.",
-              style: DriverText.caption,
-            ),
-          ] else if (d.status == AssignedDeliveryStatus.pickedUp) ...[
+            const SizedBox(height: 16),
             _sectionCard(
-              icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
-              title: 'Proof of delivery',
-              child: d.hasConfirmationQr
-                  ? _qrProofSection("Scan the parcel's QR code, or attach a picture of it, to confirm delivery (required)")
-                  : _legacyPhotoAttachTile('Attach a photo of the parcel (required)'),
+              icon: Icons.inventory_2_outlined,
+              title: 'Parcel contents',
+              child: _parcelContents(d),
             ),
-          ] else if (d.status == AssignedDeliveryStatus.awaitingInventory) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 18, color: DriverColors.primaryDark),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Picked up ${_formatDate(d.handedOffAt)}',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text('Awaiting logistics inventory scan.', style: DriverText.caption),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else if (d.status == AssignedDeliveryStatus.handedOver) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(14)),
-              child: Row(
-                children: [
-                  const Icon(Icons.assignment_turned_in_rounded, size: 18, color: DriverColors.primaryDark),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Picked up ${_formatDate(d.handedOffAt)}',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Handed back to logistics — a delivery rider will be assigned to complete this drop-off.',
-                          style: DriverText.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else if (d.status == AssignedDeliveryStatus.readyToTransfer) ...[
+            const SizedBox(height: 16),
             _sectionCard(
-              icon: d.hasConfirmationQr ? Icons.qr_code_scanner_rounded : Icons.camera_alt_outlined,
-              title: 'Proof of transfer',
-              child: d.hasConfirmationQr
-                  ? _qrProofSection("Scan the parcel's QR code, or attach a picture of it, to confirm it reached ${d.dropoffLabel} (required)")
-                  : _legacyPhotoAttachTile('Attach a photo of the parcel at ${d.dropoffLabel} (required)'),
-            ),
-          ] else if (d.status == AssignedDeliveryStatus.transferred) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: DriverColors.successSurface, borderRadius: BorderRadius.circular(14)),
-              child: Row(
+              icon: Icons.schedule_rounded,
+              title: 'Timeline',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_rounded, size: 18, color: DriverColors.success),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Delivered ${_formatDate(d.transferredAt)}',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
-                    ),
-                  ),
+                  _timelineRow('Assigned to you', d.assignedAt),
+                  if (d.handedOffAt != null)
+                    _timelineRow('Handed to you', d.handedOffAt),
+                  if (d.deliveredAt != null)
+                    _timelineRow('Delivered', d.deliveredAt),
                 ],
               ),
             ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: DriverColors.successSurface, borderRadius: BorderRadius.circular(14)),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 18, color: DriverColors.success),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Delivered ${_formatDate(d.deliveredAt)}',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary),
+            if (d.status != AssignedDeliveryStatus.delivered &&
+                d.status != AssignedDeliveryStatus.transferred &&
+                d.status != AssignedDeliveryStatus.handedOver) ...[
+              const SizedBox(height: 16),
+              _sectionCard(
+                icon: Icons.report_problem_outlined,
+                title: 'Report a parcel issue',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                        'Report a parcel that is lost or damaged while in your care.',
+                        style: DriverText.caption),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _inFlow ? null : _reportParcelIssue,
+                      icon: const Icon(Icons.add_alert_rounded),
+                      label: const Text('Report lost or damaged'),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (d.hasDeliveryPhoto) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openingPhoto ? null : _viewDeliveryPhoto,
-                  icon: const Icon(Icons.image_outlined, size: 16),
-                  label: Text(_openingPhoto ? 'Opening…' : 'View delivery photo'),
-                  style: OutlinedButton.styleFrom(foregroundColor: DriverColors.primaryDark, side: BorderSide(color: DriverColors.primary.withOpacity(0.4))),
+                  ],
                 ),
               ),
+              const SizedBox(height: 20),
+            ],
+            if (d.status == AssignedDeliveryStatus.assigned ||
+                d.status == AssignedDeliveryStatus.transferAssigned) ...[
+              _sectionCard(
+                icon: d.hasConfirmationQr
+                    ? Icons.qr_code_scanner_rounded
+                    : Icons.camera_alt_outlined,
+                title: 'Proof of pickup',
+                child: d.hasConfirmationQr
+                    ? _qrProofSection(
+                        "Scan the parcel's QR code, or attach a picture of it, to confirm pickup (required)")
+                    : _legacyPhotoAttachTile(
+                        'Attach a photo of the parcel at pickup (required)'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                d.status == AssignedDeliveryStatus.transferAssigned
+                    ? "Scan or attach the parcel's QR code once you have it in hand to confirm pickup and start the transfer run to ${d.dropoffLabel}."
+                    : d.isReturn
+                        ? "Collect the return parcel from the buyer at the pickup address above. Scan its QR and attach proof to confirm collection."
+                        : "Collect this parcel from the seller at the pickup address above. Scan the parcel QR (live scan or QR photo) and attach proof to confirm collection. It will then wait for Logistics to scan it into the hub.",
+                style: DriverText.caption,
+              ),
+            ] else if (d.status == AssignedDeliveryStatus.pickedUp) ...[
+              _sectionCard(
+                icon: d.hasConfirmationQr
+                    ? Icons.qr_code_scanner_rounded
+                    : Icons.camera_alt_outlined,
+                title: 'Proof of delivery',
+                child: d.hasConfirmationQr
+                    ? _qrProofSection(
+                        "Scan the parcel's QR code, or attach a picture of it, to confirm delivery (required)")
+                    : _legacyPhotoAttachTile(
+                        'Attach a photo of the parcel (required)'),
+              ),
+            ] else if (d.status ==
+                AssignedDeliveryStatus.awaitingInventory) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: DriverColors.primarySurface,
+                    borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 18, color: DriverColors.primaryDark),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Picked up ${_formatDate(d.handedOffAt)}',
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: DriverColors.textPrimary),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text('Awaiting logistics inventory scan.',
+                              style: DriverText.caption),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (d.status == AssignedDeliveryStatus.handedOver) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: DriverColors.primarySurface,
+                    borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.assignment_turned_in_rounded,
+                        size: 18, color: DriverColors.primaryDark),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Picked up ${_formatDate(d.handedOffAt)}',
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: DriverColors.textPrimary),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Handed back to logistics — a delivery rider will be assigned to complete this drop-off.',
+                            style: DriverText.caption,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (d.status == AssignedDeliveryStatus.readyToTransfer) ...[
+              _sectionCard(
+                icon: d.hasConfirmationQr
+                    ? Icons.qr_code_scanner_rounded
+                    : Icons.camera_alt_outlined,
+                title: 'Proof of transfer',
+                child: d.hasConfirmationQr
+                    ? _qrProofSection(
+                        "Scan the parcel's QR code, or attach a picture of it, to confirm it reached ${d.dropoffLabel} (required)")
+                    : _legacyPhotoAttachTile(
+                        'Attach a photo of the parcel at ${d.dropoffLabel} (required)'),
+              ),
+            ] else if (d.status == AssignedDeliveryStatus.transferred) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: DriverColors.successSurface,
+                    borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 18, color: DriverColors.success),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Delivered ${_formatDate(d.transferredAt)}',
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: DriverColors.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: DriverColors.successSurface,
+                    borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 18, color: DriverColors.success),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Delivered ${_formatDate(d.deliveredAt)}',
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: DriverColors.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (d.hasDeliveryPhoto) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _openingPhoto ? null : _viewDeliveryPhoto,
+                    icon: const Icon(Icons.image_outlined, size: 16),
+                    label: Text(
+                        _openingPhoto ? 'Opening…' : 'View delivery photo'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: DriverColors.primaryDark,
+                        side: BorderSide(
+                            color: DriverColors.primary.withOpacity(0.4))),
+                  ),
+                ),
+              ],
             ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -1351,20 +1724,33 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: _hasPhoto ? DriverColors.successSurface : DriverColors.background,
+              color: _hasPhoto
+                  ? DriverColors.successSurface
+                  : DriverColors.background,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _hasPhoto ? DriverColors.success : DriverColors.border),
+              border: Border.all(
+                  color:
+                      _hasPhoto ? DriverColors.success : DriverColors.border),
             ),
             child: Row(
               children: [
-                Icon(_hasPhoto ? Icons.check_circle_rounded : Icons.add_a_photo_outlined, color: _hasPhoto ? DriverColors.success : DriverColors.primary),
+                Icon(
+                    _hasPhoto
+                        ? Icons.check_circle_rounded
+                        : Icons.add_a_photo_outlined,
+                    color: _hasPhoto
+                        ? DriverColors.success
+                        : DriverColors.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _hasPhoto ? (_photoFileName ?? 'Photo attached') : requiredHint,
+                    _hasPhoto
+                        ? (_photoFileName ?? 'Photo attached')
+                        : requiredHint,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
               ],
@@ -1398,8 +1784,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                   backgroundColor: DriverColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -1411,10 +1799,13 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 label: const Text('Attach a picture'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: DriverColors.primaryDark,
-                  side: BorderSide(color: DriverColors.primary.withOpacity(0.4)),
+                  side:
+                      BorderSide(color: DriverColors.primary.withOpacity(0.4)),
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -1424,7 +1815,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         if (_capturing)
           const Row(
             children: [
-              SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
               SizedBox(width: 8),
               Text('Reading the QR code…', style: DriverText.caption),
             ],
@@ -1440,7 +1834,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// a scan/decode produced this proof, or the legacy path's file name
   /// otherwise.
   Widget _proofConfirmedTile({required String confirmedLabel}) {
-    final label = _scannedToken != null ? confirmedLabel : (_photoFileName ?? 'Photo attached');
+    final label = _scannedToken != null
+        ? confirmedLabel
+        : (_photoFileName ?? 'Photo attached');
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1453,14 +1849,16 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
           ),
           child: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: DriverColors.success),
+              const Icon(Icons.check_circle_rounded,
+                  color: DriverColors.success),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
             ],
@@ -1487,7 +1885,12 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             color: DriverColors.error,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 4, offset: const Offset(0, 1))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1))
+            ],
           ),
           child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
         ),
@@ -1509,7 +1912,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             child: ElevatedButton.icon(
               onPressed: null,
               icon: const Icon(Icons.lock_rounded),
-              label: Text(_gone ? 'Unavailable — no longer assigned' : 'Updated elsewhere — reload first'),
+              label: Text(_gone
+                  ? 'Unavailable — no longer assigned'
+                  : 'Updated elsewhere — reload first'),
               style: DriverButtonStyle.primary(DriverColors.primary),
             ),
           ),
@@ -1521,7 +1926,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
     if (_submitting || requestId == null) return;
     final confirmed = await DriverConfirmDialog.show(
       context,
-      icon: accept ? Icons.inventory_2_rounded : Icons.assignment_return_rounded,
+      icon:
+          accept ? Icons.inventory_2_rounded : Icons.assignment_return_rounded,
       accent: accept ? DriverColors.success : DriverColors.error,
       title: accept ? 'Accept this handoff?' : 'Reject this handoff?',
       message: accept
@@ -1550,15 +1956,26 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       final outcome = result.handoffOutcome;
       final accepted = outcome == 'accepted';
       final rejected = outcome == 'rejected';
-      final message = accepted ? 'Handoff accepted. This parcel is now in your care.'
-          : outcome == 'timed_out' ? 'Approval expired. Logistics can reassign this parcel.'
-          : rejected ? 'Handoff rejected. Logistics can reassign this parcel.'
-          : 'This handoff is no longer available.';
+      final message = accepted
+          ? 'Handoff accepted. This parcel is now in your care.'
+          : outcome == 'timed_out'
+              ? 'Approval expired. Logistics can reassign this parcel.'
+              : rejected
+                  ? 'Handoff rejected. Logistics can reassign this parcel.'
+                  : 'This handoff is no longer available.';
       DriverTopNotification.show(
         context,
         message: message,
-        icon: accepted ? Icons.check_circle_rounded : rejected ? Icons.assignment_return_rounded : Icons.info_rounded,
-        accent: accepted ? DriverColors.success : rejected ? DriverColors.warning : DriverColors.textSecondary,
+        icon: accepted
+            ? Icons.check_circle_rounded
+            : rejected
+                ? Icons.assignment_return_rounded
+                : Icons.info_rounded,
+        accent: accepted
+            ? DriverColors.success
+            : rejected
+                ? DriverColors.warning
+                : DriverColors.textSecondary,
       );
     } catch (error) {
       if (!mounted) return;
@@ -1576,64 +1993,96 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
 
   Widget _buildActionBar(BuildContext context, AssignedDelivery d) {
     if (d.status == AssignedDeliveryStatus.waitingApproval) {
-      final remaining = d.handoffExpiresAt?.difference(DateTime.now().toUtc()) ?? Duration.zero;
+      final remaining =
+          d.handoffExpiresAt?.difference(DateTime.now().toUtc()) ??
+              Duration.zero;
       final available = remaining > Duration.zero && d.handoffRequestId != null;
       final minutes = remaining.inMinutes;
       final seconds = remaining.inSeconds.remainder(60);
-      return SafeArea(top: false, child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(available ? 'Approve within $minutes:${seconds.toString().padLeft(2, '0')}' : 'Approval expired. Refresh for the latest status.', style: DriverText.caption),
-          const SizedBox(height: 8),
-          Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: available && !_submitting ? () => _decideHandoff(false) : null,
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('Reject'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(58),
-                  foregroundColor: DriverColors.error,
-                  disabledForegroundColor: DriverColors.textSecondary.withOpacity(0.55),
-                  side: BorderSide(color: available ? DriverColors.error.withOpacity(0.55) : DriverColors.border, width: 1.4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+      return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(
+                  available
+                      ? 'Approve within $minutes:${seconds.toString().padLeft(2, '0')}'
+                      : 'Approval expired. Refresh for the latest status.',
+                  style: DriverText.caption),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: available && !_submitting
+                        ? () => _decideHandoff(false)
+                        : null,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(58),
+                      foregroundColor: DriverColors.error,
+                      disabledForegroundColor:
+                          DriverColors.textSecondary.withOpacity(0.55),
+                      side: BorderSide(
+                          color: available
+                              ? DriverColors.error.withOpacity(0.55)
+                              : DriverColors.border,
+                          width: 1.4),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
+                      textStyle: const TextStyle(
+                          fontSize: 14.5, fontWeight: FontWeight.w800),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: available && !_submitting ? () => _decideHandoff(true) : null,
-                icon: Icon(_submitting ? Icons.hourglass_top_rounded : Icons.check_rounded),
-                label: Text(_submitting ? 'Submitting…' : 'Accept'),
-                style: DriverButtonStyle.primary(DriverColors.success).copyWith(
-                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                  elevation: const WidgetStatePropertyAll(0),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: available && !_submitting
+                        ? () => _decideHandoff(true)
+                        : null,
+                    icon: Icon(_submitting
+                        ? Icons.hourglass_top_rounded
+                        : Icons.check_rounded),
+                    label: Text(_submitting ? 'Submitting…' : 'Accept'),
+                    style: DriverButtonStyle.primary(DriverColors.success)
+                        .copyWith(
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18))),
+                      elevation: const WidgetStatePropertyAll(0),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ]),
-        ]),
-      ));
+              ]),
+            ]),
+          ));
     }
-    if (d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview) {
-      final allowed = d.status == AssignedDeliveryStatus.failedAttempt && d.deliveryAttempt.eligible;
+    if (d.status == AssignedDeliveryStatus.failedAttempt ||
+        d.status == AssignedDeliveryStatus.needsDispatcherReview) {
+      final allowed = d.status == AssignedDeliveryStatus.failedAttempt &&
+          d.deliveryAttempt.eligible;
       return SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (!allowed) Text(d.deliveryAttempt.needsReview
-                ? 'Dispatcher approval required'
-                : 'Available from ${_formatDate(d.deliveryAttempt.retryAt)}. Pull down to refresh.', style: DriverText.caption),
+            if (!allowed)
+              Text(
+                  d.deliveryAttempt.needsReview
+                      ? 'Dispatcher approval required'
+                      : 'Available from ${_formatDate(d.deliveryAttempt.retryAt)}. Pull down to refresh.',
+                  style: DriverText.caption),
             const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: ElevatedButton.icon(
-              onPressed: allowed && !_submitting ? _reattempt : null,
-              icon: Icon(allowed ? Icons.replay_rounded : Icons.lock_rounded),
-              label: Text(_submitting ? 'Submitting...' : 'Re-attempt Delivery'),
-              style: DriverButtonStyle.primary(DriverColors.primary),
-            )),
+            SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: allowed && !_submitting ? _reattempt : null,
+                  icon:
+                      Icon(allowed ? Icons.replay_rounded : Icons.lock_rounded),
+                  label: Text(
+                      _submitting ? 'Submitting...' : 'Re-attempt Delivery'),
+                  style: DriverButtonStyle.primary(DriverColors.primary),
+                )),
           ]),
         ),
       );
@@ -1654,7 +2103,12 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, -4))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4))
+            ],
           ),
           child: SizedBox(
             width: double.infinity,
@@ -1669,7 +2123,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       );
     }
     final isTransfer = d.status == AssignedDeliveryStatus.readyToTransfer;
-    final isPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned;
+    final isPickup = d.status == AssignedDeliveryStatus.assigned ||
+        d.status == AssignedDeliveryStatus.transferAssigned;
 
     return SafeArea(
       top: false,
@@ -1677,32 +2132,52 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, -4))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4))
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (d.canMarkFailed)
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: _submitting || _capturing ? null : _failAttempt,
-                icon: const Icon(Icons.warning_amber_rounded),
-                label: const Text('Failed Attempt'),
-                style: OutlinedButton.styleFrom(foregroundColor: DriverColors.warning, minimumSize: const Size.fromHeight(48)),
-              )),
+              SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _submitting || _capturing ? null : _failAttempt,
+                    icon: const Icon(Icons.warning_amber_rounded),
+                    label: const Text('Failed Attempt'),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: DriverColors.warning,
+                        minimumSize: const Size.fromHeight(48)),
+                  )),
             if (d.canMarkFailed) const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: (_hasPhoto && !_submitting)
-                    ? (isPickup ? _confirmPickup : (isTransfer ? _confirmTransfer : _markDelivered))
+                    ? (isPickup
+                        ? _confirmPickup
+                        : (isTransfer ? _confirmTransfer : _markDelivered))
                     : null,
                 icon: _submitting
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.4, color: Colors.white))
                     : const Icon(Icons.task_alt_rounded),
                 label: Text(_submitting
                     ? 'Submitting…'
-                    : (isPickup ? 'Mark as picked up' : (isTransfer ? 'Confirm transfer' : 'Mark as delivered'))),
-                style: DriverButtonStyle.primary(isPickup ? DriverColors.primary : DriverColors.success),
+                    : (isPickup
+                        ? 'Mark as picked up'
+                        : (isTransfer
+                            ? 'Confirm transfer'
+                            : 'Mark as delivered'))),
+                style: DriverButtonStyle.primary(
+                    isPickup ? DriverColors.primary : DriverColors.success),
               ),
             ),
           ],
@@ -1718,7 +2193,11 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   /// data migration, say) reads as "Not on file" instead of silently
   /// rendering nothing. [contact] is 'buyer'/'seller' — passed straight
   /// through to [DriverChatController.startDeliveryConversation].
-  Widget _contactRow({required String role, required String contact, required String name, String? phone}) {
+  Widget _contactRow(
+      {required String role,
+      required String contact,
+      required String name,
+      String? phone}) {
     return Row(
       children: [
         Expanded(
@@ -1727,7 +2206,11 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             children: [
               Text(role, style: DriverText.label),
               const SizedBox(height: 2),
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: DriverColors.textPrimary)),
+              Text(name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      color: DriverColors.textPrimary)),
               if (phone != null) ...[
                 const SizedBox(height: 2),
                 Text(phone, style: DriverText.caption),
@@ -1750,8 +2233,17 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12.5, color: DriverColors.textSecondary, fontWeight: FontWeight.w500))),
-          Text(_formatDate(at), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      color: DriverColors.textSecondary,
+                      fontWeight: FontWeight.w500))),
+          Text(_formatDate(at),
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: DriverColors.textPrimary)),
         ],
       ),
     );
@@ -1764,7 +2256,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
   Widget _parcelContents(AssignedDelivery d) {
     final shop = d.sellerShopName ?? d.sellerName;
     if (d.items.isEmpty) {
-      return Text('${d.parcels} parcel${d.parcels == 1 ? '' : 's'}', style: DriverText.body);
+      return Text('${d.parcels} parcel${d.parcels == 1 ? '' : 's'}',
+          style: DriverText.body);
     }
 
     return Column(
@@ -1773,7 +2266,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         if (shop != null && shop.isNotEmpty) ...[
           Row(
             children: [
-              const Icon(Icons.storefront_rounded, size: 13, color: DriverColors.textSecondary),
+              const Icon(Icons.storefront_rounded,
+                  size: 13, color: DriverColors.textSecondary),
               const SizedBox(width: 6),
               Expanded(child: Text(shop, style: DriverText.label)),
             ],
@@ -1812,7 +2306,10 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
             children: [
               Text(
                 item.name,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: DriverColors.textPrimary),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                    color: DriverColors.textPrimary),
               ),
               if (meta.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -1822,7 +2319,8 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.straighten_rounded, size: 12, color: DriverColors.textSecondary),
+                    const Icon(Icons.straighten_rounded,
+                        size: 12, color: DriverColors.textSecondary),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(specs, style: DriverText.caption),
@@ -1836,20 +2334,34 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
         const SizedBox(width: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+              color: DriverColors.primarySurface,
+              borderRadius: BorderRadius.circular(8)),
           child: Text(
             '×${item.quantity}',
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: DriverColors.primaryDark),
+            style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: DriverColors.primaryDark),
           ),
         ),
       ],
     );
   }
 
-  Widget _sectionCard({required IconData icon, required String title, required Widget child}) {
+  Widget _sectionCard(
+      {required IconData icon, required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))]),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 3))
+          ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1858,7 +2370,9 @@ class _AssignedDeliveryDetailScreenState extends State<AssignedDeliveryDetailScr
               width: 28,
               height: 28,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(9)),
+              decoration: BoxDecoration(
+                  color: DriverColors.primarySurface,
+                  borderRadius: BorderRadius.circular(9)),
               child: Icon(icon, size: 15, color: DriverColors.primaryDark),
             ),
             const SizedBox(width: 10),

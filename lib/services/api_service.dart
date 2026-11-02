@@ -1378,6 +1378,7 @@ class ApiService {
     Uint8List? photoBytes,
     String? photoFilePath,
     String? confirmationToken,
+    int? codAmountCents,
   }) async {
     if (photoBytes == null && photoFilePath == null) {
       throw ApiException(
@@ -1398,6 +1399,9 @@ class ApiService {
       request.fields['confirmation_token'] = confirmationToken;
     }
 
+    if (codAmountCents != null) {
+      request.fields['cod_amount_cents'] = codAmountCents.toString();
+    }
     if (photoBytes != null) {
       request.files.add(http.MultipartFile.fromBytes(
         'photo',

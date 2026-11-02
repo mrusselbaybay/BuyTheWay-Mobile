@@ -361,12 +361,15 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 size: 16,
                 color: Colors.white70),
             const SizedBox(width: 6),
-            Text(_seller ? 'Outstanding fees' : 'COD to remit',
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600)),
-            const Spacer(),
+            Expanded(
+                child: Text(_seller ? 'Outstanding fees' : 'COD to remit',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600))),
+            if (!_seller) const SizedBox(width: 8),
             if (!_seller)
               _heroPill(owes ? 'Action needed' : 'All settled',
                   owes ? Icons.schedule_rounded : Icons.check_circle_rounded),
