@@ -9,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/user_error_handler.dart';
 import '../../../services/poller.dart';
 import '../../../services/remittance_api_service.dart';
 import '../../remittances/remittance_format.dart';
@@ -281,7 +282,7 @@ class _AssignedDeliveryDetailScreenState
     } on ApiException catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+            .showSnackBar(SnackBar(content: Text(UserErrorMessages.from(e))));
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -847,7 +848,7 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -984,7 +985,7 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -1028,7 +1029,7 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -1186,84 +1187,199 @@ class _AssignedDeliveryDetailScreenState
       AssignedDelivery d, String status, Color statusColor, IconData statusIcon) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 14),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: DriverColors.heroGradient,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Material(
-            color: Colors.white.withOpacity(0.14),
-            shape: const CircleBorder(),
-            child: IconButton(
-              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-              padding: EdgeInsets.zero,
-              tooltip: 'Back to deliveries',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+      padding: const EdgeInsets.fromLTRB(16, 8, 20, 14),
+      color: DriverColors.background,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Material(
+                color: Colors.white,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Back to deliveries',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded, color: DriverColors.textPrimary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'PARCEL DETAILS',
+                style: TextStyle(
+                  color: DriverColors.primaryDark,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                constraints: const BoxConstraints(maxWidth: 160),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: DriverColors.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 14, color: statusColor),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '#${d.trackingNumber ?? d.orderNumber}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 24, height: 1.1, fontWeight: FontWeight.w900, letterSpacing: -.7, color: DriverColors.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Order ${d.orderNumber}  ·  For ${d.customerName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DriverText.caption,
+                ),
+                if (d.isReturn) ...[
+                  const SizedBox(height: 8),
+                  DriverReturnChip(returned: d.isReturned),
+                ],
+              ],
             ),
           ),
-          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _deliveryOverview(AssignedDelivery d) {
+    final (status, statusColor, statusIcon) = _actionTag(d.status);
+    final contents = d.items.isEmpty
+        ? '${d.parcels} ${d.parcels == 1 ? 'parcel' : 'parcels'}'
+        : '${d.parcels} items · ${d.items.length} ${d.items.length == 1 ? 'product' : 'products'}';
+    final package = d.packageSize == null
+        ? 'Size not listed'
+        : '${d.packageSize}${d.parcelUnits == null ? '' : ' · ${d.parcelUnits} units'}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: DriverColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: .035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(statusIcon, color: statusColor, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
+                    const SizedBox(height: 3),
+                    Text('Assigned ${_formatDate(d.assignedAt)}', style: DriverText.caption),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _overviewTag(d.isTransfer ? Icons.swap_horiz_rounded : Icons.local_shipping_outlined, d.isTransfer ? 'Hub transfer' : 'Delivery run'),
+              if (d.isReturn) _overviewTag(Icons.assignment_return_outlined, 'Return parcel'),
+              if (d.paymentMethod == 'cod' && d.codAmountCents > 0)
+                _overviewTag(Icons.payments_outlined, 'COD ₱${(d.codAmountCents / 100).toStringAsFixed(2)}'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: DriverColors.border),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _overviewFact('CONTENTS', contents, Icons.inventory_2_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: _overviewFact('PARCEL SIZE', package, Icons.straighten_rounded)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewTag(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(9)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: DriverColors.primaryDark),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+          ],
+        ),
+      );
+
+  Widget _overviewFact(String label, String value, IconData icon) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: DriverColors.textSecondary),
+          const SizedBox(width: 7),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('#${d.trackingNumber ?? d.orderNumber}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        height: 1.1,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3)),
-                const SizedBox(height: 2),
-                Text('For ${d.customerName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.86),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
+                Text(label, style: DriverText.label.copyWith(fontSize: 9, letterSpacing: .7)),
+                const SizedBox(height: 3),
+                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
               ],
             ),
           ),
-          Container(
-            constraints: const BoxConstraints(maxWidth: 160),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(statusIcon, size: 14, color: statusColor),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(status,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800)),
-              ),
-            ]),
-          ),
-        ]),
-        if (d.isReturn) ...[
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 52),
-            child: DriverReturnChip(returned: d.isReturned),
-          ),
         ],
-      ]),
-    );
-  }
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1423,6 +1539,8 @@ class _AssignedDeliveryDetailScreenState
               ),
               const SizedBox(height: 16),
             ],
+            _deliveryOverview(d),
+            const SizedBox(height: 16),
             const Text('Parcel tracking', style: DriverText.sectionTitle),
             const SizedBox(height: 10),
             ParcelMapCard(
@@ -1445,12 +1563,6 @@ class _AssignedDeliveryDetailScreenState
               ),
             ],
             const SizedBox(height: 16),
-            if (d.packageSize != null) ...[
-              Text(
-                  'Parcel: ${d.packageSize} · ${d.parcelUnits ?? '?'} capacity units',
-                  style: DriverText.body),
-              const SizedBox(height: 16),
-            ],
             if (d.isReturn) ...[
               Container(
                 width: double.infinity,
@@ -1486,27 +1598,6 @@ class _AssignedDeliveryDetailScreenState
               ),
               const SizedBox(height: 16),
             ],
-            _sectionCard(
-              icon: Icons.contacts_rounded,
-              title: 'Contacts',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _contactRow(
-                      role: 'Buyer',
-                      contact: 'buyer',
-                      name: d.customerName,
-                      phone: d.customerContactNo),
-                  const Divider(height: 24),
-                  _contactRow(
-                      role: 'Seller',
-                      contact: 'seller',
-                      name: d.sellerName ?? 'Not on file',
-                      phone: d.sellerContactNo),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
             _sectionCard(
               icon: Icons.route_rounded,
               title: 'Pickup & drop-off',
@@ -1586,6 +1677,27 @@ class _AssignedDeliveryDetailScreenState
                     _timelineRow('Handed to you', d.handedOffAt),
                   if (d.deliveredAt != null)
                     _timelineRow('Delivered', d.deliveredAt),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _sectionCard(
+              icon: Icons.contacts_rounded,
+              title: 'Contacts',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _contactRow(
+                      role: 'Buyer',
+                      contact: 'buyer',
+                      name: d.customerName,
+                      phone: d.customerContactNo),
+                  const Divider(height: 24),
+                  _contactRow(
+                      role: 'Seller',
+                      contact: 'seller',
+                      name: d.sellerName ?? 'Not on file',
+                      phone: d.sellerContactNo),
                 ],
               ),
             ),

@@ -286,7 +286,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       context,
       message: 'Parcel number copied.',
       icon: Icons.copy_all_rounded,
-      accent: DriverColors.primary,
+        accent: LogisticsTheme.primary,
     );
   }
 
@@ -328,6 +328,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     }
   }
 
+  String _originLabel(InventoryOrigin origin) => switch (origin) {
+        InventoryOrigin.pickup => 'Seller pickup',
+        InventoryOrigin.transferDeparture => 'Hub transfer out',
+        InventoryOrigin.transferReceipt => 'Hub transfer in',
+        InventoryOrigin.unknown => 'Logistics handover',
+      };
+
   @override
   Widget build(BuildContext context) {
     final parcel = _parcel;
@@ -348,26 +355,16 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                         tooltip: 'Back to parcels',
                         icon: const Icon(Icons.arrow_back_rounded,
-                            color: DriverColors.primary),
+                            color: LogisticsTheme.primary),
                       ),
                       const SizedBox(width: 5),
                       const Text('PARCEL DETAILS',
                           style: TextStyle(
-                              color: DriverColors.primaryDark,
+                              color: LogisticsTheme.primary,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.5)),
                       const Spacer(),
-                      if (parcel != null)
-                        DriverStatusBadge(
-                          label: parcel.isScanned ? 'Scanned' : 'To scan',
-                          color: parcel.isScanned
-                              ? DriverColors.primary
-                              : DriverColors.warning,
-                          icon: parcel.isScanned
-                              ? Icons.check_circle_rounded
-                              : Icons.qr_code_scanner_rounded,
-                        ),
                     ]),
                     const SizedBox(height: 12),
                     Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -382,15 +379,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                           onPressed: _copyParcelNumber,
                           tooltip: 'Copy parcel number',
                           visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.copy_all_rounded, color: DriverColors.primary, size: 19),
+                          icon: const Icon(Icons.copy_all_rounded, color: LogisticsTheme.primary, size: 19),
                         ),
                     ]),
-                    if (parcel != null && !parcel.isPending) ...[
-                      const SizedBox(height: 5),
-                      Text(_statusLabel(parcel.status), style: const TextStyle(color: Color(0xFF687970), fontSize: 13)),
-                    ],
-                    if (parcel?.isReturn == true && parcel?.returnReason != null)
-                      Text('Return: ${parcel!.returnReason}', style: const TextStyle(color: Color(0xFF687970), fontSize: 12)),
                   ]),
             ),
             Expanded(child: _buildBody(context)),
@@ -404,7 +395,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   Widget _buildBody(BuildContext context) {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: DriverColors.primary));
+          child: CircularProgressIndicator(color: LogisticsTheme.primary));
     }
     if (_notFound) {
       return Center(
@@ -422,7 +413,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: DriverColors.primary,
+                      backgroundColor: LogisticsTheme.primary,
                       foregroundColor: Colors.white),
                   child: const Text('Back to inventory')),
             ],
@@ -445,7 +436,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               ElevatedButton(
                   onPressed: _load,
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: DriverColors.primary,
+                      backgroundColor: LogisticsTheme.primary,
                       foregroundColor: Colors.white),
                   child: const Text('Try again')),
             ],
@@ -483,78 +474,14 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            _inventoryTimeline(parcel),
-            _sectionCard(
-              icon: Icons.local_shipping_outlined,
-              title: 'Tracking',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (parcel.orderNumber != null && parcel.orderNumber != parcel.trackingNumber)
-                    _infoRow('Order number', parcel.orderNumber!),
-                  if (parcel.transferToCompanyName != null)
-                    _infoRow('Transferring to', parcel.transferToCompanyName!),
-                  if (parcel.hubName != null)
-                    _infoRow('Hub / company', parcel.hubName!),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _sectionCard(
-              icon: Icons.person_outline_rounded,
-              title: 'Buyer / recipient',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _infoRow('Name', parcel.buyer.name ?? 'Not on file'),
-                  if (parcel.buyer.contactNo != null)
-                    _infoRow('Contact', parcel.buyer.contactNo!),
-                  if (parcel.buyer.address != null)
-                    _infoRow('Address', parcel.buyer.address!),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _sectionCard(
-              icon: Icons.storefront_outlined,
-              title: 'Seller / sender',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _infoRow(
-                      'Name',
-                      parcel.seller.shopName ??
-                          parcel.seller.name ??
-                          'Not on file'),
-                  if (parcel.seller.contactNo != null)
-                    _infoRow('Contact', parcel.seller.contactNo!),
-                  if (parcel.seller.address != null)
-                    _infoRow('Address', parcel.seller.address!),
-                ],
-              ),
-            ),
-            if (parcel.courier != null) ...[
-              const SizedBox(height: 16),
-              _sectionCard(
-                icon: Icons.moped_rounded,
-                title: 'Courier who picked it up',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _infoRow('Name', parcel.courier!.fullName ?? 'Not on file'),
-                    if (parcel.courier!.contactNo != null)
-                      _infoRow('Contact', parcel.courier!.contactNo!),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
+            _parcelOverview(parcel),
+            const SizedBox(height: 14),
             _sectionCard(
               icon: Icons.inventory_2_outlined,
               title: 'Parcel contents',
+              trailing: '${parcel.items.length} ${parcel.items.length == 1 ? 'line' : 'lines'}',
               child: parcel.items.isEmpty
-                  ? const Text('No item details on file.',
-                      style: DriverText.body)
+                  ? const Text('No item details on file.', style: DriverText.body)
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -565,13 +492,260 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                       ],
                     ),
             ),
+            const SizedBox(height: 12),
+            _sectionCard(
+              icon: Icons.route_rounded,
+              title: 'Handover timeline',
+              child: _inventoryTimeline(parcel),
+            ),
+            const SizedBox(height: 12),
+            _sectionCard(
+              icon: Icons.local_shipping_outlined,
+              title: 'Shipment details',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _infoRow('Parcel number', parcel.trackingNumber ?? 'Not assigned'),
+                  if (parcel.orderNumber != null && parcel.orderNumber != parcel.trackingNumber)
+                    _infoRow('Order number', parcel.orderNumber!),
+                  _infoRow('Received through', _originLabel(parcel.origin)),
+                  if (parcel.transferToCompanyName != null)
+                    _infoRow('Transfer destination', parcel.transferToCompanyName!),
+                  if (parcel.hubName != null)
+                    _infoRow('Current hub', parcel.hubName!),
+                  _infoRow('Current status', _statusLabel(parcel.status)),
+                  if (parcel.isReturn && parcel.returnReason != null)
+                    _infoRow('Return reason', parcel.returnReason!),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _sectionCard(
+              icon: Icons.people_alt_outlined,
+              title: 'People',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _partyBlock(
+                    icon: Icons.storefront_outlined,
+                    title: 'Seller / sender',
+                    name: parcel.seller.shopName ?? parcel.seller.name ?? 'Not on file',
+                    contact: parcel.seller.contactNo,
+                    address: parcel.seller.address,
+                  ),
+                  const Divider(height: 22),
+                  _partyBlock(
+                    icon: Icons.person_outline_rounded,
+                    title: 'Buyer / recipient',
+                    name: parcel.buyer.name ?? 'Not on file',
+                    contact: parcel.buyer.contactNo,
+                    address: parcel.buyer.address,
+                  ),
+                  if (parcel.courier != null) ...[
+                    const Divider(height: 22),
+                    _partyBlock(
+                      icon: Icons.moped_rounded,
+                      title: 'Pickup courier',
+                      name: parcel.courier!.fullName ?? 'Not on file',
+                      contact: parcel.courier!.contactNo,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _parcelOverview(InventoryParcel parcel) {
+    final isScanned = parcel.isScanned;
+    final itemCount = parcel.items.fold<int>(0, (total, item) => total + item.quantity);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDDE3DC)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x080F172A), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isScanned ? const Color(0xFFE6F5EF) : const Color(0xFFFFF4E2),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  isScanned ? Icons.inventory_2_rounded : Icons.qr_code_scanner_rounded,
+                  color: isScanned ? const Color(0xFF087A55) : LogisticsTheme.warning,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isScanned ? 'In inventory' : _statusLabel(parcel.status),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: LogisticsTheme.ink),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isScanned
+                          ? 'Verification complete'
+                          : parcel.hasConfirmationQr && parcel.confirmationToken != null
+                              ? 'Awaiting a verified QR scan'
+                              : 'QR code is not available for this parcel',
+                      style: LogisticsTheme.secondary,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isScanned ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                color: isScanned ? const Color(0xFF087A55) : LogisticsTheme.warning,
+                size: 22,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _detailTag(Icons.route_rounded, _originLabel(parcel.origin)),
+              if (parcel.isPending)
+                _detailTag(
+                  Icons.qr_code_2_rounded,
+                  parcel.hasConfirmationQr && parcel.confirmationToken != null
+                      ? 'QR available'
+                      : 'QR not on file',
+                ),
+              if (parcel.isReturn) _detailTag(Icons.keyboard_return_rounded, 'Return parcel'),
+              if (parcel.isTransfer) _detailTag(Icons.swap_horiz_rounded, 'Hub transfer'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: LogisticsTheme.border),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _overviewFact(
+                  'RECEIVED',
+                  parcel.forInventoryAt == null ? 'Not recorded' : _formatDate(parcel.forInventoryAt),
+                  Icons.move_to_inbox_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _overviewFact(
+                  'ITEMS',
+                  '$itemCount ${itemCount == 1 ? 'item' : 'items'}',
+                  Icons.widgets_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailTag(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F2),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: LogisticsTheme.primary),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LogisticsTheme.ink)),
+          ],
+        ),
+      );
+
+  Widget _overviewFact(String label, String value, IconData icon) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: LogisticsTheme.muted),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .7, color: LogisticsTheme.muted)),
+                const SizedBox(height: 3),
+                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: LogisticsTheme.ink)),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _partyBlock({
+    required IconData icon,
+    required String title,
+    required String name,
+    String? contact,
+    String? address,
+  }) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: LogisticsTheme.primarySoft, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 18, color: LogisticsTheme.primary),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, letterSpacing: .7, fontWeight: FontWeight.w800, color: LogisticsTheme.muted)),
+                const SizedBox(height: 4),
+                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: LogisticsTheme.ink)),
+                if (contact != null) ...[
+                  const SizedBox(height: 3),
+                  _detailInline(Icons.call_outlined, contact),
+                ],
+                if (address != null) ...[
+                  const SizedBox(height: 3),
+                  _detailInline(Icons.location_on_outlined, address),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _detailInline(IconData icon, String text) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: LogisticsTheme.muted),
+          const SizedBox(width: 5),
+          Expanded(child: Text(text, style: LogisticsTheme.secondary)),
+        ],
+      );
+
   Widget _buildScanBar() {
+    final parcel = _parcel;
+    final qrAvailable = parcel?.hasConfirmationQr == true && parcel?.confirmationToken != null;
     return SafeArea(
       top: false,
       child: Container(
@@ -582,7 +756,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _scanning || _updated != null ? null : _scanQr,
+            onPressed: _scanning || _updated != null || !qrAvailable ? null : _scanQr,
             icon: _scanning
                 ? const SizedBox(
                     width: 18,
@@ -590,12 +764,16 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2.4, color: Colors.white))
                 : const Icon(Icons.qr_code_scanner_rounded),
-            label: Text(_scanning
-                ? 'Confirming…'
-                : (_updated != null
-                    ? 'Updated elsewhere — reload first'
-                    : 'Scan QR to confirm')),
-            style: DriverButtonStyle.primary(DriverColors.primary),
+            label: Text(
+              _scanning
+                  ? 'Confirming…'
+                  : _updated != null
+                      ? 'Updated elsewhere — reload first'
+                      : qrAvailable
+                          ? 'Scan QR to confirm'
+                          : 'QR code unavailable',
+            ),
+            style: DriverButtonStyle.primary(LogisticsTheme.primary),
           ),
         ),
       ),
@@ -608,13 +786,13 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 120, child: Text(label, style: DriverText.caption)),
+          SizedBox(width: 120, child: Text(label, style: LogisticsTheme.secondary)),
           Expanded(
               child: Text(value,
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: DriverColors.textPrimary))),
+                      color: LogisticsTheme.ink))),
         ],
       ),
     );
@@ -641,19 +819,19 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                   style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13.5,
-                      color: DriverColors.textPrimary)),
+                      color: LogisticsTheme.ink)),
               if (meta.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(meta, style: DriverText.caption)
+                Text(meta, style: LogisticsTheme.secondary)
               ],
               if (specs.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(Icons.straighten_rounded,
-                        size: 12, color: DriverColors.textSecondary),
+                        size: 12, color: LogisticsTheme.muted),
                     const SizedBox(width: 4),
-                    Expanded(child: Text(specs, style: DriverText.caption)),
+                    Expanded(child: Text(specs, style: LogisticsTheme.secondary)),
                   ],
                 ),
               ],
@@ -664,43 +842,62 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-              color: DriverColors.primarySurface,
+              color: LogisticsTheme.primarySoft,
               borderRadius: BorderRadius.circular(8)),
           child: Text('×${item.quantity}',
               style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: DriverColors.primaryDark)),
+                  color: LogisticsTheme.primary)),
         ),
       ],
     );
   }
 
   Widget _sectionCard(
-      {required IconData icon, required String title, required Widget child}) {
+      {required IconData icon,
+      required String title,
+      required Widget child,
+      String? trailing}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFDDE3DC)))),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1E7E2)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 25,
-                height: 25,
+                width: 32,
+                height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: DriverColors.primarySurface,
-                    borderRadius: BorderRadius.circular(7)),
-                child: Icon(icon, size: 14, color: DriverColors.primaryDark),
+                    color: LogisticsTheme.primarySoft,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, size: 17, color: LogisticsTheme.primary),
               ),
-              const SizedBox(width: 9),
-              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: DriverColors.textPrimary, letterSpacing: -.15)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(title,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: LogisticsTheme.ink,
+                        letterSpacing: -.15)),
+              ),
+              if (trailing != null)
+                Text(trailing,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: LogisticsTheme.muted)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),
@@ -709,11 +906,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
 
   Widget _inventoryTimeline(InventoryParcel parcel) {
     final scanned = parcel.inventoryScannedAt != null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Handover timeline', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: DriverColors.textPrimary, letterSpacing: -.15)),
-        const SizedBox(height: 12),
+    return Column(children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: _timelineStep(
             done: true,
@@ -722,27 +915,30 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           )),
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Container(width: 24, height: 2, color: DriverColors.primary.withOpacity(scanned ? .55 : .24)),
+            child: Container(width: 24, height: 2, color: LogisticsTheme.primary.withOpacity(scanned ? .55 : .24)),
           ),
           Expanded(child: _timelineStep(
             done: scanned,
             title: scanned ? 'Scanned' : 'QR scan',
             detail: scanned
-                ? '${_formatDate(parcel.inventoryScannedAt)}${parcel.inventoryScannedBy?.fullName == null ? '' : ' · ${parcel.inventoryScannedBy!.fullName}'}'
+                ? _formatDate(parcel.inventoryScannedAt)
                 : 'Awaiting verification',
           )),
         ]),
-      ]),
-    );
+        if (scanned && parcel.inventoryScannedBy?.fullName != null) ...[
+          const SizedBox(height: 14),
+          _detailInline(Icons.badge_outlined, 'Scanned by ${parcel.inventoryScannedBy!.fullName}'),
+        ],
+      ]);
   }
 
   Widget _timelineStep({required bool done, required String title, required String detail}) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _timelineDot(done: done),
         const SizedBox(height: 8),
-        Text(title, style: TextStyle(color: done ? DriverColors.primaryDark : DriverColors.warning, fontSize: 12, fontWeight: FontWeight.w800)),
+        Text(title, style: TextStyle(color: done ? LogisticsTheme.primary : LogisticsTheme.warning, fontSize: 12, fontWeight: FontWeight.w800)),
         const SizedBox(height: 3),
-        Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis, style: DriverText.caption),
+        Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis, style: LogisticsTheme.secondary),
       ]);
 
   Widget _timelineDot({required bool done}) => Container(
@@ -750,9 +946,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         height: 18,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: done ? DriverColors.primary : const Color(0xFFF3F5F1),
+          color: done ? LogisticsTheme.primary : const Color(0xFFF3F5F1),
           shape: BoxShape.circle,
-          border: Border.all(color: done ? DriverColors.primary : const Color(0xFFC6D0C7), width: 1.5),
+          border: Border.all(color: done ? LogisticsTheme.primary : const Color(0xFFC6D0C7), width: 1.5),
         ),
         child: done ? const Icon(Icons.check_rounded, size: 12, color: Colors.white) : null,
       );

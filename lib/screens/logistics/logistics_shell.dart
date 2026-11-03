@@ -183,6 +183,15 @@ class _LogisticsShellState extends State<LogisticsShell> {
       MaterialPageRoute(
         builder: (_) => LogisticsNotificationsScreen(
           accessToken: token,
+          bottomNavigationBar: LogisticsNavBar(
+            currentIndex: -1,
+            onTap: (index) {
+              Navigator.of(context).pop();
+              _selectTab(index);
+            },
+            onOpenNotifications: () {},
+            badges: {1: _pending.length, 3: _notifUnread},
+          ),
           onUnreadChanged: _setNotifUnread,
           onOpenInventory: () => _selectTab(1),
           isScanActive: () => _scanHolds > 0,
@@ -557,12 +566,14 @@ class _LogisticsShellState extends State<LogisticsShell> {
     ];
 
     return Scaffold(
+      extendBody: true,
       backgroundColor: LogisticsTheme.canvas,
       body: IndexedStack(index: _tabIndex, children: pages),
       bottomNavigationBar: LogisticsNavBar(
           currentIndex: _tabIndex,
           onTap: _selectTab,
-          badges: {1: _pending.length}),
+          onOpenNotifications: _openNotifications,
+          badges: {1: _pending.length, 3: _notifUnread}),
     );
   }
 }

@@ -11,6 +11,7 @@ import '../buyer_theme.dart';
 import '../widgets/buyer_widgets.dart';
 import 'settings_kit.dart';
 import 'settings_screens.dart';
+import '../../../utils/profile_field_validators.dart';
 
 const _sexOptions = ['Male', 'Female', 'Prefer not to say'];
 
@@ -133,10 +134,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => loading = false);
   }
 
-  String? get _firstError => submitted && first.text.trim().isEmpty ? 'Enter your first name.' : null;
-  String? get _lastError => submitted && last.text.trim().isEmpty ? 'Enter your last name.' : null;
-  String? get _middleError => submitted && middle.text.trim().isNotEmpty && !RegExp(r'^[A-Za-z]$').hasMatch(middle.text.trim()) ? 'One letter.' : null;
-  String? get _phoneError => submitted && contact.text.trim().isNotEmpty && !isValidLocalMobile(contact.text.trim()) ? 'Enter an 11-digit mobile number, like 09171234567.' : null;
+  String? get _firstError => submitted ? ProfileFieldValidators.personName(first.text, label: 'First name') : null;
+  String? get _lastError => submitted ? ProfileFieldValidators.personName(last.text, label: 'Last name') : null;
+  String? get _middleError => submitted ? ProfileFieldValidators.middleInitial(middle.text) : null;
+  String? get _phoneError => submitted ? ProfileFieldValidators.philippinesMobile(contact.text) : null;
+  String? get _birthdayError => submitted ? ProfileFieldValidators.adultBirthday(birthday) : null;
+  String? get _sexError => submitted && sex == null ? 'Select your sex.' : null;
 
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
@@ -223,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _save() async {
     setState(() => submitted = true);
-    if (_firstError != null || _lastError != null || _middleError != null || _phoneError != null) {
+    if (_firstError != null || _lastError != null || _middleError != null || _phoneError != null || _birthdayError != null || _sexError != null) {
       showToast(context, 'Please fix the highlighted fields.', error: true);
       return;
     }
@@ -418,8 +421,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: sex == option ? Colors.white : DriverColors.textPrimary),
                           ),
                       ]),
+                      SettingsFieldError(_sexError),
                     ]),
-                    SettingsDateField(label: 'Birthday', value: birthday, enabled: !saving, onTap: _pickBirthday),
+                    SettingsDateField(label: 'Birthday', value: birthday, enabled: !saving, error: _birthdayError, onTap: _pickBirthday),
                   ]),
                   const SizedBox(height: 24),
                   SettingsGroupCard(children: [

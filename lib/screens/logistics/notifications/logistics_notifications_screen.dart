@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/user_error_handler.dart';
 import '../../driver/notifications/notification_inbox.dart';
 import '../inventory/inventory_detail_screen.dart';
 import '../logistics_models.dart';
+import '../widgets/logistics_nav_bar.dart';
 
 /// The staff notification inbox, opened from the bell on the Dashboard.
 /// Newest first, paged; read state lives on the server and is shared with
@@ -31,6 +33,7 @@ class LogisticsNotificationsScreen extends StatelessWidget {
 
   /// Shell's poll error path (401/403 → session-expired state).
   final void Function(Object error)? onPollError;
+  final Widget bottomNavigationBar;
 
   const LogisticsNotificationsScreen({
     super.key,
@@ -38,6 +41,7 @@ class LogisticsNotificationsScreen extends StatelessWidget {
     required this.onUnreadChanged,
     required this.onOpenInventory,
     required this.isScanActive,
+    required this.bottomNavigationBar,
     this.onScanActive,
     this.onScanned,
     this.onPollError,
@@ -67,7 +71,7 @@ class LogisticsNotificationsScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This parcel is no longer available.')));
         _toInventory(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserErrorMessages.from(e))));
       }
       return;
     } catch (_) {
@@ -98,5 +102,8 @@ class LogisticsNotificationsScreen extends StatelessWidget {
         onPollError: onPollError,
         onOpen: _open,
         emptySubtitle: 'Parcel and transfer updates will appear here.',
+        bottomNavigationBar: bottomNavigationBar,
+        showBackButton: false,
+        logisticsStyle: true,
       );
 }

@@ -8,6 +8,7 @@ import '../driver_models.dart';
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
 import 'widgets/settings_widgets.dart';
+import '../../../utils/profile_field_validators.dart';
 
 /// Personal Information & Home Address — reached from the Settings hub's
 /// "Personal Information" row (or straight from the Account tab's Edit
@@ -328,38 +329,21 @@ class _DriverProfileInfoScreenState extends State<DriverProfileInfoScreen> {
 
   bool _validate() {
     final errors = <String, String>{};
-    final nameExp = RegExp(r'^[A-Za-z\s\-]+$');
-
-    if (_firstName.text.trim().isEmpty) {
-      errors['firstName'] = 'First name is required.';
-    } else if (!nameExp.hasMatch(_firstName.text.trim())) {
-      errors['firstName'] = 'Only letters allowed.';
-    }
-
-    if (_lastName.text.trim().isEmpty) {
-      errors['lastName'] = 'Last name is required.';
-    } else if (!nameExp.hasMatch(_lastName.text.trim())) {
-      errors['lastName'] = 'Only letters allowed.';
-    }
-
-    if (_middleInitial.text.trim().isNotEmpty && !RegExp(r'^[A-Za-z]$').hasMatch(_middleInitial.text.trim())) {
-      errors['middleInitial'] = 'One letter only.';
-    }
+    final firstError = ProfileFieldValidators.personName(_firstName.text, label: 'First name');
+    if (firstError != null) errors['firstName'] = firstError;
+    final lastError = ProfileFieldValidators.personName(_lastName.text, label: 'Last name');
+    if (lastError != null) errors['lastName'] = lastError;
+    final middleError = ProfileFieldValidators.middleInitial(_middleInitial.text);
+    if (middleError != null) errors['middleInitial'] = middleError;
 
     if (_sex.isEmpty) errors['sex'] = 'Select your sex.';
 
-    if (_birthday == null) {
-      errors['birthday'] = 'Birthday is required.';
-    } else if (_birthday!.isAfter(DateTime.now())) {
-      errors['birthday'] = 'Birthday cannot be in the future.';
-    }
+    final birthdayError = ProfileFieldValidators.adultBirthday(_birthday);
+    if (birthdayError != null) errors['birthday'] = birthdayError;
 
     final contact = _contact.text.replaceAll(RegExp(r'[\s-]'), '');
-    if (contact.isEmpty) {
-      errors['contact'] = 'Contact number is required.';
-    } else if (!RegExp(r'^09\d{9}$').hasMatch(contact)) {
-      errors['contact'] = 'Use format 09XXXXXXXXX.';
-    }
+    final contactError = ProfileFieldValidators.philippinesMobile(contact);
+    if (contactError != null) errors['contact'] = contactError;
 
     if (_region.isEmpty) errors['region'] = 'Please select a region.';
     if (_provinceCode.isEmpty) errors['province'] = 'Please select a province.';

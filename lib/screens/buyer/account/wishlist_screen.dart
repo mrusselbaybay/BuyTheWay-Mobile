@@ -125,7 +125,29 @@ class _WishlistScreenState extends State<WishlistScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DriverColors.background,
-      appBar: settingsAppBar('Wishlist', centerTitle: true, backgroundColor: _tint),
+      appBar: AppBar(
+        toolbarHeight: 76,
+        backgroundColor: _tint,
+        surfaceTintColor: _tint,
+        foregroundColor: DriverColors.textPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 16,
+        title: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.favorite_rounded, size: 21, color: Color(0xFFE11D48)),
+          ),
+          const SizedBox(width: 12),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('Wishlist', style: TextStyle(fontSize: 19, height: 1.15, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
+            SizedBox(height: 3),
+            Text('Your saved finds, all in one place', style: TextStyle(fontSize: 12, color: DriverColors.textSecondary, fontWeight: FontWeight.w500)),
+          ]),
+        ]),
+      ),
       body: ListenableBuilder(
         listenable: store,
         builder: (context, _) {

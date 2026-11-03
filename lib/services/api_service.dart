@@ -64,13 +64,13 @@ class ApiService {
     } on SocketException {
       throw ApiException(
         message:
-            'Cannot connect to server. Please make sure Laravel is running.\n'
-            'Run: php artisan serve',
+            'Could not connect. Check your internet connection and try again.',
         statusCode: 0,
       );
     } catch (e) {
       throw ApiException(
-        message: 'Connection error: ${e.toString()}',
+        message:
+            'Could not connect. Check your internet connection and try again.',
         statusCode: 0,
       );
     }
@@ -98,13 +98,13 @@ class ApiService {
     } on SocketException {
       throw ApiException(
         message:
-            'Cannot connect to server. Please make sure Laravel is running.\n'
-            'Run: php artisan serve',
+            'Could not connect. Check your internet connection and try again.',
         statusCode: 0,
       );
     } catch (e) {
       throw ApiException(
-        message: 'Connection error: ${e.toString()}',
+        message:
+            'Could not connect. Check your internet connection and try again.',
         statusCode: 0,
       );
     }
@@ -860,6 +860,34 @@ class ApiService {
         'Content-Type': 'application/json',
       },
       body: jsonEncode(data),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> getLogisticsNotificationPreferences(
+      {required String accessToken}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/logistics/notification-preferences'),
+      headers: _authHeaders(accessToken),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateLogisticsNotificationPreferences({
+    required String accessToken,
+    bool? pushEnabled,
+    bool? soundEnabled,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/logistics/notification-preferences'),
+      headers: {
+        ..._authHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        if (pushEnabled != null) 'push_enabled': pushEnabled,
+        if (soundEnabled != null) 'sound_enabled': soundEnabled,
+      }),
     );
     return _handleResponse(response);
   }

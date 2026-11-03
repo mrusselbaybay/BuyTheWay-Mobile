@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
+import '../../buyer/widgets/buyer_widgets.dart' show NetImage;
 import '../../driver/driver_theme.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../logistics_models.dart';
@@ -1038,15 +1039,6 @@ class _ParcelCard extends StatelessWidget {
     return '${elapsed.inDays} D AGO';
   }
 
-  IconData _originIcon(InventoryOrigin origin) => switch (origin) {
-        InventoryOrigin.pickup => parcel.isReturn
-            ? Icons.keyboard_return_rounded
-            : Icons.storefront_outlined,
-        InventoryOrigin.transferDeparture => Icons.north_east_rounded,
-        InventoryOrigin.transferReceipt => Icons.south_west_rounded,
-        InventoryOrigin.unknown => Icons.inventory_2_outlined,
-      };
-
   @override
   Widget build(BuildContext context) {
     final badgeColor =
@@ -1065,6 +1057,13 @@ class _ParcelCard extends StatelessWidget {
             parcel.seller.name ??
             parcel.buyer.name ??
             'Parcel handover');
+    String? productImage;
+    for (final item in parcel.items) {
+      if (item.image != null && item.image!.isNotEmpty) {
+        productImage = item.image;
+        break;
+      }
+    }
 
     return Material(
       color: Colors.white,
@@ -1084,14 +1083,16 @@ class _ParcelCard extends StatelessWidget {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                    color: badgeColor.withOpacity(.10),
-                    borderRadius: BorderRadius.circular(9)),
-                child: Icon(_originIcon(parcel.origin),
-                    color: badgeColor, size: 20),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: NetImage(
+                    productImage,
+                    fallbackIcon: Icons.inventory_2_outlined,
+                  ),
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(

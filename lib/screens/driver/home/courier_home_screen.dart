@@ -206,14 +206,15 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             _hero(initialLoad: initialLoad, hardError: hardError),
+            reveal('earnings-trend', _earningsTrend()),
             if (initialLoad)
               const Padding(padding: EdgeInsets.fromLTRB(16, 24, 16, 0), child: Column(children: [DriverCardSkeleton(), DriverCardSkeleton()]))
             else if (hardError)
               Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 0), child: _inlineRetry(widget.error!, widget.onRefresh))
             else ...[
+              reveal('route', Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _routeCard())),
               reveal('next', _section('Next stop', action: queue.isEmpty ? null : 'View route', onAction: widget.onOpenDeliveries, child: queue.isEmpty ? _emptyStop() : _nextStop(queue.first))),
               if (queue.length > 1) reveal('upnext', Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _upNext(queue.skip(1).take(3).toList(), queue.length - 1))),
-              reveal('route', Padding(padding: const EdgeInsets.fromLTRB(16, 22, 16, 0), child: _routeCard())),
             ],
             reveal('money', _section('Money', child: _moneyCard())),
             reveal('cod', _codCard()),
@@ -241,6 +242,117 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
           const SizedBox(height: 10),
           child,
         ],
+      ),
+    );
+  }
+
+  /// A seven-day chart using actual entries from the signed-in rider's ledger.
+  Widget _earningsTrend() {
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day)
+        .subtract(const Duration(days: 6));
+    final totals = List<int>.filled(7, 0);
+    for (final row in _ledger) {
+      if ('${row['status']}' == 'void') continue;
+      final created = DateTime.tryParse('${row['created_at'] ?? ''}')?.toLocal();
+      if (created == null) continue;
+      final day = DateTime(created.year, created.month, created.day);
+      final index = day.difference(start).inDays;
+      if (index >= 0 && index < totals.length) {
+        totals[index] += _intOf(row['amount_cents']);
+      }
+    }
+
+    final hasData = totals.any((amount) => amount != 0);
+    final peak = totals.fold<int>(0, (a, b) => a > b ? a : b);
+    const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    return _section(
+      'Earnings - last 7 days',
+      action: 'Ledger',
+      onAction: widget.onOpenRemittances,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        decoration: _card,
+        child: _moneyLoading
+            ? const DriverCardSkeleton()
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!hasData)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        _moneyFailed
+                            ? 'Earnings are unavailable right now. Pull down to refresh.'
+                            : 'No earnings recorded in the last 7 days.',
+                        style: const TextStyle(fontSize: 12.5, color: _inkSoft),
+                      ),
+                    ),
+                  SizedBox(
+                    height: 92,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: List.generate(7, (index) {
+                        final amount = totals[index];
+                        final height = peak == 0
+                            ? 4.0
+                            : (amount / peak * 62).clamp(4.0, 62.0);
+                        final date = start.add(Duration(days: index));
+                        final isToday = index == 6;
+                        return Expanded(
+                          child: Semantics(
+                            label:
+                                '${date.month}/${date.day}: ${remittanceMoney(amount)}',
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 5),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (amount > 0)
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        remittanceMoney(amount),
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: _inkSoft,
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 5),
+                                  Container(
+                                    height: height.toDouble(),
+                                    decoration: BoxDecoration(
+                                      color: isToday
+                                          ? _teal
+                                          : _teal.withOpacity(0.28),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    weekdays[date.weekday - 1],
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: isToday
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: isToday ? _tealDeep : _inkSoft,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

@@ -794,6 +794,8 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       backgroundColor: DriverColors.background,
       appBar: _headerVisible
           ? AppBar(
+              automaticallyImplyLeading: false,
+              titleSpacing: 16,
               title: Text(_seller ? 'Seller remittances' : 'Remittance ledger'))
           : null,
       body: SafeArea(

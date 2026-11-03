@@ -106,6 +106,8 @@ class _DriverChatListScreenState extends State<DriverChatListScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: DriverColors.textPrimary,
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: const Text('Messages',
             style: TextStyle(fontWeight: FontWeight.w800)),
       ),

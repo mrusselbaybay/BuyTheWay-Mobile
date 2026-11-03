@@ -214,9 +214,12 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
     return Scaffold(
       backgroundColor: DriverColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: DriverColors.background,
         elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: DriverColors.textPrimary,
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: const Text('Settings',
             style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -225,8 +228,29 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
           onRefresh: widget.onRefresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
             children: [
+              const Text(
+                'Your account',
+                style: TextStyle(
+                  color: DriverColors.textPrimary,
+                  fontSize: 23,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.45,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Manage your driver profile and preferences.',
+                style: TextStyle(
+                  color: DriverColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 18),
               SettingsProfileSummary(
                 name: a.name,
                 email: a.email,
@@ -236,7 +260,21 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                 avatarUrl: a.avatarUrl.isEmpty ? null : a.avatarUrl,
                 onTap: () => _openProfileInfo(),
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
+              const SettingsSectionLabel('Availability'),
+              const SizedBox(height: 8),
+              SettingsGroupCard(children: [
+                SettingsOptimisticSwitchTile(
+                  icon: Icons.delivery_dining_rounded,
+                  title: 'Go online',
+                  subtitle: (on) => on
+                      ? 'Available for delivery assignments'
+                      : 'Offline — not receiving assignments',
+                  value: widget.deliveryOnline,
+                  onChanged: widget.onDeliveryOnlineChanged,
+                ),
+              ]),
+              const SizedBox(height: 22),
               const SettingsSectionLabel('Account'),
               const SizedBox(height: 8),
               SettingsGroupCard(children: [
@@ -290,19 +328,6 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
               ]),
               const SizedBox(height: 22),
               const SignInMethodsSection(),
-              const SettingsSectionLabel('Availability'),
-              const SizedBox(height: 8),
-              SettingsGroupCard(children: [
-                SettingsOptimisticSwitchTile(
-                  icon: Icons.delivery_dining_rounded,
-                  title: 'Go online',
-                  subtitle: (on) => on
-                      ? 'Available for delivery assignments'
-                      : 'Offline — not receiving assignments',
-                  value: widget.deliveryOnline,
-                  onChanged: widget.onDeliveryOnlineChanged,
-                ),
-              ]),
               const SizedBox(height: 22),
               const SettingsSectionLabel('Preferences'),
               const SizedBox(height: 8),

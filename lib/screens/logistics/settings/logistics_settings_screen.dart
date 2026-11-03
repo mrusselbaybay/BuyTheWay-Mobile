@@ -9,6 +9,7 @@ import '../../driver/settings/widgets/settings_widgets.dart';
 import '../../driver/widgets/driver_shared_widgets.dart';
 import '../../remittances/payment_qr_screen.dart';
 import '../logistics_models.dart';
+import '../../../utils/profile_field_validators.dart';
 
 /// Mobile counterpart of the web logistics Account Settings page. Both use
 /// `/api/logistics/account`, keeping profile and company data in sync.
@@ -93,22 +94,65 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text(
-            'You will need to sign in again to access the Logistics app.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: DriverColors.error.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.logout_rounded,
+                    size: 30, color: DriverColors.error),
+              ),
+              const SizedBox(height: 16),
+              const Text('Sign out?',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              const Text(
+                'You will need to sign in again to access your logistics account.',
+                textAlign: TextAlign.center,
+                style: DriverText.body,
+              ),
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: DriverColors.error,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text('Sign out'),
+                  ),
+                ),
+              ]),
+            ],
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Sign out'),
-          ),
-        ],
+        ),
       ),
     );
     if (confirmed == true && mounted) widget.onSignOut();
@@ -237,12 +281,13 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
                   SettingsGroupCard(children: [
                     SettingsNavTile(
                         icon: Icons.notifications_none_rounded,
-                        title: 'Notification guide',
-                        subtitle: 'Alerts and automatic company emails',
+                        title: 'Notifications',
+                        subtitle: 'Push notifications and sound alerts',
                         onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const _NotificationsScreen()))),
+                                builder: (_) => _NotificationsScreen(
+                                    accessToken: widget.accessToken)))),
                   ]),
                 ],
                 const SizedBox(height: 30),
@@ -507,27 +552,42 @@ class _SettingsEditorState extends State<_SettingsEditor> {
 
   String? _validate(String name, String? raw) {
     final value = raw?.trim() ?? '';
+    if (name == 'first_name' || name == 'last_name') {
+      return ProfileFieldValidators.personName(value,
+          label: name == 'first_name' ? 'First name' : 'Last name');
+    }
+    if (name == 'middle_initial')
+      return ProfileFieldValidators.middleInitial(value);
+    if (name == 'contact_no' || name == 'company_contact_no') {
+      return ProfileFieldValidators.philippinesMobile(value);
+    }
     if ([
-          'first_name',
-          'last_name',
           'company_name',
           'company_email',
-          'company_contact_no',
           'province_name',
           'municipality_name',
           'barangay',
-          'street',
-          'postal_code'
+          'street'
         ].contains(name) &&
         value.isEmpty) return 'This field is required.';
+    if (name == 'sex' && !const ['Male', 'Female'].contains(value)) {
+      return 'Select Male or Female.';
+    }
+    if (name == 'birthday') {
+      if (value.isEmpty) return 'Birthday is required.';
+      final date = DateTime.tryParse(value);
+      if (date == null ||
+          value.length < 10 ||
+          SettingsFormat.isoDate(date) != value.substring(0, 10))
+        return 'Choose a valid birthday.';
+      return ProfileFieldValidators.adultBirthday(date);
+    }
     if (name == 'company_email' &&
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value))
-      return 'Enter a valid email address.';
-    if (['contact_no', 'company_contact_no'].contains(name) &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.com$', caseSensitive: false)
+            .hasMatch(value)) return 'Enter a valid .com email address.';
+    if (name == 'postal_code' &&
         value.isNotEmpty &&
-        !RegExp(r'^09\d{9}$').hasMatch(value))
-      return 'Use 11 digits starting with 09.';
-    if (name == 'postal_code' && !RegExp(r'^\d{4}$').hasMatch(value))
+        !RegExp(r'^\d{4}$').hasMatch(value))
       return 'Enter a 4-digit postal code.';
     if (name == 'monthly_salary' &&
         value.isNotEmpty &&
@@ -568,59 +628,56 @@ class _SettingsEditorState extends State<_SettingsEditor> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: LogisticsTheme.canvas,
         appBar: AppBar(
-            title: Text(_title),
-            backgroundColor: LogisticsTheme.canvas,
-            surfaceTintColor: Colors.transparent),
+            title: Text(_title,
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0.5),
         body: Form(
             key: _form,
             child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
+                padding: EdgeInsets.fromLTRB(
+                    16, 12, 16, MediaQuery.paddingOf(context).bottom + 28),
                 children: [
+                  _EditorIntro(section: widget.section, data: widget.data),
+                  const SizedBox(height: 20),
                   if (widget.section == _Section.hiring)
-                    SwitchListTile.adaptive(
+                    _HiringStatusCard(
                         value: _hiring,
-                        onChanged: _saving
-                            ? null
-                            : (value) => setState(() => _hiring = value),
-                        title: const Text('Currently hiring',
-                            style: TextStyle(fontWeight: FontWeight.w700)),
-                        subtitle: Text(_hiring
-                            ? 'Visible in Find Work'
-                            : 'Hidden from Find Work'),
-                        contentPadding: EdgeInsets.zero,
-                        activeColor: DriverColors.primary),
-                  for (final name in fields[widget.section]!) ...[
-                    TextFormField(
-                        controller: _controllers[name],
                         enabled: !_saving,
-                        maxLines: name == 'description' ? 5 : 1,
-                        maxLength: name == 'description' ? 2000 : null,
-                        keyboardType: [
-                          'contact_no',
-                          'company_contact_no',
-                          'postal_code',
-                          'monthly_salary'
-                        ].contains(name)
-                            ? TextInputType.number
-                            : name == 'company_email'
-                                ? TextInputType.emailAddress
-                                : TextInputType.text,
-                        decoration: InputDecoration(
-                            labelText: labels[name],
-                            border: const OutlineInputBorder()),
-                        validator: (value) => _validate(name, value)),
-                    const SizedBox(height: 14),
+                        onChanged: (value) => setState(() => _hiring = value)),
+                  for (final group in _fieldGroups(widget.section)) ...[
+                    if (widget.section == _Section.hiring ||
+                        widget.section == _Section.hub)
+                      const SizedBox(height: 20),
+                    if (group.$1.isNotEmpty) ...[
+                      SettingsSectionLabel(group.$1),
+                      const SizedBox(height: 8),
+                    ],
+                    SettingsGroupCard(
+                      children: [
+                        for (var i = 0; i < group.$2.length; i++)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(16, i == 0 ? 16 : 10,
+                                16, i == group.$2.length - 1 ? 16 : 10),
+                            child: _editorField(group.$2[i]),
+                          ),
+                      ],
+                    ),
                   ],
                   if (_error != null)
                     Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(_error!,
-                            style: const TextStyle(color: Colors.redAccent))),
+                        padding: const EdgeInsets.only(top: 14),
+                        child: _ErrorCard(message: _error!, retry: _save)),
+                  const SizedBox(height: 20),
                   FilledButton(
                       onPressed: _saving ? null : _save,
                       style: FilledButton.styleFrom(
                           backgroundColor: DriverColors.primary,
-                          minimumSize: const Size.fromHeight(50)),
+                          minimumSize: const Size.fromHeight(54),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14))),
                       child: _saving
                           ? const SizedBox(
                               width: 20,
@@ -629,6 +686,229 @@ class _SettingsEditorState extends State<_SettingsEditor> {
                                   strokeWidth: 2, color: Colors.white))
                           : const Text('Save changes')),
                 ])),
+      );
+
+  List<(String, List<String>)> _fieldGroups(_Section section) =>
+      switch (section) {
+        _Section.profile => [('Personal details', fields[section]!)],
+        _Section.company => [('Company details', fields[section]!)],
+        _Section.hub => [
+            (
+              'Area',
+              ['region', 'province_name', 'municipality_name', 'barangay']
+            ),
+            ('Street address', ['street', 'house_no', 'postal_code']),
+          ],
+        _Section.hiring => [
+            ('Job posting', ['monthly_salary', 'description']),
+          ],
+      };
+
+  Future<void> _pickBirthday() async {
+    final now = DateUtils.dateOnly(DateTime.now());
+    final cutoff = DateTime(now.year - 18, now.month, now.day);
+    final current = DateTime.tryParse(_controllers['birthday']!.text);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current != null && !current.isAfter(cutoff)
+          ? current
+          : DateTime(cutoff.year - 7, cutoff.month, cutoff.day),
+      firstDate: DateTime(1900),
+      lastDate: cutoff,
+      helpText: 'Select birthday',
+    );
+    if (picked != null)
+      _controllers['birthday']!.text = SettingsFormat.isoDate(picked);
+  }
+
+  Widget _editorField(String name) {
+    if (name == 'sex') {
+      return DropdownButtonFormField<String>(
+        initialValue:
+            const ['Male', 'Female'].contains(_controllers[name]!.text)
+                ? _controllers[name]!.text
+                : null,
+        decoration: InputDecoration(
+          labelText: labels[name],
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: DriverColors.border)),
+        ),
+        items: const [
+          DropdownMenuItem(value: 'Male', child: Text('Male')),
+          DropdownMenuItem(value: 'Female', child: Text('Female'))
+        ],
+        onChanged:
+            _saving ? null : (value) => _controllers[name]!.text = value ?? '',
+        validator: (value) => value == null ? 'Select Male or Female.' : null,
+      );
+    }
+    return TextFormField(
+      controller: _controllers[name],
+      enabled: !_saving,
+      readOnly: name == 'birthday',
+      onTap: name == 'birthday' ? _pickBirthday : null,
+      maxLines: name == 'description' ? 5 : 1,
+      maxLength: name == 'description' ? 2000 : null,
+      keyboardType: [
+        'contact_no',
+        'company_contact_no',
+        'postal_code',
+        'monthly_salary'
+      ].contains(name)
+          ? TextInputType.number
+          : name == 'company_email'
+              ? TextInputType.emailAddress
+              : TextInputType.text,
+      style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: DriverColors.textPrimary),
+      decoration: InputDecoration(
+        labelText: labels[name],
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        suffixIcon: name == 'birthday'
+            ? const Icon(Icons.calendar_month_rounded)
+            : null,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: DriverColors.border)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: DriverColors.border)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                const BorderSide(color: DriverColors.primary, width: 1.5)),
+      ),
+      validator: (value) => _validate(name, value),
+    );
+  }
+}
+
+class _EditorIntro extends StatelessWidget {
+  const _EditorIntro({required this.section, required this.data});
+  final _Section section;
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = switch (section) {
+      _Section.profile => (
+          Icons.badge_outlined,
+          'Keep your contact details current so your team and partners can reach you.'
+        ),
+      _Section.company => (
+          Icons.business_outlined,
+          'These details identify your logistics company across BuyTheWay.'
+        ),
+      _Section.hub => (
+          Icons.location_on_outlined,
+          'Set the correct dispatch hub so nearby riders can find your operations.'
+        ),
+      _Section.hiring => (
+          Icons.delivery_dining_rounded,
+          'Tell riders what the role offers and when applications are open.'
+        ),
+    };
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: DriverColors.border)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+                color: DriverColors.primarySurface,
+                borderRadius: BorderRadius.circular(14)),
+            child: Icon(details.$1, color: DriverColors.primary, size: 23)),
+        const SizedBox(width: 13),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+              section == _Section.hiring &&
+                      (data['company'] as Map?)?['is_hiring'] == true
+                  ? 'Hiring is open'
+                  : 'Manage ${section == _Section.hiring ? 'rider hiring' : section == _Section.hub ? 'your hub' : section == _Section.profile ? 'your profile' : 'company details'}',
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: DriverColors.textPrimary)),
+          const SizedBox(height: 5),
+          Text(details.$2,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  color: DriverColors.textSecondary)),
+        ])),
+      ]),
+    );
+  }
+}
+
+class _HiringStatusCard extends StatelessWidget {
+  const _HiringStatusCard(
+      {required this.value, required this.enabled, required this.onChanged});
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        decoration: BoxDecoration(
+            color: value ? const Color(0xFFECFDF5) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+                color: value ? const Color(0xFFBBF7D0) : DriverColors.border)),
+        child: Row(children: [
+          Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: value ? Colors.white : DriverColors.primarySurface,
+                  borderRadius: BorderRadius.circular(13)),
+              child: Icon(
+                  value
+                      ? Icons.campaign_rounded
+                      : Icons.pause_circle_outline_rounded,
+                  color: value
+                      ? DriverColors.success
+                      : DriverColors.textSecondary)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(value ? 'Applications are open' : 'Hiring is paused',
+                    style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: DriverColors.textPrimary)),
+                const SizedBox(height: 3),
+                Text(
+                    value
+                        ? 'Your listing appears in Find Work.'
+                        : 'Your listing is hidden from riders.',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: DriverColors.textSecondary)),
+              ])),
+          Switch.adaptive(
+              value: value,
+              onChanged: enabled ? onChanged : null,
+              activeColor: DriverColors.primary),
+        ]),
       );
 }
 
@@ -651,58 +931,196 @@ class _SecurityScreen extends StatelessWidget {
           ]));
 }
 
-class _NotificationsScreen extends StatelessWidget {
-  const _NotificationsScreen();
-  static const attention = [
-    'Failed delivery attempts',
-    'Parcels needing dispatcher review',
-    'Transfer requests awaiting a reply',
-    'Parcels waiting for a delivery rider',
-    'Pickups without a rider',
-    'Parcels needing a transfer decision',
-    'Barangays without an appointed rider',
-    'Pending rider applications',
-    'Rider resignation requests'
-  ];
-  static const emails = [
-    'Application accepted, rejected or interview',
-    'Removed from your team',
-    'Team invitation',
-    'Invitation renewal request'
-  ];
+class _NotificationsScreen extends StatefulWidget {
+  const _NotificationsScreen({required this.accessToken});
+  final String accessToken;
+
+  @override
+  State<_NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<_NotificationsScreen> {
+  final _api = ApiService();
+  Map<String, dynamic>? _preferences;
+  final Set<String> _busy = {};
+  String? _error;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
+    try {
+      final response = await _api.getLogisticsNotificationPreferences(
+          accessToken: widget.accessToken);
+      if (!mounted) return;
+      final data = response['data'];
+      setState(() {
+        _preferences = data is Map ? Map<String, dynamic>.from(data) : {};
+        _loading = false;
+      });
+    } on ApiException catch (error) {
+      if (mounted)
+        setState(() {
+          _error = error.message;
+          _loading = false;
+        });
+    } catch (_) {
+      if (mounted)
+        setState(() {
+          _error = 'Could not load notification preferences.';
+          _loading = false;
+        });
+    }
+  }
+
+  Future<void> _toggle(String key, bool value) async {
+    final previous = _preferences;
+    setState(() {
+      _busy.add(key);
+      _preferences = {...?previous, key: value};
+    });
+    try {
+      final response = await _api.updateLogisticsNotificationPreferences(
+        accessToken: widget.accessToken,
+        pushEnabled: key == 'push_enabled' ? value : null,
+        soundEnabled: key == 'sound_enabled' ? value : null,
+      );
+      if (!mounted) return;
+      final data = response['data'];
+      setState(() => _preferences = data is Map
+          ? Map<String, dynamic>.from(data)
+          : {...?previous, key: value});
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _preferences = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Could not save notification setting. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy.remove(key));
+    }
+  }
+
+  Widget _switch(String key, IconData icon, String title, String subtitle) =>
+      Opacity(
+        opacity: _busy.contains(key) ? 0.6 : 1,
+        child: IgnorePointer(
+          ignoring: _busy.contains(key),
+          child: SettingsSwitchTile(
+            icon: icon,
+            title: title,
+            subtitle: subtitle,
+            value: _preferences?[key] == true,
+            onChanged: (value) => _toggle(key, value),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: LogisticsTheme.canvas,
-      appBar: AppBar(
-          title: const Text('Notification guide'),
-          backgroundColor: LogisticsTheme.canvas,
-          surfaceTintColor: Colors.transparent),
-      body: ListView(padding: const EdgeInsets.all(22), children: [
-        const SettingsSectionLabel('Needs attention'),
-        const SizedBox(height: 8),
-        SettingsGroupCard(children: [
-          for (final item in attention)
-            ListTile(
-                dense: true,
-                leading: const Icon(Icons.circle,
-                    size: 7, color: DriverColors.primary),
-                title: Text(item))
+        backgroundColor: LogisticsTheme.canvas,
+        appBar: AppBar(
+          title: const Text('Notifications',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0.5,
+        ),
+        body: _loading && _preferences == null
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null && _preferences == null
+                ? Center(
+                    child: TextButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh),
+                        label: Text(_error!)))
+                : ListView(
+                    padding: EdgeInsets.fromLTRB(
+                        16, 20, 16, MediaQuery.paddingOf(context).bottom + 28),
+                    children: [
+                      const SettingsSectionLabel('Preferences'),
+                      SettingsGroupCard(children: [
+                        _switch(
+                            'push_enabled',
+                            Icons.notifications_outlined,
+                            'Push notifications',
+                            'Turn operational alerts on or off.'),
+                        _switch(
+                            'sound_enabled',
+                            Icons.volume_up_outlined,
+                            'Sound alerts',
+                            'Choose whether push alerts play a sound.'),
+                      ]),
+                      const SizedBox(height: 12),
+                      const Text(
+                          'Your in-app notification inbox remains available when push alerts are off.',
+                          style: TextStyle(
+                              color: DriverColors.textSecondary,
+                              fontSize: 12,
+                              height: 1.4)),
+                    ],
+                  ),
+      );
+}
+
+class _GuideGroup extends StatelessWidget {
+  const _GuideGroup(
+      {required this.title, required this.icon, required this.items});
+  final String title;
+  final IconData icon;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: DriverColors.border)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+              padding: const EdgeInsets.fromLTRB(15, 14, 15, 8),
+              child: Row(children: [
+                Icon(icon, size: 18, color: DriverColors.primary),
+                const SizedBox(width: 9),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: DriverColors.textPrimary)),
+              ])),
+          for (var i = 0; i < items.length; i++)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  15, 9, 15, i == items.length - 1 ? 14 : 9),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                    margin: const EdgeInsets.only(top: 5),
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                        color: DriverColors.primary, shape: BoxShape.circle)),
+                const SizedBox(width: 11),
+                Expanded(
+                    child: Text(items[i],
+                        style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.35,
+                            color: DriverColors.textPrimary))),
+              ]),
+            ),
         ]),
-        const SizedBox(height: 22),
-        const SettingsSectionLabel('Emails sent for your company'),
-        const SizedBox(height: 8),
-        SettingsGroupCard(children: [
-          for (final item in emails)
-            ListTile(
-                dense: true,
-                leading: const Icon(Icons.mail_outline_rounded, size: 19),
-                title: Text(item))
-        ]),
-        const SizedBox(height: 16),
-        const Text(
-            'Company emails are automatic and cannot currently be turned off individually. Personal alerts appear in the app.',
-            style: TextStyle(color: DriverColors.textSecondary, fontSize: 12)),
-      ]));
+      );
 }
 
 class _ErrorCard extends StatelessWidget {

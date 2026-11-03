@@ -58,7 +58,29 @@ class _AccountScreenState extends State<AccountScreen> {
         final address = store.defaultAddress;
         return Scaffold(
           backgroundColor: DriverColors.background,
-          appBar: settingsAppBar('Account', centerTitle: true, backgroundColor: DriverColors.primary, foregroundColor: Colors.white),
+          appBar: AppBar(
+            toolbarHeight: 76,
+            backgroundColor: DriverColors.primary,
+            surfaceTintColor: DriverColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            titleSpacing: 16,
+            title: Row(children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.person_outline_rounded, size: 23, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('Your account', style: TextStyle(fontSize: 19, height: 1.15, fontWeight: FontWeight.w800, color: Colors.white)),
+                SizedBox(height: 3),
+                Text('Profile, purchases and settings', style: TextStyle(fontSize: 12, color: Color(0xDFFFFFFF), fontWeight: FontWeight.w500)),
+              ]),
+            ]),
+          ),
           body: RefreshIndicator(
             color: DriverColors.primary,
             onRefresh: () {

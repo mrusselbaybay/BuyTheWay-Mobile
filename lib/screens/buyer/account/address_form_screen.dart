@@ -10,6 +10,7 @@ import '../buyer_theme.dart';
 import '../widgets/buyer_widgets.dart';
 import 'address_pin_picker.dart';
 import 'settings_kit.dart';
+import '../../../utils/profile_field_validators.dart';
 
 const _regions = ['Luzon', 'Visayas', 'Mindanao'];
 const _labels = ['Home', 'Work', 'Other'];
@@ -287,7 +288,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             controller: name,
             textCapitalization: TextCapitalization.words,
             decoration: _dec('Full name'),
-            validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
+            validator: (v) => ProfileFieldValidators.personName(v, label: 'Full name', maxLength: 100),
           ),
           const SizedBox(height: 12),
           TextFormField(

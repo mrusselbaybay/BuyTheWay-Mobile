@@ -5,12 +5,13 @@ import 'screens/driver/auth/driver_splash_screen.dart';
 import 'screens/driver/driver_shell.dart';
 import 'screens/driver/driver_theme.dart';
 import 'screens/logistics/logistics_shell.dart';
-import 'screens/pickup_courier/courier_dashboard.dart';
 import 'services/push_service.dart';
+import 'services/user_error_handler.dart';
 
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  installUserErrorHandlers();
   // Push setup runs alongside startup; sign-in code waits on it only when it needs it.
   PushService.instance.init();
   runApp(const MyApp());
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'BuyTheWay',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _NoScrollbarBehavior(),
@@ -44,9 +46,11 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const BuyerShell(),
 
+        // Keep the legacy courier URL on the current rider dashboard, which
+        // loads deliveries and earnings from the signed-in account.
         '/courier_dashboard': (context) => Theme(
               data: DriverColors.courierTheme(Theme.of(context)),
-              child: const CourierDashboard(),
+              child: const DriverShell(),
             ),
         '/driver': (context) => Theme(
               data: DriverColors.courierTheme(Theme.of(context)),

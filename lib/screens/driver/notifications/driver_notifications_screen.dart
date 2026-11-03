@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/user_error_handler.dart';
 import '../chat/driver_chat_controller.dart';
 import '../deliveries/assigned_delivery_detail_screen.dart';
 import '../driver_models.dart';
@@ -85,7 +86,7 @@ class DriverNotificationsScreen extends StatelessWidget {
         onPollError?.call(e);
       } else {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+            .showSnackBar(SnackBar(content: Text(UserErrorMessages.from(e))));
       }
       return;
     } catch (_) {

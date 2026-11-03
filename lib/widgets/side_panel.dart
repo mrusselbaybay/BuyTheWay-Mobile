@@ -9,6 +9,13 @@ class SidePanel extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       decoration: const BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x26052E2B),
+            blurRadius: 18,
+            offset: Offset(6, 0),
+          ),
+        ],
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

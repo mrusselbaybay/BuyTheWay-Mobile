@@ -7,6 +7,7 @@ import '../../../services/poller.dart';
 import '../../logistics/logistics_models.dart' show LogisticsNotification, LogisticsNotificationPage;
 import '../driver_theme.dart';
 import '../widgets/driver_shared_widgets.dart';
+import '../../logistics/logistics_theme.dart';
 
 /// The paged, polled notification list shared by the logistics staff bell and
 /// the courier bell. Callers supply the endpoints and what a tap does; read
@@ -36,6 +37,9 @@ class NotificationInbox extends StatefulWidget {
   final Future<void> Function(BuildContext context, LogisticsNotification notification) onOpen;
 
   final String emptySubtitle;
+  final Widget? bottomNavigationBar;
+  final bool showBackButton;
+  final bool logisticsStyle;
 
   const NotificationInbox({
     super.key,
@@ -46,6 +50,9 @@ class NotificationInbox extends StatefulWidget {
     required this.isBusy,
     required this.onOpen,
     required this.emptySubtitle,
+    this.bottomNavigationBar,
+    this.showBackButton = true,
+    this.logisticsStyle = false,
     this.onPollError,
   });
 
@@ -62,6 +69,7 @@ class _NotificationInboxState extends State<NotificationInbox> {
   bool _loadingMore = false;
   int _page = 1;
   int _unread = 0;
+  bool _showUnreadOnly = false;
   ModalRoute<dynamic>? _route;
 
   /// Keeps new items arriving while the screen is open without disturbing the
@@ -114,7 +122,7 @@ class _NotificationInboxState extends State<NotificationInbox> {
   }
 
   void _onScroll() {
-    if (_scroll.hasClients && _scroll.position.extentAfter < 300) _loadMore();
+    if (!_showUnreadOnly && _scroll.hasClients && _scroll.position.extentAfter < 300) _loadMore();
   }
 
   Future<void> _load() async {
@@ -198,12 +206,17 @@ class _NotificationInboxState extends State<NotificationInbox> {
   @override
   Widget build(BuildContext context) {
     final list = _items;
+    final visibleItems = list == null || !widget.logisticsStyle || !_showUnreadOnly
+        ? list
+        : list.where((item) => !item.read).toList();
+    final feed = _buildFeed(list, visibleItems);
     return Scaffold(
-      backgroundColor: DriverColors.background,
-      appBar: AppBar(
+      backgroundColor: widget.logisticsStyle ? LogisticsTheme.canvas : DriverColors.background,
+      appBar: widget.logisticsStyle ? null : AppBar(
         backgroundColor: Colors.white,
         foregroundColor: DriverColors.textPrimary,
         elevation: 0,
+        automaticallyImplyLeading: widget.showBackButton,
         title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [
           TextButton(
@@ -212,42 +225,87 @@ class _NotificationInboxState extends State<NotificationInbox> {
           ),
         ],
       ),
-      body: list == null
-          ? (_error != null
-              ? _ErrorState(message: _error!, onRetry: _load)
-              : ListView(children: List.generate(6, (_) => const _NotificationSkeleton())))
-          : RefreshIndicator(
-              color: DriverColors.primary,
-              onRefresh: _load,
-              child: list.isEmpty
-                  ? ListView(children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 48, 16, 0),
-                        child: DriverEmptyState(
+      body: widget.logisticsStyle
+          ? SafeArea(
+              child: Column(
+                children: [
+                  _LogisticsInboxHeader(
+                    unread: _unread,
+                    hasItems: list?.isNotEmpty == true,
+                    onMarkAllRead: _markAllRead,
+                  ),
+                  _InboxFilter(
+                    unread: _unread,
+                    unreadOnly: _showUnreadOnly,
+                    onChanged: (value) => setState(() => _showUnreadOnly = value),
+                  ),
+                  Expanded(child: feed),
+                ],
+              ),
+            )
+          : feed,
+      bottomNavigationBar: widget.bottomNavigationBar,
+    );
+  }
+
+  Widget _buildFeed(
+    List<LogisticsNotification>? list,
+    List<LogisticsNotification>? visibleItems,
+  ) {
+    if (list == null) {
+      return _error != null
+          ? _ErrorState(message: _error!, onRetry: _load)
+          : ListView(children: List.generate(6, (_) => const _NotificationSkeleton()));
+    }
+
+    final items = visibleItems ?? const <LogisticsNotification>[];
+    return RefreshIndicator(
+      color: widget.logisticsStyle ? LogisticsTheme.primary : DriverColors.primary,
+      onRefresh: _load,
+      child: items.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 44, 20, 24),
+                  child: widget.logisticsStyle
+                      ? _showUnreadOnly && list.isNotEmpty
+                          ? _NoUnreadNotifications(
+                              hasOlder: _hasMore,
+                              loading: _loadingMore,
+                              onCheckOlder: _loadMore,
+                            )
+                          : const _NoLogisticsNotifications()
+                      : DriverEmptyState(
                           icon: Icons.notifications_none_rounded,
                           title: 'You\'re all caught up',
                           subtitle: widget.emptySubtitle,
                         ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(widget.logisticsStyle ? 16 : 0, 8, widget.logisticsStyle ? 16 : 0, 20),
+              itemCount: items.length + (_hasMore && !_showUnreadOnly ? 1 : 0),
+              separatorBuilder: (_, __) => SizedBox(height: widget.logisticsStyle ? 8 : 0),
+              itemBuilder: (_, i) => i == items.length
+                  ? Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: _loadingMore
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: DriverColors.primary))
+                              : const Text('Load older notifications'),
+                        ),
                       ),
-                    ])
-                  : ListView.separated(
-                      controller: _scroll,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: list.length + (_hasMore ? 1 : 0),
-                      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72, color: DriverColors.border),
-                      itemBuilder: (_, i) => i == list.length
-                          ? Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Center(
-                                child: TextButton(
-                                  onPressed: _loadingMore ? null : _loadMore,
-                                  child: _loadingMore
-                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: DriverColors.primary))
-                                      : const Text('Load older notifications'),
-                                ),
-                              ),
-                            )
-                          : _NotificationTile(notification: list[i], onTap: () => _open(list[i])),
+                    )
+                  : _NotificationTile(
+                      notification: items[i],
+                      logisticsStyle: widget.logisticsStyle,
+                      onTap: () => _open(items[i]),
                     ),
             ),
     );
@@ -276,10 +334,15 @@ String _timeLabel(BuildContext context, DateTime? at) {
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification, required this.onTap});
+  const _NotificationTile({
+    required this.notification,
+    required this.onTap,
+    this.logisticsStyle = false,
+  });
 
   final LogisticsNotification notification;
   final VoidCallback onTap;
+  final bool logisticsStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -289,42 +352,288 @@ class _NotificationTile extends StatelessWidget {
       button: true,
       child: InkWell(
         onTap: onTap,
+        borderRadius: logisticsStyle ? BorderRadius.circular(16) : null,
         child: Container(
-          color: n.read ? Colors.white : DriverColors.primarySurface,
-          constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          margin: logisticsStyle ? EdgeInsets.zero : null,
+          decoration: logisticsStyle
+              ? BoxDecoration(
+                  color: n.read ? Colors.white : const Color(0xFFF0F7F4),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: n.read ? const Color(0xFFE5EBE7) : const Color(0xFFD8E9E1),
+                  ),
+                )
+              : BoxDecoration(color: n.read ? Colors.white : DriverColors.primarySurface),
+          constraints: BoxConstraints(minHeight: logisticsStyle ? 76 : 64),
+          padding: EdgeInsets.fromLTRB(
+            logisticsStyle ? 14 : 16,
+            logisticsStyle ? 14 : 12,
+            logisticsStyle ? 14 : 16,
+            logisticsStyle ? 14 : 12,
+          ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: n.read ? DriverColors.background : Colors.white, shape: BoxShape.circle),
-              child: Icon(_iconFor(n.type), size: 20, color: DriverColors.primary),
+              width: logisticsStyle ? 44 : 40,
+              height: logisticsStyle ? 44 : 40,
+              decoration: BoxDecoration(
+                color: n.read ? DriverColors.background : Colors.white,
+                borderRadius: logisticsStyle ? BorderRadius.circular(13) : null,
+                shape: logisticsStyle ? BoxShape.rectangle : BoxShape.circle,
+              ),
+              child: Icon(
+                _iconFor(n.type),
+                size: logisticsStyle ? 21 : 20,
+                color: logisticsStyle ? LogisticsTheme.primary : DriverColors.primary,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   n.title,
-                  style: TextStyle(fontSize: 14.5, fontWeight: n.read ? FontWeight.w600 : FontWeight.w800, color: DriverColors.textPrimary, height: 1.3),
+                  style: TextStyle(
+                    fontSize: logisticsStyle ? 14 : 14.5,
+                    fontWeight: n.read ? FontWeight.w600 : FontWeight.w800,
+                    color: logisticsStyle ? LogisticsTheme.ink : DriverColors.textPrimary,
+                    height: 1.3,
+                  ),
                 ),
                 if (n.body != null) ...[
                   const SizedBox(height: 2),
-                  Text(n.body!, maxLines: 2, overflow: TextOverflow.ellipsis, style: DriverText.caption.copyWith(height: 1.35)),
+                  Text(
+                    n.body!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: logisticsStyle
+                        ? LogisticsTheme.secondary.copyWith(fontSize: 12, height: 1.35)
+                        : DriverText.caption.copyWith(height: 1.35),
+                  ),
                 ],
                 const SizedBox(height: 4),
-                Text(_timeLabel(context, n.createdAt), style: DriverText.caption),
+                Text(
+                  _timeLabel(context, n.createdAt),
+                  style: logisticsStyle
+                      ? LogisticsTheme.secondary.copyWith(fontSize: 11)
+                      : DriverText.caption,
+                ),
               ]),
             ),
             if (!n.read)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 10, top: 6),
-                child: SizedBox(width: 9, height: 9, child: DecoratedBox(decoration: BoxDecoration(color: DriverColors.primary, shape: BoxShape.circle))),
+                child: SizedBox(
+                  width: 9,
+                  height: 9,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: logisticsStyle ? LogisticsTheme.primary : DriverColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
               ),
           ]),
         ),
       ),
     );
   }
+}
+
+class _LogisticsInboxHeader extends StatelessWidget {
+  const _LogisticsInboxHeader({
+    required this.unread,
+    required this.hasItems,
+    required this.onMarkAllRead,
+  });
+
+  final int unread;
+  final bool hasItems;
+  final VoidCallback onMarkAllRead;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Notifications', style: LogisticsTheme.pageTitle),
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: unread > 0 ? LogisticsTheme.primary : const Color(0xFF94A39A),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        unread > 0 ? '$unread unread updates' : 'You’re all caught up',
+                        style: LogisticsTheme.secondary.copyWith(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: unread > 0 && hasItems ? onMarkAllRead : null,
+              icon: const Icon(Icons.done_all_rounded, size: 17),
+              label: const Text('Read all'),
+              style: TextButton.styleFrom(
+                foregroundColor: LogisticsTheme.primary,
+                disabledForegroundColor: LogisticsTheme.muted.withValues(alpha: 0.5),
+                minimumSize: const Size(44, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _InboxFilter extends StatelessWidget {
+  const _InboxFilter({
+    required this.unread,
+    required this.unreadOnly,
+    required this.onChanged,
+  });
+
+  final int unread;
+  final bool unreadOnly;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+        child: Row(
+          children: [
+            _FilterButton(label: 'All activity', selected: !unreadOnly, onTap: () => onChanged(false)),
+            const SizedBox(width: 8),
+            _FilterButton(
+              label: unread > 0 ? 'Unread  $unread' : 'Unread',
+              selected: unreadOnly,
+              onTap: () => onChanged(true),
+            ),
+          ],
+        ),
+      );
+}
+
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: selected ? LogisticsTheme.primary : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: selected ? LogisticsTheme.primary : const Color(0xFFE1E7E2)),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : LogisticsTheme.muted,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _NoUnreadNotifications extends StatelessWidget {
+  const _NoUnreadNotifications({
+    required this.hasOlder,
+    required this.loading,
+    required this.onCheckOlder,
+  });
+
+  final bool hasOlder;
+  final bool loading;
+  final VoidCallback onCheckOlder;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: const BoxDecoration(color: LogisticsTheme.primarySoft, shape: BoxShape.circle),
+            child: const Icon(Icons.done_all_rounded, color: LogisticsTheme.primary, size: 26),
+          ),
+          const SizedBox(height: 14),
+          const Text('No unread items on this page', style: LogisticsTheme.sectionTitle),
+          const SizedBox(height: 6),
+          const Text('Older updates may still be unread.', textAlign: TextAlign.center, style: LogisticsTheme.secondary),
+          if (hasOlder) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: loading ? null : onCheckOlder,
+              icon: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.history_rounded, size: 18),
+              label: const Text('Check older notifications'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LogisticsTheme.primary,
+                minimumSize: const Size(44, 44),
+              ),
+            ),
+          ],
+        ],
+      );
+}
+
+class _NoLogisticsNotifications extends StatelessWidget {
+  const _NoLogisticsNotifications();
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: const BoxDecoration(color: LogisticsTheme.primarySoft, shape: BoxShape.circle),
+            child: const Icon(Icons.notifications_none_rounded, color: LogisticsTheme.primary, size: 26),
+          ),
+          const SizedBox(height: 14),
+          const Text('No updates yet', style: LogisticsTheme.sectionTitle),
+          const SizedBox(height: 6),
+          const Text(
+            'Parcel and transfer activity will show up here.',
+            textAlign: TextAlign.center,
+            style: LogisticsTheme.secondary,
+          ),
+        ],
+      );
 }
 
 class _NotificationSkeleton extends StatelessWidget {

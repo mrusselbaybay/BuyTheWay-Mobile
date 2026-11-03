@@ -126,6 +126,7 @@ AssignedDeliveryStatus _parseAssignedDeliveryStatus(dynamic value) {
 /// seller never filled it in; [weightKg] likewise.
 class AssignedDeliveryItem {
   final String name;
+  final String? image;
   final String? variant;
   final String? sku;
   final int quantity;
@@ -134,6 +135,7 @@ class AssignedDeliveryItem {
 
   const AssignedDeliveryItem({
     required this.name,
+    this.image,
     this.variant,
     this.sku,
     this.quantity = 1,
@@ -143,14 +145,48 @@ class AssignedDeliveryItem {
 
   factory AssignedDeliveryItem.fromApi(Map<String, dynamic> json) {
     String? str(dynamic v) {
-      final s = (v as String?)?.trim();
+      final s = v is String ? v.trim() : null;
       return (s == null || s.isEmpty) ? null : s;
     }
 
+    String? imageValue(dynamic value) {
+      final direct = str(value);
+      if (direct != null) return direct;
+      if (value is Map) {
+        for (final key in ['url', 'image_url', 'image', 'path', 'src']) {
+          final candidate = imageValue(value[key]);
+          if (candidate != null) return candidate;
+        }
+      }
+      if (value is Iterable) {
+        for (final entry in value) {
+          final candidate = imageValue(entry);
+          if (candidate != null) return candidate;
+        }
+      }
+      return null;
+    }
+
     final dims = json['dimensions'];
+    final product = json['product'] is Map
+        ? Map<String, dynamic>.from(json['product'] as Map)
+        : const <String, dynamic>{};
+    final variantData = json['variant'] is Map
+        ? Map<String, dynamic>.from(json['variant'] as Map)
+        : const <String, dynamic>{};
     return AssignedDeliveryItem(
       name: str(json['name']) ?? 'Item',
-      variant: str(json['variant']),
+      image: imageValue(json['image']) ??
+          imageValue(json['image_url']) ??
+          imageValue(json['product_image']) ??
+          imageValue(json['product_image_url']) ??
+          imageValue(json['images']) ??
+          imageValue(product['image']) ??
+          imageValue(product['primary_image']) ??
+          imageValue(product['image_url']) ??
+          imageValue(product['images']) ??
+          imageValue(variantData['image']),
+      variant: str(json['variant']) ?? str(variantData['name']),
       sku: str(json['sku']),
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       dimensions: dims is Map ? Map<String, dynamic>.from(dims) : null,

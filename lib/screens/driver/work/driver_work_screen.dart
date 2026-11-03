@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/user_error_handler.dart';
 import '../driver_theme.dart';
 import 'document_viewer_screen.dart';
 
@@ -2668,7 +2669,7 @@ class _DriverWorkScreenState extends State<DriverWorkScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserErrorMessages.from(error)), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3193,7 +3194,7 @@ class __ApplyPageState extends State<_ApplyPage> {
       Navigator.of(context).pop(application);
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(UserErrorMessages.from(error)), behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -231,6 +231,7 @@ class _BuyerNotificationsScreenState extends State<BuyerNotificationsScreen> {
     try {
       final results = await Future.wait<dynamic>([
         _buyer.api.notificationPreferences(),
+        _buyer.api.mobileNotificationPreferences(),
         _buyer.api.reportNotifications().catchError((Object e) {
           noticesError = _buyer.handleError(e);
           return <Map<String, dynamic>>[];
@@ -238,8 +239,11 @@ class _BuyerNotificationsScreenState extends State<BuyerNotificationsScreen> {
       ]);
       if (mounted) {
         setState(() {
-          preferences = results[0] as Map<String, dynamic>;
-          notices = results[1] as List<Map<String, dynamic>>;
+          preferences = {
+            ...(results[0] as Map<String, dynamic>),
+            ...(results[1] as Map<String, dynamic>),
+          };
+          notices = results[2] as List<Map<String, dynamic>>;
         });
       }
     } catch (e) {
@@ -257,8 +261,10 @@ class _BuyerNotificationsScreenState extends State<BuyerNotificationsScreen> {
       preferences = {...?before, key: value};
     });
     try {
-      final saved = await _buyer.api.saveNotificationPreference(key, value);
-      if (mounted) setState(() => preferences = saved);
+      final saved = key == 'push_enabled' || key == 'sound_enabled'
+          ? await _buyer.api.saveMobileNotificationPreference(key, value)
+          : await _buyer.api.saveNotificationPreference(key, value);
+      if (mounted) setState(() => preferences = {...?before, ...saved});
     } catch (e) {
       if (mounted) {
         setState(() => preferences = before);
@@ -299,6 +305,17 @@ class _BuyerNotificationsScreenState extends State<BuyerNotificationsScreen> {
         if (loading && preferences == null) ...[
           const RowsSkeleton(),
         ] else ...[
+          const SettingsSectionLabel('Mobile notifications'),
+          SettingsGroupCard(dividerIndent: 64, children: [
+            _choice(
+                'push_enabled',
+                Icons.notifications_outlined,
+                'Push notifications',
+                'Turn delivery and account alerts on or off.'),
+            _choice('sound_enabled', Icons.volume_up_outlined, 'Sound alerts',
+                'Choose whether push alerts play a sound.'),
+          ]),
+          kSettingsGap,
           const SettingsSectionLabel('Optional emails'),
           SettingsGroupCard(dividerIndent: 64, children: [
             _choice('order_updates_email', Icons.local_shipping_outlined,
@@ -492,7 +509,10 @@ class _BuyerFollowingScreenState extends State<BuyerFollowingScreen> {
                     await Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => StoreScreen(storeId: '${store['id']}', name: '${store['name'] ?? 'Store'}', logo: store['logo'] as String?)));
+                            builder: (_) => StoreScreen(
+                                storeId: '${store['id']}',
+                                name: '${store['name'] ?? 'Store'}',
+                                logo: store['logo'] as String?)));
                     if (mounted) _load(reset: true);
                   },
                 ),
@@ -528,7 +548,8 @@ class _BuyerPrivacyScreenState extends State<BuyerPrivacyScreen> {
     try {
       final (shops, lastPage) = await _buyer.api.blockedShops(page: 1);
       if (mounted) {
-        setState(() => blockedLabel = lastPage > 1 ? '${shops.length}+' : '${shops.length}');
+        setState(() => blockedLabel =
+            lastPage > 1 ? '${shops.length}+' : '${shops.length}');
       }
     } catch (_) {}
   }

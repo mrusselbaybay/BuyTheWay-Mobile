@@ -65,7 +65,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   bool _matchesDate(AssignedDelivery d) {
-    final at = d.deliveredAt;
+    final at = d.deliveredAt?.toLocal();
     if (at == null) return _dateFilter == HistoryDateFilter.all && _customRange == null;
     final now = DateTime.now();
     switch (_dateFilter) {
@@ -79,16 +79,19 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       case HistoryDateFilter.yesterday:
         return _sameDay(at, now.subtract(const Duration(days: 1)));
       case HistoryDateFilter.week:
-        return now.difference(at).inDays < 7;
+        final weekStart = DateTime(now.year, now.month, now.day)
+            .subtract(Duration(days: now.weekday - DateTime.monday));
+        return !at.isBefore(weekStart) && !at.isAfter(now);
       case HistoryDateFilter.month:
-        return now.difference(at).inDays < 30;
+        final monthStart = DateTime(now.year, now.month);
+        return !at.isBefore(monthStart) && !at.isAfter(now);
     }
   }
 
   int? _durationMinutes(AssignedDelivery d) {
     final start = d.handedOffAt ?? d.assignedAt;
     final end = d.deliveredAt;
-    if (start == null || end == null) return null;
+    if (start == null || end == null || end.isBefore(start)) return null;
     return end.difference(start).inMinutes;
   }
 
@@ -97,9 +100,18 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       if (!_matchesDate(d)) return false;
       if (_search.trim().isNotEmpty) {
         final q = _search.trim().toLowerCase();
-        if (!d.customerName.toLowerCase().contains(q) &&
-            !d.orderNumber.toLowerCase().contains(q) &&
-            !(d.trackingNumber ?? '').toLowerCase().contains(q)) {
+        final searchable = [
+          d.customerName,
+          d.orderNumber,
+          d.trackingNumber ?? '',
+          d.sellerName ?? '',
+          d.sellerShopName ?? '',
+          d.pickupLabel,
+          d.dispatchedByLabel,
+          d.deliveryArea ?? '',
+          d.dropoffLabel,
+        ].join(' ').toLowerCase();
+        if (!searchable.contains(q)) {
           return false;
         }
       }
@@ -159,26 +171,84 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
         bottom: false,
         child: Column(
           children: [
-            DriverGradientHeader(
-              title: 'History',
-              subtitle: 'Your delivery archive',
-              onBack: () => Navigator.of(context).pop(),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 18, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(color: DriverColors.border.withOpacity(0.8)),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: DriverColors.textPrimary.withOpacity(0.035),
+                    blurRadius: 18,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Back to deliveries',
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      backgroundColor: DriverColors.background,
+                      foregroundColor: DriverColors.textPrimary,
+                      side: const BorderSide(color: DriverColors.border),
+                      minimumSize: const Size(44, 44),
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('History', style: DriverText.title),
+                        SizedBox(height: 2),
+                        Text('Completed deliveries', style: DriverText.caption),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: DriverColors.primarySurface,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.task_alt_rounded, size: 16, color: DriverColors.primaryDark),
+                        const SizedBox(width: 6),
+                        Text('${_completed.length}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: DriverColors.primaryDark)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: DriverColors.border),
+              ),
               child: Column(
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: Container(
-                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.primary.withOpacity(0.35))),
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.border)),
                           child: TextField(
                             controller: _searchController,
                             onChanged: (v) => setState(() => _search = v),
                             decoration: const InputDecoration(
                               hintText: 'Search by order ID or customer',
-                              prefixIcon: Icon(Icons.search_rounded, size: 20, color: DriverColors.primary),
+                              prefixIcon: Icon(Icons.search_rounded, size: 20, color: DriverColors.textSecondary),
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -193,7 +263,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
-                    height: 34,
+                    height: 40,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
@@ -296,18 +366,31 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
   String _fmtShort(DateTime d) => '${d.month}/${d.day}';
 
   Widget _chip(String label, bool selected, VoidCallback onTap, {IconData? icon}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(color: selected ? DriverColors.primary : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: selected ? Colors.transparent : DriverColors.border)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[Icon(icon, size: 12, color: selected ? Colors.white : DriverColors.textSecondary), const SizedBox(width: 4)],
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? Colors.white : DriverColors.textSecondary)),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? DriverColors.primarySurface : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? DriverColors.primary.withOpacity(0.28) : DriverColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: selected ? DriverColors.primaryDark : DriverColors.textSecondary),
+                const SizedBox(width: 5),
+              ],
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? DriverColors.primaryDark : DriverColors.textSecondary)),
+            ],
+          ),
         ),
       ),
     );
@@ -331,13 +414,14 @@ class _SortButton extends StatelessWidget {
       child: Container(
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.primary.withOpacity(0.35))),
-        child: const Row(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.border)),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_vert_rounded, size: 18, color: DriverColors.primary),
-            SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down_rounded, size: 18, color: DriverColors.primary),
+            const Icon(Icons.swap_vert_rounded, size: 17, color: DriverColors.primaryDark),
+            const SizedBox(width: 4),
+            Text(sort == HistorySort.date ? 'Date' : 'Duration', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+            const Icon(Icons.arrow_drop_down_rounded, size: 18, color: DriverColors.textSecondary),
           ],
         ),
       ),
@@ -428,39 +512,95 @@ class _HistoryCardState extends State<_HistoryCard> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: DriverColors.border)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: DriverColors.border.withOpacity(0.9)),
+        boxShadow: [
+          BoxShadow(
+            color: DriverColors.textPrimary.withOpacity(0.035),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           HapticFeedback.selectionClick();
           setState(() => _expanded = !_expanded);
         },
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(width: 8, height: 8, margin: const EdgeInsets.only(right: 8), decoration: const BoxDecoration(color: DriverColors.success, shape: BoxShape.circle)),
-                  Expanded(child: Text(e.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14))),
-                  const DriverStatusBadge(label: 'Delivered', color: DriverColors.success, icon: Icons.check_circle_rounded),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 16, top: 4),
-                child: Text(_formatDate(e.deliveredAt), style: DriverText.caption),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const SizedBox(width: 16),
-                  Text('#${e.orderNumber}', style: DriverText.caption),
-                  const Spacer(),
-                  if (duration != null)
-                    Text(_formatDuration(duration), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: DriverColors.primaryDark)),
-                ],
-              ),
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: DriverColors.successSurface,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.task_alt_rounded, color: DriverColors.success, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: DriverColors.textPrimary)),
+                          const SizedBox(height: 3),
+                          Text(_formatDate(e.deliveredAt), style: DriverText.caption),
+                        ],
+                      ),
+                    ),
+                    const DriverStatusBadge(label: 'Delivered', color: DriverColors.success, icon: Icons.check_circle_rounded),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(height: 1, color: DriverColors.border.withOpacity(0.75)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 15, color: DriverColors.textSecondary),
+                    const SizedBox(width: 6),
+                    Flexible(child: Text('#${e.orderNumber}', maxLines: 1, overflow: TextOverflow.ellipsis, style: DriverText.caption)),
+                    if (e.trackingNumber != null) ...[
+                      const SizedBox(width: 10),
+                      const Icon(Icons.qr_code_2_rounded, size: 15, color: DriverColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(child: Text(e.trackingNumber!, maxLines: 1, overflow: TextOverflow.ellipsis, style: DriverText.caption)),
+                    ] else
+                      const Spacer(),
+                    if (duration != null) ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.schedule_rounded, size: 15, color: DriverColors.primaryDark.withOpacity(0.8)),
+                      const SizedBox(width: 4),
+                      Text(_formatDuration(duration), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: DriverColors.primaryDark)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Icon(Icons.inventory_2_outlined,
+                        size: 14, color: DriverColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text('${e.parcels}', style: DriverText.caption),
+                    const SizedBox(width: 5),
+                    Icon(
+                      _expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 20,
+                      color: DriverColors.textSecondary,
+                    ),
+                  ],
+                ),
               AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 child: _expanded

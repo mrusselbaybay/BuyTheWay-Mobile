@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../services/api_service.dart';
 import '../chat/driver_chat_controller.dart';
 import '../driver_models.dart';
 import '../driver_theme.dart';
@@ -347,94 +351,82 @@ class _CourierDispatchHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF073B3A), Color(0xFF0D766F), Color(0xFF0D9488)]),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-              right: -58,
-              top: -118,
-              child: Container(
-                  width: 190,
-                  height: 190,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 24)))),
-          Positioned(
-              right: 70,
-              bottom: -122,
-              child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          width: 1.5)))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 14, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('COURIER  /  FIELD ROUTE',
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.15)),
-                      const SizedBox(height: 3),
-                      const Text('Deliveries',
-                          style: TextStyle(
-                              fontSize: 25,
-                              height: 1.05,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.6)),
-                      const SizedBox(height: 5),
-                      Row(children: [
-                        Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                                color: Color(0xFF9AF2C8),
-                                shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        Text(
-                            '$total ${total == 1 ? 'parcel' : 'parcels'} assigned',
-                            style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.82),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w500)),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _HeaderAction(
-                    icon: Icons.payments_outlined,
-                    tooltip: 'Remittances',
-                    onTap: onRemittances),
-                const SizedBox(width: 6),
-                _HeaderAction(
-                    icon: Icons.history_toggle_off_rounded,
-                    tooltip: 'History',
-                    onTap: onHistory),
-              ],
-            ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: DriverColors.border.withValues(alpha: 0.8))),
+        boxShadow: [
+          BoxShadow(
+            color: DriverColors.textPrimary.withValues(alpha: 0.035),
+            blurRadius: 18,
+            offset: const Offset(0, 5),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 14, 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: DriverColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'RIDER  /  FIELD ROUTE',
+                        style: DriverText.label.copyWith(
+                          color: DriverColors.textSecondary,
+                          letterSpacing: 1.0,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Deliveries',
+                    style: TextStyle(
+                      fontSize: 27,
+                      height: 1.05,
+                      fontWeight: FontWeight.w800,
+                      color: DriverColors.textPrimary,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$total ${total == 1 ? 'parcel' : 'parcels'} assigned',
+                    style: const TextStyle(
+                      color: DriverColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _HeaderAction(
+                icon: Icons.payments_outlined,
+                tooltip: 'Remittances',
+                onTap: onRemittances),
+            const SizedBox(width: 6),
+            _HeaderAction(
+                icon: Icons.history_toggle_off_rounded,
+                tooltip: 'History',
+                onTap: onHistory),
+          ],
+        ),
       ),
     );
   }
@@ -454,9 +446,9 @@ class _HeaderAction extends StatelessWidget {
         constraints: const BoxConstraints.tightFor(width: 44, height: 44),
         padding: EdgeInsets.zero,
         style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: 0.08),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
-            foregroundColor: Colors.white),
+            backgroundColor: DriverColors.background,
+            side: BorderSide(color: DriverColors.border.withValues(alpha: 0.9)),
+            foregroundColor: DriverColors.textSecondary),
         icon: Icon(icon, size: 19),
       );
 }
@@ -493,7 +485,7 @@ class _CapacityRibbon extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: DriverColors.primarySurface,
                       borderRadius: BorderRadius.circular(11)),
-                  child: const Icon(Icons.inventory_2_outlined,
+                  child: const Icon(Icons.local_shipping_rounded,
                       size: 17, color: DriverColors.primaryDark)),
               const SizedBox(width: 10),
               const Expanded(
@@ -753,6 +745,42 @@ class _MissionCardState extends State<_MissionCard> {
   static const double _actionsWidth = 116;
   double _drag = 0;
 
+  Widget _productImage(String url) {
+    const fallback = Icon(Icons.image_outlined,
+        color: DriverColors.textSecondary, size: 23);
+    if (url.startsWith('data:image/')) {
+      try {
+        final comma = url.indexOf(',');
+        if (comma < 0) return fallback;
+        final payload = url.substring(comma + 1);
+        final bytes = url.substring(0, comma).contains(';base64')
+            ? base64Decode(payload)
+            : Uint8List.fromList(Uri.decodeComponent(payload).codeUnits);
+        return Image.memory(bytes,
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => fallback);
+      } catch (_) {
+        return fallback;
+      }
+    }
+    return Image.network(url,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback);
+  }
+  String? _resolveProductImage(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return null;
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return null;
+    if (uri.hasScheme) return uri.toString();
+    final origin = Uri.parse(ApiService.baseUrl).replace(path: '');
+    return origin.resolve('/${raw.replaceFirst(RegExp(r'^/+'), '')}').toString();
+  }
+
   (String, Color, IconData) get _actionTag {
     switch (widget.delivery.status) {
       case AssignedDeliveryStatus.failedAttempt:
@@ -817,12 +845,13 @@ class _MissionCardState extends State<_MissionCard> {
     }
   }
 
-  String _timeAgo(DateTime? d) {
-    if (d == null) return 'Unknown time';
-    final diff = DateTime.now().difference(d);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+  String _formatDateTime(DateTime? date) {
+    if (date == null) return 'Time unavailable';
+    final local = date.toLocal();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${months[local.month - 1]} ${local.day} · $hour:$minute ${local.hour < 12 ? 'AM' : 'PM'}';
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
@@ -872,12 +901,17 @@ class _MissionCardState extends State<_MissionCard> {
             ? 'HANDOFF REQUEST'
             : 'PICK UP FROM')
         : (done ? 'LATEST UPDATE' : 'DELIVER TO');
-    final barColor = widget.atRisk
-        ? DriverColors.warning
-        : (done ? DriverColors.border : DriverColors.primary);
+    final activityAt = completed
+        ? (d.deliveredAt ?? d.transferredAt)
+        : (d.handedOffAt ?? d.assignedAt);
+    String? productImage;
+    for (final item in d.items) {
+      productImage = _resolveProductImage(item.image);
+      if (productImage != null) break;
+    }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Stack(
         children: [
           // Revealed actions sit behind the card, on its right edge.
@@ -914,7 +948,7 @@ class _MissionCardState extends State<_MissionCard> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                       color: widget.atRisk
                           ? const Color(0xFFECCB8C)
@@ -927,18 +961,12 @@ class _MissionCardState extends State<_MissionCard> {
                   ],
                 ),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
                   onTap: widget.onTap,
                   child: IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                            width: 5,
-                            decoration: BoxDecoration(
-                                color: barColor,
-                                borderRadius: const BorderRadius.horizontal(
-                                    left: Radius.circular(16)))),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
@@ -947,51 +975,69 @@ class _MissionCardState extends State<_MissionCard> {
                               children: [
                                 Row(children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 9, vertical: 5),
+                                    width: 44,
+                                    height: 44,
                                     decoration: BoxDecoration(
-                                        color: DriverColors.primarySurface,
-                                        borderRadius: BorderRadius.circular(9)),
-                                    child: Text('#${d.orderNumber}',
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            color: DriverColors.primaryDark,
-                                            letterSpacing: 0.2)),
+                                      color: DriverColors.background,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: productImage == null
+                                        ? const Icon(Icons.image_outlined,
+                                            color: DriverColors.textSecondary,
+                                            size: 23)
+                                        : _productImage(productImage),
                                   ),
-                                  const Spacer(),
-                                  if (widget.atRisk) ...[
-                                    const Icon(Icons.schedule_outlined,
-                                        size: 13, color: DriverColors.warning),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Text(
-                                      _timeAgo(completed
-                                          ? (d.deliveredAt ?? d.transferredAt)
-                                          : (d.handedOffAt ?? d.assignedAt)),
-                                      style: DriverText.caption),
+                                  const SizedBox(width: 11),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(d.customerName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 14.5,
+                                                color: DriverColors.textPrimary)),
+                                        const SizedBox(height: 3),
+                                        Row(children: [
+                                          if (widget.atRisk) ...[
+                                            const Icon(Icons.schedule_rounded,
+                                                size: 12,
+                                                color: DriverColors.warning),
+                                            const SizedBox(width: 4),
+                                          ],
+                                          Flexible(
+                                            child: Text(
+                                                _formatDateTime(activityAt),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: DriverText.caption),
+                                          ),
+                                        ]),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  DriverStatusBadge(
+                                      label: tagLabel,
+                                      color: tagColor,
+                                      icon: tagIcon),
                                 ]),
-                                const SizedBox(height: 9),
                                 if (d.deliveryAttempt.reason != null &&
                                     (d.status ==
-                                            AssignedDeliveryStatus
-                                                .failedAttempt ||
+                                            AssignedDeliveryStatus.failedAttempt ||
                                         d.status ==
-                                            AssignedDeliveryStatus
-                                                .needsDispatcherReview))
+                                            AssignedDeliveryStatus.needsDispatcherReview))
                                   Padding(
-                                      padding: const EdgeInsets.only(bottom: 5),
+                                      padding: const EdgeInsets.only(top: 8),
                                       child: Text(d.deliveryAttempt.reason!,
                                           style: DriverText.caption,
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis)),
-                                Text(d.customerName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
-                                        color: DriverColors.textPrimary,
-                                        letterSpacing: -0.25)),
-                                const SizedBox(height: 7),
+                                const SizedBox(height: 12),
                                 Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -1068,50 +1114,55 @@ class _MissionCardState extends State<_MissionCard> {
                                             color: DriverColors.textSecondary,
                                             fontWeight: FontWeight.w600)),
                                 ]),
+                                const SizedBox(height: 11),
+                                Container(
+                                    height: 1,
+                                    color: DriverColors.border.withValues(alpha: 0.8)),
                                 const SizedBox(height: 9),
                                 Row(
                                   children: [
-                                    // Status and return tag stack vertically.
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        DriverStatusBadge(
-                                            label: tagLabel,
-                                            color: tagColor,
-                                            icon: tagIcon),
-                                        if (d.isReturn) ...[
-                                          const SizedBox(height: 4),
-                                          DriverReturnChip(
-                                              returned: d.isReturned),
-                                        ],
-                                      ],
+                                    const Icon(Icons.receipt_long_outlined,
+                                        size: 15,
+                                        color: DriverColors.textSecondary),
+                                    const SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text('#${d.orderNumber}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: DriverText.caption),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                        width: 1,
-                                        height: 20,
-                                        color: DriverColors.border),
-                                    const SizedBox(width: 8),
+                                    if (d.trackingNumber != null) ...[
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.qr_code_2_rounded,
+                                          size: 14,
+                                          color: DriverColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(d.trackingNumber!,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: DriverText.caption),
+                                      ),
+                                    ] else
+                                      const Spacer(),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    if (d.isReturn)
+                                      DriverReturnChip(returned: d.isReturned),
+                                    const Spacer(),
                                     const Icon(Icons.inventory_2_outlined,
-                                        size: 13,
+                                        size: 14,
                                         color: DriverColors.textSecondary),
                                     const SizedBox(width: 4),
-                                    Text(
-                                        '${d.parcels} ${d.parcels == 1 ? 'parcel' : 'parcels'}',
+                                    Text('${d.parcels}',
                                         style: DriverText.caption),
-                                    const Spacer(),
-                                    const Text('DETAILS',
-                                        style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.9,
-                                            color: DriverColors.primaryDark)),
-                                    const SizedBox(width: 3),
-                                    const Icon(Icons.arrow_forward_rounded,
-                                        size: 14,
-                                        color: DriverColors.primaryDark),
+                                    const SizedBox(width: 5),
+                                    const Icon(Icons.chevron_right_rounded,
+                                        size: 19,
+                                        color: DriverColors.textSecondary),
                                   ],
                                 ),
                               ],

@@ -23,18 +23,21 @@ class BuyerApiService {
 
   /// Web origin (base URL without `/api`) — product images can come back
   /// as site-relative paths such as the placeholder.
-  static String get origin => ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+  static String get origin =>
+      ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
 
-  Uri _uri(String path, [String? query]) =>
-      Uri.parse('${ApiService.baseUrl}$path${query == null || query.isEmpty ? '' : '?$query'}');
+  Uri _uri(String path, [String? query]) => Uri.parse(
+      '${ApiService.baseUrl}$path${query == null || query.isEmpty ? '' : '?$query'}');
 
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        if (token != null && token!.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (token != null && token!.isNotEmpty)
+          'Authorization': 'Bearer $token',
       };
 
-  Future<Map<String, dynamic>> _send(String method, String path, {String? query, Object? body}) async {
+  Future<Map<String, dynamic>> _send(String method, String path,
+      {String? query, Object? body}) async {
     final uri = _uri(path, query);
     final encoded = body == null ? null : jsonEncode(body);
     http.Response response;
@@ -48,11 +51,17 @@ class BuyerApiService {
       };
       response = await future.timeout(_timeout);
     } on TimeoutException {
-      throw ApiException(message: 'The server took too long to respond. Please try again.', statusCode: 408);
+      throw ApiException(
+          message: 'The server took too long to respond. Please try again.',
+          statusCode: 408);
     } on SocketException {
-      throw ApiException(message: 'No internet connection. Check your network and try again.', statusCode: 0);
+      throw ApiException(
+          message: 'No internet connection. Check your network and try again.',
+          statusCode: 0);
     } on http.ClientException {
-      throw ApiException(message: 'Could not reach the server. Please try again.', statusCode: 0);
+      throw ApiException(
+          message: 'Could not reach the server. Please try again.',
+          statusCode: 0);
     }
 
     Map<String, dynamic> decoded = {};
@@ -64,25 +73,31 @@ class BuyerApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final errors = decoded['errors'];
-    var message = decoded['message'] is String ? decoded['message'] as String : '';
+    var message =
+        decoded['message'] is String ? decoded['message'] as String : '';
     if (errors is Map && errors.isNotEmpty) {
       final first = errors.values.first;
       if (first is List && first.isNotEmpty) message = '${first.first}';
     }
-    if (response.statusCode == 401) message = 'Your session has expired. Please sign in again.';
+    if (response.statusCode == 401)
+      message = 'Your session has expired. Please sign in again.';
     throw ApiException(
-      message: message.isEmpty ? 'Request failed (${response.statusCode}).' : message,
+      message: message.isEmpty
+          ? 'Request failed (${response.statusCode}).'
+          : message,
       statusCode: response.statusCode,
       errors: errors is Map ? Map<String, dynamic>.from(errors) : null,
     );
   }
 
-  List<Map<String, dynamic>> _list(dynamic v) =>
-      v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
+  List<Map<String, dynamic>> _list(dynamic v) => v is List
+      ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+      : [];
 
   String _q(Map<String, String?> params) => params.entries
       .where((e) => e.value != null && e.value!.isNotEmpty)
-      .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value!)}')
+      .map((e) =>
+          '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value!)}')
       .join('&');
 
   // ---------------- Catalog (public) ----------------
@@ -116,19 +131,34 @@ class BuyerApiService {
           'per_page': '$perPage',
         }));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
-    final lastPage = meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
+    final lastPage =
+        meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
     return (_list(body['data']).map(Product.fromJson).toList(), lastPage);
   }
 
   /// Category counts, price range and rating availability for a search's results.
-  Future<Map<String, dynamic>> searchFacets(String search, {String? sellerId}) async {
-    final body = await _send('GET', '/products', query: _q({'search': search, 'seller_id': sellerId, 'facets': '1', 'per_page': '1'}));
-    return body['facets'] is Map ? Map<String, dynamic>.from(body['facets'] as Map) : {};
+  Future<Map<String, dynamic>> searchFacets(String search,
+      {String? sellerId}) async {
+    final body = await _send('GET', '/products',
+        query: _q({
+          'search': search,
+          'seller_id': sellerId,
+          'facets': '1',
+          'per_page': '1'
+        }));
+    return body['facets'] is Map
+        ? Map<String, dynamic>.from(body['facets'] as Map)
+        : {};
   }
 
   /// Header-search suggestions: a few products and stores matching [query].
-  Future<({List<Map<String, dynamic>> products, List<Map<String, dynamic>> stores})> searchSuggestions(String query, {String? sellerId}) async {
-    final body = await _send('GET', '/search/suggestions', query: _q({'q': query, 'seller_id': sellerId}));
+  Future<
+      ({
+        List<Map<String, dynamic>> products,
+        List<Map<String, dynamic>> stores
+      })> searchSuggestions(String query, {String? sellerId}) async {
+    final body = await _send('GET', '/search/suggestions',
+        query: _q({'q': query, 'seller_id': sellerId}));
     return (products: _list(body['products']), stores: _list(body['stores']));
   }
 
@@ -138,33 +168,58 @@ class BuyerApiService {
     final path = '/reviews/${Uri.encodeComponent(reviewId)}/like';
     final body = await _send(liked ? 'PUT' : 'DELETE', path);
     final data = body['data'] is Map ? body['data'] as Map : const {};
-    return ((data['helpfulCount'] as num?)?.toInt() ?? 0, data['isHelpful'] == true);
+    return (
+      (data['helpfulCount'] as num?)?.toInt() ?? 0,
+      data['isHelpful'] == true
+    );
   }
 
   /// A shop's claimable vouchers (shop discounts and free shipping).
   Future<List<Coupon>> storeVouchers(String id) async {
-    final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}/vouchers');
+    final body =
+        await _send('GET', '/stores/${Uri.encodeComponent(id)}/vouchers');
     return _list(body['data']).map(Coupon.fromJson).toList();
   }
 
   /// Category names with product counts for one shop.
   Future<List<(String, int)>> storeCategories(String id) async {
-    final body = await _send('GET', '/products', query: 'seller_id=${Uri.encodeQueryComponent(id)}&facets=1&per_page=1');
+    final body = await _send('GET', '/products',
+        query: 'seller_id=${Uri.encodeQueryComponent(id)}&facets=1&per_page=1');
     final facets = body['facets'] is Map ? body['facets'] as Map : const {};
-    return _list(facets['categories']).map((c) => ('${c['name']}', (c['count'] as num?)?.toInt() ?? 0)).toList();
+    return _list(facets['categories'])
+        .map((c) => ('${c['name']}', (c['count'] as num?)?.toInt() ?? 0))
+        .toList();
   }
 
   /// Reports a shop (reason is one of the server's report reason keys).
   Future<void> reportStore(String storeId,
-          {required String reason, required String details, bool anonymous = false, List<String> evidence = const []}) =>
-      _send('POST', '/buyer/reports',
-          body: {'target_type': 'store', 'target_id': storeId, 'reason': reason, 'details': details, 'anonymous': anonymous, 'evidence': evidence});
+          {required String reason,
+          required String details,
+          bool anonymous = false,
+          List<String> evidence = const []}) =>
+      _send('POST', '/buyer/reports', body: {
+        'target_type': 'store',
+        'target_id': storeId,
+        'reason': reason,
+        'details': details,
+        'anonymous': anonymous,
+        'evidence': evidence
+      });
 
   /// Reports a product listing (reason is one of the server's product report keys).
   Future<void> reportProduct(String productId,
-          {required String reason, required String details, bool anonymous = false, List<String> evidence = const []}) =>
-      _send('POST', '/buyer/reports',
-          body: {'target_type': 'product', 'target_id': productId, 'reason': reason, 'details': details, 'anonymous': anonymous, 'evidence': evidence});
+          {required String reason,
+          required String details,
+          bool anonymous = false,
+          List<String> evidence = const []}) =>
+      _send('POST', '/buyer/reports', body: {
+        'target_type': 'product',
+        'target_id': productId,
+        'reason': reason,
+        'details': details,
+        'anonymous': anonymous,
+        'evidence': evidence
+      });
 
   /// Reports a delivered (not yet received) item of an order. Evidence paths
   /// come from [uploadReportEvidence]; which ones are required depends on the issue.
@@ -175,43 +230,67 @@ class BuyerApiService {
           String? packagePhoto,
           List<String> contentsPhotos = const [],
           List<String> evidence = const []}) =>
-      _send('POST', '/buyer/orders/${Uri.encodeComponent(orderNumber)}/reports', body: {
-        'product_id': productId,
-        'issue_type': issueType,
-        'details': details,
-        if (packagePhoto != null) 'package_photo': packagePhoto,
-        if (contentsPhotos.isNotEmpty) 'contents_photos': contentsPhotos,
-        if (evidence.isNotEmpty) 'evidence': evidence,
-      });
+      _send('POST', '/buyer/orders/${Uri.encodeComponent(orderNumber)}/reports',
+          body: {
+            'product_id': productId,
+            'issue_type': issueType,
+            'details': details,
+            if (packagePhoto != null) 'package_photo': packagePhoto,
+            if (contentsPhotos.isNotEmpty) 'contents_photos': contentsPhotos,
+            if (evidence.isNotEmpty) 'evidence': evidence,
+          });
 
   /// Stages one report evidence file; pass the returned paths to [reportStore].
   Future<String> uploadReportEvidence(List<int> bytes, String fileName) async {
-    final body = await _multipart('/buyer/reports/evidence', 'file', bytes, fileName);
+    final body =
+        await _multipart('/buyer/reports/evidence', 'file', bytes, fileName);
     return '${body['path']}';
   }
 
-  Future<void> blockShop(String id) => _send('POST', '/buyer/stores/${Uri.encodeComponent(id)}/block');
+  Future<void> blockShop(String id) =>
+      _send('POST', '/buyer/stores/${Uri.encodeComponent(id)}/block');
 
   /// Reviews across every product of a shop (newest first), with the shop-wide star breakdown.
-  Future<(List<Review>, ReviewSummary, int)> storeReviews(String id, {int page = 1, int perPage = 10, int? rating, bool withImages = false}) async {
-    final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}/reviews',
-        query: _q({'page': '$page', 'per_page': '$perPage', 'rating': rating?.toString(), 'has_images': withImages ? '1' : null}));
+  Future<(List<Review>, ReviewSummary, int)> storeReviews(String id,
+      {int page = 1,
+      int perPage = 10,
+      int? rating,
+      bool withImages = false}) async {
+    final body =
+        await _send('GET', '/stores/${Uri.encodeComponent(id)}/reviews',
+            query: _q({
+              'page': '$page',
+              'per_page': '$perPage',
+              'rating': rating?.toString(),
+              'has_images': withImages ? '1' : null
+            }));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
-    final lastPage = meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
-    final summary = body['summary'] is Map ? ReviewSummary.fromJson(Map<String, dynamic>.from(body['summary'])) : const ReviewSummary();
-    return (_list(body['data']).map(Review.fromJson).toList(), summary, lastPage);
+    final lastPage =
+        meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
+    final summary = body['summary'] is Map
+        ? ReviewSummary.fromJson(Map<String, dynamic>.from(body['summary']))
+        : const ReviewSummary();
+    return (
+      _list(body['data']).map(Review.fromJson).toList(),
+      summary,
+      lastPage
+    );
   }
 
   /// Public store profile (name, logo, rating, counts) for the product page's shop card.
   Future<Map<String, dynamic>> storeInfo(String id) async {
     final body = await _send('GET', '/stores/${Uri.encodeComponent(id)}');
-    return body['data'] is Map ? Map<String, dynamic>.from(body['data'] as Map) : {};
+    return body['data'] is Map
+        ? Map<String, dynamic>.from(body['data'] as Map)
+        : {};
   }
 
   Future<Product?> product(String id) async {
     try {
       final body = await _send('GET', '/products/${Uri.encodeComponent(id)}');
-      return body['data'] is Map ? Product.fromJson(Map<String, dynamic>.from(body['data'])) : null;
+      return body['data'] is Map
+          ? Product.fromJson(Map<String, dynamic>.from(body['data']))
+          : null;
     } on ApiException catch (e) {
       if (e.statusCode == 404) return null;
       rethrow;
@@ -219,22 +298,34 @@ class BuyerApiService {
   }
 
   Future<(List<Review>, ReviewSummary, int)> productReviews(String id,
-      {int page = 1, int perPage = 10, int? rating, bool withImages = false}) async {
-    final body = await _send('GET', '/products/${Uri.encodeComponent(id)}/reviews',
-        query: _q({
-          'page': '$page',
-          'per_page': '$perPage',
-          'rating': rating?.toString(),
-          'has_images': withImages ? '1' : null,
-        }));
+      {int page = 1,
+      int perPage = 10,
+      int? rating,
+      bool withImages = false}) async {
+    final body =
+        await _send('GET', '/products/${Uri.encodeComponent(id)}/reviews',
+            query: _q({
+              'page': '$page',
+              'per_page': '$perPage',
+              'rating': rating?.toString(),
+              'has_images': withImages ? '1' : null,
+            }));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
-    final lastPage = meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
-    final summary = body['summary'] is Map ? ReviewSummary.fromJson(Map<String, dynamic>.from(body['summary'])) : const ReviewSummary();
-    return (_list(body['data']).map(Review.fromJson).toList(), summary, lastPage);
+    final lastPage =
+        meta['last_page'] is num ? (meta['last_page'] as num).toInt() : page;
+    final summary = body['summary'] is Map
+        ? ReviewSummary.fromJson(Map<String, dynamic>.from(body['summary']))
+        : const ReviewSummary();
+    return (
+      _list(body['data']).map(Review.fromJson).toList(),
+      summary,
+      lastPage
+    );
   }
 
   Future<List<Coupon>> productCoupons(String id) async {
-    final body = await _send('GET', '/products/${Uri.encodeComponent(id)}/coupons');
+    final body =
+        await _send('GET', '/products/${Uri.encodeComponent(id)}/coupons');
     return _list(body['data']).map(Coupon.fromJson).toList();
   }
 
@@ -249,21 +340,32 @@ class BuyerApiService {
   Future<(List<Coupon>, double)> voucherWallet() async {
     final body = await _send('GET', '/buyer/vouchers');
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
-    return (_list(body['data']).map(Coupon.fromJson).toList(), (meta['saved'] as num?)?.toDouble() ?? 0);
+    return (
+      _list(body['data']).map(Coupon.fromJson).toList(),
+      (meta['saved'] as num?)?.toDouble() ?? 0
+    );
   }
 
   // ---------------- Cart (shared with the website) ----------------
 
-  Future<List<Map<String, dynamic>>> fetchCart() async => _list((await _send('GET', '/buyer/cart'))['data']);
+  Future<List<Map<String, dynamic>>> fetchCart() async =>
+      _list((await _send('GET', '/buyer/cart'))['data']);
 
   /// Replaces the saved cart with [items] (last write wins).
-  Future<List<Map<String, dynamic>>> saveCart(List<Map<String, dynamic>> items) async => _list((await _send('PUT', '/buyer/cart', body: {'items': items}))['data']);
+  Future<List<Map<String, dynamic>>> saveCart(
+          List<Map<String, dynamic>> items) async =>
+      _list(
+          (await _send('PUT', '/buyer/cart', body: {'items': items}))['data']);
 
   /// Folds this device's cart into the saved one (done once, on first sync).
-  Future<List<Map<String, dynamic>>> mergeCart(List<Map<String, dynamic>> items) async => _list((await _send('POST', '/buyer/cart/merge', body: {'items': items}))['data']);
+  Future<List<Map<String, dynamic>>> mergeCart(
+          List<Map<String, dynamic>> items) async =>
+      _list((await _send('POST', '/buyer/cart/merge',
+          body: {'items': items}))['data']);
 
   Future<Coupon> claimCoupon(String couponId) async {
-    final body = await _send('POST', '/buyer/coupons/${Uri.encodeComponent(couponId)}/claim');
+    final body = await _send(
+        'POST', '/buyer/coupons/${Uri.encodeComponent(couponId)}/claim');
     return Coupon.fromJson(Map<String, dynamic>.from(body['data'] as Map));
   }
 
@@ -284,21 +386,36 @@ class BuyerApiService {
       if (selected != null) 'selected': selected,
     });
     final data = body['data'];
-    return data is Map ? VoucherQuote.fromJson(Map<String, dynamic>.from(data)) : VoucherQuote.empty;
+    return data is Map
+        ? VoucherQuote.fromJson(Map<String, dynamic>.from(data))
+        : VoucherQuote.empty;
   }
 
   // ---------------- Checkout ----------------
 
-  Future<(List<ShippingOption>, int, List<CheckoutPaymentMethod>)> shippingOptions(List<String> productIds, {String? addressId}) async {
+  Future<(List<ShippingOption>, int, List<CheckoutPaymentMethod>)>
+      shippingOptions(List<String> productIds, {String? addressId}) async {
     final query = [
-      ...productIds.map((id) => 'product_ids[]=${Uri.encodeQueryComponent(id)}'),
-      if (addressId != null) 'address_id=${Uri.encodeQueryComponent(addressId)}',
+      ...productIds
+          .map((id) => 'product_ids[]=${Uri.encodeQueryComponent(id)}'),
+      if (addressId != null)
+        'address_id=${Uri.encodeQueryComponent(addressId)}',
     ].join('&');
-    final body = await _send('GET', '/buyer/checkout/shipping-options', query: query);
-    final data = body['data'] is Map ? Map<String, dynamic>.from(body['data']) : <String, dynamic>{};
-    final count = data['sellerCount'] is num ? (data['sellerCount'] as num).toInt() : 1;
-    final paymentMethods = _list(data['paymentMethods']).map(CheckoutPaymentMethod.fromJson).toList();
-    return (_list(data['options']).map(ShippingOption.fromJson).toList(), count < 1 ? 1 : count, paymentMethods);
+    final body =
+        await _send('GET', '/buyer/checkout/shipping-options', query: query);
+    final data = body['data'] is Map
+        ? Map<String, dynamic>.from(body['data'])
+        : <String, dynamic>{};
+    final count =
+        data['sellerCount'] is num ? (data['sellerCount'] as num).toInt() : 1;
+    final paymentMethods = _list(data['paymentMethods'])
+        .map(CheckoutPaymentMethod.fromJson)
+        .toList();
+    return (
+      _list(data['options']).map(ShippingOption.fromJson).toList(),
+      count < 1 ? 1 : count,
+      paymentMethods
+    );
   }
 
   /// Creates one order per seller; returns the created order references.
@@ -315,22 +432,28 @@ class BuyerApiService {
   }
 
   Future<ParcelJourney> orderTracking(String number) async {
-    final body = await _send('GET', '/buyer/orders/${Uri.encodeComponent(number)}/tracking');
-    return ParcelJourney.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+    final body = await _send(
+        'GET', '/buyer/orders/${Uri.encodeComponent(number)}/tracking');
+    return ParcelJourney.fromJson(
+        Map<String, dynamic>.from(body['data'] as Map));
   }
 
   Future<Order> order(String number) async {
-    final body = await _send('GET', '/buyer/orders/${Uri.encodeComponent(number)}');
+    final body =
+        await _send('GET', '/buyer/orders/${Uri.encodeComponent(number)}');
     return Order.fromJson(Map<String, dynamic>.from(body['data'] as Map));
   }
 
   Future<Order> cancelOrder(String number, String? reason) async {
-    final body = await _send('POST', '/buyer/orders/${Uri.encodeComponent(number)}/cancel', body: {'reason': reason});
+    final body = await _send(
+        'POST', '/buyer/orders/${Uri.encodeComponent(number)}/cancel',
+        body: {'reason': reason});
     return Order.fromJson(Map<String, dynamic>.from(body['data'] as Map));
   }
 
   Future<Order> receiveOrder(String number) async {
-    final body = await _send('POST', '/buyer/orders/${Uri.encodeComponent(number)}/receive');
+    final body = await _send(
+        'POST', '/buyer/orders/${Uri.encodeComponent(number)}/receive');
     return Order.fromJson(Map<String, dynamic>.from(body['data'] as Map));
   }
 
@@ -341,28 +464,38 @@ class BuyerApiService {
     return _list(body['data']).map(Address.fromJson).toList();
   }
 
-  Future<Address> saveAddress(Map<String, dynamic> payload, {String? id}) async {
+  Future<Address> saveAddress(Map<String, dynamic> payload,
+      {String? id}) async {
     final body = id == null
         ? await _send('POST', '/buyer/addresses', body: payload)
-        : await _send('PUT', '/buyer/addresses/${Uri.encodeComponent(id)}', body: payload);
+        : await _send('PUT', '/buyer/addresses/${Uri.encodeComponent(id)}',
+            body: payload);
     return Address.fromJson(Map<String, dynamic>.from(body['data'] as Map));
   }
 
-  Future<void> deleteAddress(String id) => _send('DELETE', '/buyer/addresses/${Uri.encodeComponent(id)}');
+  Future<void> deleteAddress(String id) =>
+      _send('DELETE', '/buyer/addresses/${Uri.encodeComponent(id)}');
 
-  Future<void> setDefaultAddress(String id) => _send('PUT', '/buyer/addresses/${Uri.encodeComponent(id)}/default');
+  Future<void> setDefaultAddress(String id) =>
+      _send('PUT', '/buyer/addresses/${Uri.encodeComponent(id)}/default');
 
   // ---------------- Wishlist ----------------
 
   Future<List<String>> wishlist() async {
     final body = await _send('GET', '/buyer/wishlist');
     final data = body['data'];
-    return data is List ? data.map((e) => e is Map ? '${e['product_id'] ?? e['id']}' : '$e').toList() : [];
+    return data is List
+        ? data
+            .map((e) => e is Map ? '${e['product_id'] ?? e['id']}' : '$e')
+            .toList()
+        : [];
   }
 
-  Future<void> addToWishlist(String productId) => _send('POST', '/buyer/wishlist', body: {'product_id': productId});
+  Future<void> addToWishlist(String productId) =>
+      _send('POST', '/buyer/wishlist', body: {'product_id': productId});
 
-  Future<void> removeFromWishlist(String productId) => _send('DELETE', '/buyer/wishlist/${Uri.encodeComponent(productId)}');
+  Future<void> removeFromWishlist(String productId) =>
+      _send('DELETE', '/buyer/wishlist/${Uri.encodeComponent(productId)}');
 
   // ---------------- Payment methods ----------------
 
@@ -373,11 +506,14 @@ class BuyerApiService {
 
   /// Only display-safe fields (brand, last4, expiry / masked phone) are
   /// ever sent — never a full card number or CVC.
-  Future<void> addPaymentMethod(Map<String, dynamic> payload) => _send('POST', '/buyer/payment-methods', body: payload);
+  Future<void> addPaymentMethod(Map<String, dynamic> payload) =>
+      _send('POST', '/buyer/payment-methods', body: payload);
 
-  Future<void> deletePaymentMethod(String id) => _send('DELETE', '/buyer/payment-methods/${Uri.encodeComponent(id)}');
+  Future<void> deletePaymentMethod(String id) =>
+      _send('DELETE', '/buyer/payment-methods/${Uri.encodeComponent(id)}');
 
-  Future<void> setPrimaryPaymentMethod(String id) => _send('PUT', '/buyer/payment-methods/${Uri.encodeComponent(id)}/primary');
+  Future<void> setPrimaryPaymentMethod(String id) =>
+      _send('PUT', '/buyer/payment-methods/${Uri.encodeComponent(id)}/primary');
 
   // ---------------- Refund payment QR ----------------
 
@@ -386,13 +522,15 @@ class BuyerApiService {
     return value == null || '$value'.isEmpty ? null : '$value';
   }
 
-  Future<String?> paymentQr() async => _qrUrl((await _send('GET', '/buyer/payment-qr'))['data']);
+  Future<String?> paymentQr() async =>
+      _qrUrl((await _send('GET', '/buyer/payment-qr'))['data']);
 
   /// Uploads the already-cropped PNG; resolves to the new QR url.
-  Future<String?> uploadPaymentQr(List<int> png) async =>
-      _qrUrl((await _multipart('/buyer/payment-qr', 'qr', png, 'qr.png'))['data']);
+  Future<String?> uploadPaymentQr(List<int> png) async => _qrUrl(
+      (await _multipart('/buyer/payment-qr', 'qr', png, 'qr.png'))['data']);
 
-  Future<void> removePaymentQr() => _send('PUT', '/buyer/payment-qr', body: {'path': null});
+  Future<void> removePaymentQr() =>
+      _send('PUT', '/buyer/payment-qr', body: {'path': null});
 
   // ---------------- Reviews ----------------
 
@@ -401,10 +539,17 @@ class BuyerApiService {
     return _list(body['data']).map(MyReview.fromJson).toList();
   }
 
-  Future<void> createReview(String orderItemId, int rating, String? comment, {bool anonymous = false}) =>
-      _send('POST', '/buyer/reviews', body: {'order_item_id': orderItemId, 'rating': rating, 'comment': comment, 'anonymous': anonymous});
+  Future<void> createReview(String orderItemId, int rating, String? comment,
+          {bool anonymous = false}) =>
+      _send('POST', '/buyer/reviews', body: {
+        'order_item_id': orderItemId,
+        'rating': rating,
+        'comment': comment,
+        'anonymous': anonymous
+      });
 
-  Future<void> deleteReview(String reviewId) => _send('DELETE', '/buyer/reviews/${Uri.encodeComponent(reviewId)}');
+  Future<void> deleteReview(String reviewId) =>
+      _send('DELETE', '/buyer/reviews/${Uri.encodeComponent(reviewId)}');
 
   // ---------------- Returns ----------------
 
@@ -432,26 +577,44 @@ class BuyerApiService {
 
   Future<BuyerProfile> profile() async {
     final body = await _send('GET', '/buyer/profile');
-    final data = body['data'] is Map ? Map<String, dynamic>.from(body['data']) : body;
-    return BuyerProfile.fromJson(data['profile'] is Map ? Map<String, dynamic>.from(data['profile']) : data);
+    final data =
+        body['data'] is Map ? Map<String, dynamic>.from(body['data']) : body;
+    return BuyerProfile.fromJson(data['profile'] is Map
+        ? Map<String, dynamic>.from(data['profile'])
+        : data);
   }
 
-  Future<void> updateProfile(Map<String, dynamic> payload) => _send('PUT', '/buyer/account/profile', body: payload);
+  Future<void> updateProfile(Map<String, dynamic> payload) =>
+      _send('PUT', '/buyer/account/profile', body: payload);
 
   /// Returns the new avatar URL.
   Future<String?> uploadAvatar(List<int> bytes, String fileName) async {
-    final body = await _multipart('/buyer/profile/avatar', 'avatar', bytes, fileName);
+    final body =
+        await _multipart('/buyer/profile/avatar', 'avatar', bytes, fileName);
     final data = body['data'] is Map ? body['data'] as Map : body;
     return data['avatar_url']?.toString();
   }
 
   Future<void> deactivateAccount(String password) =>
-      _send('DELETE', '/buyer/account/deactivate', body: {'confirmation_phrase': 'DEACTIVATE', 'password': password});
+      _send('DELETE', '/buyer/account/deactivate',
+          body: {'confirmation_phrase': 'DEACTIVATE', 'password': password});
 
   // ---------------- Account settings ----------------
 
   Future<Map<String, dynamic>> notificationPreferences() async {
     final body = await _send('GET', '/buyer/account/preferences');
+    return body['data'] is Map ? Map<String, dynamic>.from(body['data']) : {};
+  }
+
+  Future<Map<String, dynamic>> mobileNotificationPreferences() async {
+    final body = await _send('GET', '/buyer/notification-preferences');
+    return body['data'] is Map ? Map<String, dynamic>.from(body['data']) : {};
+  }
+
+  Future<Map<String, dynamic>> saveMobileNotificationPreference(
+      String key, bool value) async {
+    final body = await _send('PUT', '/buyer/notification-preferences',
+        body: {key: value});
     return body['data'] is Map ? Map<String, dynamic>.from(body['data']) : {};
   }
 
@@ -484,11 +647,27 @@ class BuyerApiService {
   }
 
   /// Where to open the pin map for a typed address: (point, zoom, precision).
-  Future<(LatLng, double, String)> locateAddress({String street = '', String barangay = '', String municipality = '', String province = ''}) async {
-    final query = {'street': street, 'barangay': barangay, 'municipality': municipality, 'province': province}.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
+  Future<(LatLng, double, String)> locateAddress(
+      {String street = '',
+      String barangay = '',
+      String municipality = '',
+      String province = ''}) async {
+    final query = {
+      'street': street,
+      'barangay': barangay,
+      'municipality': municipality,
+      'province': province
+    }
+        .entries
+        .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
     final body = await _send('GET', '/geo/locate', query: query);
     final d = Map<String, dynamic>.from(body['data'] as Map);
-    return (LatLng((d['lat'] as num).toDouble(), (d['lng'] as num).toDouble()), (d['zoom'] as num?)?.toDouble() ?? 15, '${d['precision'] ?? 'approximate'}');
+    return (
+      LatLng((d['lat'] as num).toDouble(), (d['lng'] as num).toDouble()),
+      (d['zoom'] as num?)?.toDouble() ?? 15,
+      '${d['precision'] ?? 'approximate'}'
+    );
   }
 
   Future<void> unfollowStore(String id) =>
@@ -516,11 +695,23 @@ class BuyerApiService {
   Future<void> unblockShop(String id) =>
       _send('DELETE', '/buyer/stores/${Uri.encodeComponent(id)}/block');
 
-  Future<({List<Map<String, dynamic>> items, int lastPage, int open, int closed})> myReports({String state = 'open', int page = 1}) async {
-    final body = await _send('GET', '/buyer/my-reports', query: 'state=$state&page=$page');
+  Future<
+      ({
+        List<Map<String, dynamic>> items,
+        int lastPage,
+        int open,
+        int closed
+      })> myReports({String state = 'open', int page = 1}) async {
+    final body = await _send('GET', '/buyer/my-reports',
+        query: 'state=$state&page=$page');
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
     int n(String key, int fallback) => (meta[key] as num?)?.toInt() ?? fallback;
-    return (items: _list(body['data']), lastPage: n('lastPage', page), open: n('openCount', 0), closed: n('closedCount', 0));
+    return (
+      items: _list(body['data']),
+      lastPage: n('lastPage', page),
+      open: n('openCount', 0),
+      closed: n('closedCount', 0)
+    );
   }
 
   Future<Map<String, dynamic>> myReport(String id) async {
@@ -531,41 +722,58 @@ class BuyerApiService {
 
   // ---------------- Messages ----------------
 
-  Future<(List<ChatConversation>, int)> conversations({bool archived = false, int page = 1}) async {
+  Future<(List<ChatConversation>, int)> conversations(
+      {bool archived = false, int page = 1}) async {
     final body = await _send('GET', '/buyer/messages/conversations',
-        query: _q({'page': '$page', 'per_page': '30', 'status': archived ? 'archived' : null}));
+        query: _q({
+          'page': '$page',
+          'per_page': '30',
+          'status': archived ? 'archived' : null
+        }));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
-    final last = meta['lastPage'] is num ? (meta['lastPage'] as num).toInt() : page;
+    final last =
+        meta['lastPage'] is num ? (meta['lastPage'] as num).toInt() : page;
     return (_list(body['data']).map(ChatConversation.fromJson).toList(), last);
   }
 
   Future<ChatConversation> conversation(String id) async {
-    final body = await _send('GET', '/buyer/messages/conversations/${Uri.encodeComponent(id)}');
-    return ChatConversation.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+    final body = await _send(
+        'GET', '/buyer/messages/conversations/${Uri.encodeComponent(id)}');
+    return ChatConversation.fromJson(
+        Map<String, dynamic>.from(body['data'] as Map));
   }
 
   /// Finds or opens the buyer↔seller thread, optionally about a product
   /// or an order (with an optional first message).
-  Future<ChatConversation> startSellerChat({required String sellerId, String? productId, String? orderNumber, String? body}) async {
+  Future<ChatConversation> startSellerChat(
+      {required String sellerId,
+      String? productId,
+      String? orderNumber,
+      String? body}) async {
     final res = await _send('POST', '/buyer/messages/conversations', body: {
       'seller_id': sellerId,
       'product_id': productId,
       'order_number': orderNumber,
       'body': body,
     });
-    return ChatConversation.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    return ChatConversation.fromJson(
+        Map<String, dynamic>.from(res['data'] as Map));
   }
 
   Future<ChatConversation> startCourierChat(String orderNumber) async {
-    final res = await _send('POST', '/buyer/messages/courier-conversations', body: {'order_number': orderNumber});
-    return ChatConversation.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    final res = await _send('POST', '/buyer/messages/courier-conversations',
+        body: {'order_number': orderNumber});
+    return ChatConversation.fromJson(
+        Map<String, dynamic>.from(res['data'] as Map));
   }
 
   /// Latest page (no cursor), older history ([before]) or new messages
   /// since a message id ([after], the polling path). Messages come back
   /// oldest → newest. Returns (messages, hasMore, nextCursor).
-  Future<(List<ChatMessage>, bool, String?)> messages(String conversationId, {String? before, String? after, int limit = 30}) async {
-    final body = await _send('GET', '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/messages',
+  Future<(List<ChatMessage>, bool, String?)> messages(String conversationId,
+      {String? before, String? after, int limit = 30}) async {
+    final body = await _send('GET',
+        '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/messages',
         query: _q({'limit': '$limit', 'before': before, 'after': after}));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
     return (
@@ -586,60 +794,87 @@ class BuyerApiService {
     String? variantId,
     bool contactSeller = false,
   }) async {
-    final body = await _send('POST', '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/messages', body: {
-      if (text != null && text.isNotEmpty) 'body': text,
-      if (attachmentIds.isNotEmpty) 'attachment_ids': attachmentIds,
-      if (quickQuestionKey != null) 'quick_question_key': quickQuestionKey,
-      if (orderId != null) 'order_id': orderId,
-      if (productId != null) 'product_id': productId,
-      if (variantId != null) 'variant_id': variantId,
-      if (contactSeller) 'contact_seller': true,
-    });
+    final body = await _send('POST',
+        '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/messages',
+        body: {
+          if (text != null && text.isNotEmpty) 'body': text,
+          if (attachmentIds.isNotEmpty) 'attachment_ids': attachmentIds,
+          if (quickQuestionKey != null) 'quick_question_key': quickQuestionKey,
+          if (orderId != null) 'order_id': orderId,
+          if (productId != null) 'product_id': productId,
+          if (variantId != null) 'variant_id': variantId,
+          if (contactSeller) 'contact_seller': true,
+        });
     final data = Map<String, dynamic>.from(body['data'] as Map);
     final auto = data['autoReply'];
-    return (ChatMessage.fromJson(data), auto is Map ? ChatMessage.fromJson(Map<String, dynamic>.from(auto)) : null);
+    return (
+      ChatMessage.fromJson(data),
+      auto is Map ? ChatMessage.fromJson(Map<String, dynamic>.from(auto)) : null
+    );
   }
 
-  Future<List<QuickQuestion>> quickQuestions(String conversationId, {bool menu = false}) async {
-    final body = await _send('GET', '/buyer/messages/quick-questions', query: _q({'conversation_id': conversationId, 'menu': menu ? '1' : null}));
+  Future<List<QuickQuestion>> quickQuestions(String conversationId,
+      {bool menu = false}) async {
+    final body = await _send('GET', '/buyer/messages/quick-questions',
+        query:
+            _q({'conversation_id': conversationId, 'menu': menu ? '1' : null}));
     return _list(body['data']).map(QuickQuestion.fromJson).toList();
   }
 
   /// The "which product / which order?" pickers behind quick questions.
   /// Returns (items, lastPage).
-  Future<(List<Map<String, dynamic>>, int)> chatPickerItems(String conversationId, {required bool orders, bool active = false, String search = '', int page = 1}) async {
+  Future<(List<Map<String, dynamic>>, int)> chatPickerItems(
+      String conversationId,
+      {required bool orders,
+      bool active = false,
+      String search = '',
+      int page = 1}) async {
     // active: the buyer's undelivered orders with this shop, newest first.
     final path = active ? 'orders' : (orders ? 'products' : 'catalog-products');
-    final body = await _send('GET', '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/$path',
-        query: _q({'page': '$page', 'search': orders || search.isEmpty ? null : search}));
+    final body = await _send('GET',
+        '/buyer/messages/conversations/${Uri.encodeComponent(conversationId)}/$path',
+        query: _q({
+          'page': '$page',
+          'search': orders || search.isEmpty ? null : search
+        }));
     final meta = body['meta'] is Map ? body['meta'] as Map : const {};
     return (_list(body['data']), (meta['lastPage'] as num?)?.toInt() ?? page);
   }
 
   /// Stages a file; send its returned id with [sendMessage].
   Future<String> uploadChatAttachment(List<int> bytes, String fileName) async {
-    final body = await _multipart('/buyer/messages/attachments', 'file', bytes, fileName);
+    final body = await _multipart(
+        '/buyer/messages/attachments', 'file', bytes, fileName);
     return '${(body['data'] as Map)['id']}';
   }
 
-  Future<void> markConversationRead(String id) => _send('PUT', '/buyer/messages/conversations/${Uri.encodeComponent(id)}/read');
+  Future<void> markConversationRead(String id) => _send(
+      'PUT', '/buyer/messages/conversations/${Uri.encodeComponent(id)}/read');
 
-  Future<void> setConversationStatus(String id, String status) =>
-      _send('PUT', '/buyer/messages/conversations/${Uri.encodeComponent(id)}/status', body: {'status': status});
+  Future<void> setConversationStatus(String id, String status) => _send(
+      'PUT', '/buyer/messages/conversations/${Uri.encodeComponent(id)}/status',
+      body: {'status': status});
 
-  Future<void> deleteConversation(String id) => _send('DELETE', '/buyer/messages/conversations/${Uri.encodeComponent(id)}');
+  Future<void> deleteConversation(String id) => _send(
+      'DELETE', '/buyer/messages/conversations/${Uri.encodeComponent(id)}');
 
   Future<int> unreadMessages() async {
     final body = await _send('GET', '/buyer/messages/unread-count');
     final data = body['data'];
-    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+    return data is Map && data['count'] is num
+        ? (data['count'] as num).toInt()
+        : 0;
   }
 
   // ---------------- Notifications ----------------
 
-  Future<({List<BuyerNotification> items, bool hasMore, int unread})> notifications({int page = 1}) async {
-    final body = await _send('GET', '/buyer/notifications', query: 'page=$page');
-    final meta = body['meta'] is Map ? Map<String, dynamic>.from(body['meta'] as Map) : <String, dynamic>{};
+  Future<({List<BuyerNotification> items, bool hasMore, int unread})>
+      notifications({int page = 1}) async {
+    final body =
+        await _send('GET', '/buyer/notifications', query: 'page=$page');
+    final meta = body['meta'] is Map
+        ? Map<String, dynamic>.from(body['meta'] as Map)
+        : <String, dynamic>{};
     return (
       items: _list(body['data']).map(BuyerNotification.fromJson).toList(),
       hasMore: meta['hasMore'] == true,
@@ -650,37 +885,52 @@ class BuyerApiService {
   Future<int> unreadNotifications() async {
     final body = await _send('GET', '/buyer/notifications/unread-count');
     final data = body['data'];
-    return data is Map && data['count'] is num ? (data['count'] as num).toInt() : 0;
+    return data is Map && data['count'] is num
+        ? (data['count'] as num).toInt()
+        : 0;
   }
 
-  Future<void> markNotificationRead(String id) => _send('PUT', '/buyer/notifications/${Uri.encodeComponent(id)}/read');
+  Future<void> markNotificationRead(String id) =>
+      _send('PUT', '/buyer/notifications/${Uri.encodeComponent(id)}/read');
 
-  Future<void> markAllNotificationsRead() => _send('PUT', '/buyer/notifications/read-all');
+  Future<void> markAllNotificationsRead() =>
+      _send('PUT', '/buyer/notifications/read-all');
 
   // ---------------- Multipart ----------------
 
-  Future<Map<String, dynamic>> _multipart(String path, String field, List<int> bytes, String fileName) async {
+  Future<Map<String, dynamic>> _multipart(
+      String path, String field, List<int> bytes, String fileName) async {
     final request = http.MultipartRequest('POST', _uri(path))
       ..headers['Accept'] = 'application/json'
-      ..files.add(http.MultipartFile.fromBytes(field, bytes, filename: fileName));
+      ..files
+          .add(http.MultipartFile.fromBytes(field, bytes, filename: fileName));
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
     try {
-      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamed);
       Map<String, dynamic> decoded = {};
       try {
         final raw = jsonDecode(response.body);
         if (raw is Map) decoded = Map<String, dynamic>.from(raw);
       } catch (_) {}
-      if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
+      if (response.statusCode >= 200 && response.statusCode < 300)
+        return decoded;
       final errors = decoded['errors'];
-      var message = decoded['message'] is String ? decoded['message'] as String : 'Upload failed (${response.statusCode}).';
-      if (errors is Map && errors.isNotEmpty && errors.values.first is List) message = '${(errors.values.first as List).first}';
+      var message = decoded['message'] is String
+          ? decoded['message'] as String
+          : 'Upload failed (${response.statusCode}).';
+      if (errors is Map && errors.isNotEmpty && errors.values.first is List)
+        message = '${(errors.values.first as List).first}';
       throw ApiException(message: message, statusCode: response.statusCode);
     } on TimeoutException {
-      throw ApiException(message: 'The upload took too long. Please try again.', statusCode: 408);
+      throw ApiException(
+          message: 'The upload took too long. Please try again.',
+          statusCode: 408);
     } on SocketException {
-      throw ApiException(message: 'No internet connection. Check your network and try again.', statusCode: 0);
+      throw ApiException(
+          message: 'No internet connection. Check your network and try again.',
+          statusCode: 0);
     }
   }
 }
