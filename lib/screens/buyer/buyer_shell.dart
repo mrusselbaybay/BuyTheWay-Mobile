@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/push_service.dart';
+import '../../widgets/session_recovery_state.dart';
 import '../auth/auth_screen.dart';
 import 'account/account_screen.dart';
 import 'account/notifications_screen.dart';
@@ -11,7 +12,6 @@ import 'catalog/home_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'orders/orders_screen.dart';
 import 'widgets/buyer_nav_bar.dart';
-import 'widgets/buyer_widgets.dart';
 
 /// Buyer app root: Home · Orders · Cart · Chat · Account. The floating glass
 /// nav pill only surfaces Orders · Home · Account (Home centered) — Cart and
@@ -90,18 +90,10 @@ class _BuyerShellState extends State<BuyerShell> {
           );
         }
         if (store.sessionExpired) {
-          return Scaffold(
-            backgroundColor: BColors.surface,
-            body: SafeArea(
-              child: EmptyState(
-                icon: Icons.lock_clock_outlined,
-                title: 'Your session has expired',
-                message:
-                    'Sign in again to keep shopping. Your cart is saved on this device.',
-                actionLabel: 'Sign in',
-                onAction: _backToSignIn,
-              ),
-            ),
+          return SessionRecoveryState(
+            message: 'Your session has expired. Please sign in again to continue shopping.',
+            detailNote: 'Your cart is saved on this device.',
+            onSignIn: _backToSignIn,
           );
         }
 
@@ -125,7 +117,7 @@ class _BuyerShellState extends State<BuyerShell> {
               children: [
                 const HomeScreen(),
                 if (_visitedTabs.contains(1))
-                  const OrdersScreen()
+                  const OrdersScreen(embedded: true)
                 else
                   const SizedBox.shrink(),
                 if (_visitedTabs.contains(2))

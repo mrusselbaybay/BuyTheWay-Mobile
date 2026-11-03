@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/api_service.dart';
 import '../../services/push_service.dart';
+import '../../widgets/session_recovery_state.dart';
 import '../../services/poller.dart';
 import '../auth/auth_screen.dart';
 import 'chat/driver_chat_controller.dart';
@@ -811,41 +812,11 @@ class _DriverShellState extends State<DriverShell> {
     final account = _account;
     final accessToken = _accessToken;
     if (account == null || accessToken == null) {
-      return Scaffold(
-        backgroundColor: DriverColors.background,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.wifi_off_rounded,
-                      size: 48, color: DriverColors.textSecondary),
-                  const SizedBox(height: 16),
-                  Text(
-                    _accountLoadError ??
-                        'Something went wrong loading your account.',
-                    textAlign: TextAlign.center,
-                    style: DriverText.body,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _loadAccount,
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: DriverColors.primary,
-                        foregroundColor: Colors.white),
-                    child: const Text('Try again'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                      onPressed: _signOutToLogin,
-                      child: const Text('Back to sign in')),
-                ],
-              ),
-            ),
-          ),
-        ),
+      return SessionRecoveryState(
+        message: _accountLoadError ?? 'Something went wrong loading your account.',
+        onRetry: _loadAccount,
+        onSignIn: _signOutToLogin,
+        detailNote: 'Your account data stays safe while you reconnect.',
       );
     }
 

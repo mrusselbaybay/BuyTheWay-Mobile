@@ -59,27 +59,41 @@ class _AccountScreenState extends State<AccountScreen> {
         return Scaffold(
           backgroundColor: DriverColors.background,
           appBar: AppBar(
-            toolbarHeight: 76,
-            backgroundColor: DriverColors.primary,
-            surfaceTintColor: DriverColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
+            toolbarHeight: 84,
+            backgroundColor: BColors.surface,
+            surfaceTintColor: BColors.surface,
+            foregroundColor: BColors.ink,
+            elevation: 2,
+            shadowColor: const Color(0xFF0F172A).withValues(alpha: 0.10),
             scrolledUnderElevation: 0,
-            titleSpacing: 16,
-            title: Row(children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
-                child: const Icon(Icons.person_outline_rounded, size: 23, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text('Your account', style: TextStyle(fontSize: 19, height: 1.15, fontWeight: FontWeight.w800, color: Colors.white)),
-                SizedBox(height: 3),
-                Text('Profile, purchases and settings', style: TextStyle(fontSize: 12, color: Color(0xDFFFFFFF), fontWeight: FontWeight.w500)),
-              ]),
-            ]),
+            automaticallyImplyLeading: false,
+            centerTitle: true,
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+            title: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Your account',
+                  style: TextStyle(
+                    fontSize: 20,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: BColors.ink,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Profile, purchases and settings',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: BColors.muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
           body: RefreshIndicator(
             color: DriverColors.primary,
@@ -313,9 +327,16 @@ class _AccountHero extends StatelessWidget {
     final incomplete = completeness != null && completeness! < 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 22),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: DriverColors.heroGradient),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -329,15 +350,15 @@ class _AccountHero extends StatelessWidget {
                 width: 70,
                 height: 70,
                 clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: DriverColors.primarySurface, border: Border.all(color: Colors.white, width: 3), boxShadow: softShadow(0.2)),
-                child: avatarUrl != null ? NetImage(avatarUrl, fallbackIcon: Icons.person_rounded) : const Icon(Icons.person_rounded, size: 34, color: DriverColors.primary),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: BColors.brandSurface, border: Border.all(color: BColors.brandSurface, width: 3), boxShadow: softShadow(0.08)),
+                child: avatarUrl != null ? NetImage(avatarUrl, fallbackIcon: Icons.person_rounded) : const Icon(Icons.person_rounded, size: 34, color: BColors.brand),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                  Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, height: 1.1, fontWeight: FontWeight.w900, color: BColors.ink)),
                   const SizedBox(height: 2),
-                  Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.88))),
+                  Text(email, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: BColors.muted)),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 6, children: [
                     if (memberSince != null) _HeroChip(icon: Icons.verified_user_outlined, label: 'Since ${SettingsFormat.dateShort(memberSince!)}'),
@@ -345,7 +366,7 @@ class _AccountHero extends StatelessWidget {
                   ]),
                 ]),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Colors.white),
+              const Icon(Icons.chevron_right_rounded, color: BColors.faint),
             ]),
           ),
         ),
@@ -362,11 +383,15 @@ class _HeroChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
+        decoration: BoxDecoration(
+          color: BColors.brandSurface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFCCFBF1)),
+        ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: Colors.white),
+          Icon(icon, size: 13, color: BColors.brandDark),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BColors.brandDark)),
         ]),
       );
 }

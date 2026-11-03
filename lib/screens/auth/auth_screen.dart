@@ -2127,11 +2127,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String _appBarTitle() {
     if (mode == 'forgot' || mode == 'reset') return 'Reset Password';
-    if (mode == 'signup') {
-      final idx = currentStepIndex;
-      if (idx < 0 || idx >= _activeStepLabels.length) return 'Sign Up';
-      return _activeStepLabels[idx];
-    }
+    if (mode == 'signup') return 'Create account';
     return '';
   }
 
@@ -2172,7 +2168,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         child: SolidButton(
           label: isLast
-              ? (isSubmitting ? 'Submitting...' : 'Submit')
+              ? (isSubmitting ? 'Submitting...' : 'Submit registration')
               : (isContinuingSignup ? 'Continuing...' : 'Continue'),
           icon: isLast || isContinuingSignup ? null : Icons.arrow_forward_rounded,
           onPressed: isSubmitting || isContinuingSignup || isSendingCode
@@ -2628,6 +2624,16 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text('Choose your account type',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.slate900)),
+        const SizedBox(height: 5),
+        Text(
+          _isPartnerPortal
+              ? 'Select the partner account you want to create.'
+              : 'Choose how you want to use BuyTheWay.',
+          style: const TextStyle(color: AppColors.slate500, fontSize: 13, height: 1.45),
+        ),
+        const SizedBox(height: 16),
         ...roles.map((r) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: SolidChoiceCard(
@@ -2654,17 +2660,61 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  (String, String) _stepGuidance() => switch (signupStep) {
+        'personal' || 'driverPersonal' => ('Your personal details', 'Use your legal name and an active mobile number so we can verify your account.'),
+        'company' => ('Company information', 'Add the details buyers and riders can use to identify and contact your logistics company.'),
+        'verifyEmail' || 'driverVerifyEmail' || 'companyVerifyEmail' => ('Verify your email', 'Enter the one-time code sent to your email address. This confirms you can receive important account updates.'),
+        'owner' => ('Company owner details', 'Provide the owner’s information for account and business verification.'),
+        'address' || 'driverAddress' => ('Your service address', 'Choose your region and delivery area, then enter the street address.'),
+        'security' || 'driverSecurity' => ('Secure your account', 'Create a strong password that you do not use for another account.'),
+        'documents' || 'driverDocuments' => ('Review and upload documents', selectedRole == 'courier' || selectedRole == 'driver' ? 'Have your vehicle registration and driver’s license ready. Use clear, readable photos.' : 'Choose the ID type that matches your document, then upload a clear, readable photo.'),
+        _ => ('Complete your registration', 'Follow each step to finish setting up your account.'),
+      };
+
   Widget _wizardHeader({required String kicker}) {
+    final labels = _activeStepLabels;
+    final index = currentStepIndex < 0 ? 0 : currentStepIndex;
+    final total = labels.length;
+    final (title, guidance) = _stepGuidance();
+    final progress = (index + 1) / total;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 22),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(kicker,
-            style: const TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.4)),
-        if (errorMsg.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(errorMsg,
-              style: const TextStyle(color: AppColors.errorRed, fontSize: 13)),
-        ],
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.slate200),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.person_outline_rounded, size: 16, color: BrandColors.blueDark),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(kicker.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.slate600, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.7))),
+                ]),
+              ),
+              Text('STEP ${index + 1} OF $total', style: const TextStyle(color: BrandColors.blueDark, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            ]),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: AppColors.slate100,
+                valueColor: const AlwaysStoppedAnimation<Color>(BrandColors.blue),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 18),
+        Text(title, style: const TextStyle(fontFamily: kBrandFont, fontSize: 23, height: 1.15, fontWeight: FontWeight.w900, color: AppColors.slate900, letterSpacing: -0.3)),
+        const SizedBox(height: 6),
+        Text(guidance, style: const TextStyle(color: AppColors.slate500, fontSize: 13.5, height: 1.45)),
       ]),
     );
   }
@@ -2672,13 +2722,11 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Regular wizard (buyer/seller/courier) ----------------
 
   Widget _buildRegularWizard() {
-    final idx = currentStepIndex;
-    final safeIdx = idx < 0 ? 0 : idx;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SolidProgress(total: steps.length, currentIndex: safeIdx, stepLabel: steps[safeIdx]),
         _wizardHeader(kicker: 'Registering as ${selectedRole ?? ''}'),
+        SolidBanner(error: errorMsg),
         _regularStepBody(),
       ],
     );
@@ -2707,7 +2755,9 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         GoogleButton(onPressed: isSubmitting ? null : _prefillSignupFromGoogle,
             label: 'Continue with Google'),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Personal details'),
+        const SizedBox(height: 14),
         SolidField(
             label: 'Last Name',
             controller: lastName,
@@ -2856,10 +2906,6 @@ class _AuthScreenState extends State<AuthScreen> {
           child: const Text('Resend code',
               style: TextStyle(color: BrandColors.blueDark, fontWeight: FontWeight.w700, fontSize: 13)),
         ),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(errorMsg, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -2883,6 +2929,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Column(
       children: [
+        const SectionDivider(label: 'Delivery area'),
+        const SizedBox(height: 14),
         // Island group. Asked before the PSGC chain because it's what the
         // backend files the address under (addresses.region_name) and how
         // logistics coverage is matched. The company address skips it —
@@ -2957,10 +3005,6 @@ class _AuthScreenState extends State<AuthScreen> {
           Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(_addressError, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg, style: const TextStyle(color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -2969,6 +3013,8 @@ class _AuthScreenState extends State<AuthScreen> {
       String keyPw, String keyCpw) {
     return Column(
       children: [
+        const SectionDivider(label: 'Password'),
+        const SizedBox(height: 14),
         SolidField(
           label: 'Password',
           controller: pw,
@@ -2988,6 +3034,14 @@ class _AuthScreenState extends State<AuthScreen> {
         // characters", the same one app.js and Laravel enforce. Rebuilds
         // off the controller directly so typing doesn't setState the
         // whole wizard on every keystroke.
+        const SizedBox(height: 9),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Choose at least 8 characters. A mix of letters, numbers, and symbols helps make it stronger.',
+            style: TextStyle(color: AppColors.slate500, fontSize: 12, height: 1.4),
+          ),
+        ),
         const SizedBox(height: 12),
         SolidField(
             label: 'Confirm Password',
@@ -3029,6 +3083,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final children = <Widget>[];
     if (selectedRole == 'buyer') {
       children.addAll([
+        const SectionDivider(label: 'Identity verification'),
+        const SizedBox(height: 14),
         _idTypeDropdown(idType, (v) => setState(() => idType = v)),
         const SizedBox(height: 12),
         SolidUploadRow(
@@ -3141,7 +3197,7 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...children,
-        SolidBanner(error: errorMsg, success: successMsg),
+        SolidBanner(success: successMsg),
       ],
     );
   }
@@ -3149,13 +3205,11 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Driver wizard ----------------
 
   Widget _buildDriverWizard() {
-    final idx = currentStepIndex;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StepIndicator(total: driverSteps.length, currentIndex: idx),
-        const SizedBox(height: 14),
-        _wizardHeader(kicker: 'Driver Registration'),
+        _wizardHeader(kicker: 'Courier registration'),
+        SolidBanner(error: errorMsg),
         _driverStepBody(),
       ],
     );
@@ -3182,6 +3236,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _driverPersonalFields() {
     return Column(
       children: [
+        const SectionDivider(label: 'Personal details'),
+        const SizedBox(height: 14),
         LabeledField(
             label: 'Last Name',
             controller: driverLastName,
@@ -3224,7 +3280,9 @@ class _AuthScreenState extends State<AuthScreen> {
             value: driverBirthday,
             onChanged: (d) => setState(() => driverBirthday = d),
             error: validationErrors['driverBirthday']),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Contact details'),
+        const SizedBox(height: 14),
         LabeledField(
             label: 'Contact No.',
             controller: driverContactNo,
@@ -3249,6 +3307,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SectionDivider(label: 'Vehicle details'),
+        const SizedBox(height: 14),
         LabeledDropdown(
           label: 'Vehicle Type',
           required: true,
@@ -3290,12 +3350,6 @@ class _AuthScreenState extends State<AuthScreen> {
             uploaded: driverOrcrUploaded,
             fileName: _driverOrcrFileName,
             onTap: () => _pickFile('driverOrcrFile')),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -3303,13 +3357,11 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------------- Logistics wizard ----------------
 
   Widget _buildLogisticsWizard() {
-    final idx = currentStepIndex;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StepIndicator(total: logisticsSteps.length, currentIndex: idx),
-        const SizedBox(height: 14),
-        _wizardHeader(kicker: 'Logistics Company Registration'),
+        _wizardHeader(kicker: 'Logistics company registration'),
+        SolidBanner(error: errorMsg),
         _logisticsStepBody(),
       ],
     );
@@ -3339,6 +3391,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SectionDivider(label: 'Company information'),
+        const SizedBox(height: 14),
         LabeledField(
             label: 'Company Name',
             controller: companyName,
@@ -3360,7 +3414,9 @@ class _AuthScreenState extends State<AuthScreen> {
           hint: 'Select Region',
           onChanged: (v) => setState(() => companyRegion = v ?? ''),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Contact & registration'),
+        const SizedBox(height: 14),
         LabeledField(
             label: 'Contact No.',
             controller: companyContactNo,
@@ -3379,12 +3435,6 @@ class _AuthScreenState extends State<AuthScreen> {
             label: 'SEC Registration #',
             controller: companySECReg,
             hint: 'SEC Reg. No. (if applicable)'),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -3392,6 +3442,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _ownerFields() {
     return Column(
       children: [
+        const SectionDivider(label: 'Owner information'),
+        const SizedBox(height: 14),
         LabeledField(
             label: 'Owner Last Name',
             controller: ownerLastName,
@@ -3430,12 +3482,6 @@ class _AuthScreenState extends State<AuthScreen> {
             required: true,
             value: ownerBirthday,
             onChanged: (d) => setState(() => ownerBirthday = d)),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
       ],
     );
   }
@@ -3444,6 +3490,8 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SectionDivider(label: 'Owner identity'),
+        const SizedBox(height: 14),
         _idTypeDropdown(ownerIdType, (v) => setState(() => ownerIdType = v)),
         const SizedBox(height: 12),
         UploadTile(
@@ -3452,7 +3500,9 @@ class _AuthScreenState extends State<AuthScreen> {
             uploaded: ownerIdUploaded,
             fileName: _ownerIdFileName,
             onTap: () => _pickFile('ownerIdFile')),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
+        const SectionDivider(label: 'Company documents'),
+        const SizedBox(height: 14),
         UploadTile(
             label: 'Business Permit',
             required: true,
@@ -3473,12 +3523,6 @@ class _AuthScreenState extends State<AuthScreen> {
             uploaded: dtiRegUploaded,
             fileName: _dtiRegFileName,
             onTap: () => _pickFile('dtiRegFile')),
-        if (errorMsg.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(errorMsg,
-                  style: const TextStyle(
-                      color: AppColors.errorRed, fontSize: 12))),
         if (successMsg.isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 8),

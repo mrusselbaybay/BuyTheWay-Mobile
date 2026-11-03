@@ -103,68 +103,94 @@ class _CartScreenState extends State<CartScreen> {
         return Scaffold(
           backgroundColor: BColors.background,
           appBar: AppBar(
-            backgroundColor: BColors.brandDark,
-            surfaceTintColor: BColors.brandDark,
-            foregroundColor: Colors.white,
-            elevation: 0,
+            backgroundColor: BColors.surface,
+            surfaceTintColor: BColors.surface,
+            foregroundColor: BColors.ink,
+            elevation: 2,
+            shadowColor: const Color(0xFF0F172A).withValues(alpha: 0.12),
             centerTitle: true,
-            toolbarHeight: 66,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
+            toolbarHeight: 92,
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
             clipBehavior: Clip.antiAlias,
+            automaticallyImplyLeading: false,
             shape: const RoundedRectangleBorder(
                 borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(26))),
-            flexibleSpace: const DecoratedBox(
-              decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [BColors.brand, Color(0xFF14B8A6)])),
-            ),
-            leadingWidth: 56,
-            leading: IconButton(
+                    BorderRadius.vertical(bottom: Radius.circular(24))),
+            leadingWidth: widget.standalone ? 52 : 0,
+            leading: widget.standalone ? IconButton(
               tooltip: 'Back',
-              onPressed: widget.standalone
-                  ? () => Navigator.of(context).maybePop()
-                  : () => BuyerShell.goTo(context, 0),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            ),
-            title: Column(mainAxisSize: MainAxisSize.min, children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                const Text('Shopping basket',
-                    style: TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
-                if (!empty) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(999)),
-                    child: Text('${store.cartCount}',
-                        style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: BColors.brandDark)),
+              onPressed: () => Navigator.of(context).maybePop(),
+              style: IconButton.styleFrom(
+                backgroundColor: BColors.brandSurface,
+                minimumSize: const Size(42, 42),
+                maximumSize: const Size(42, 42),
+                shape: const CircleBorder(),
+              ),
+              icon: const Icon(Icons.arrow_back_rounded,
+                  size: 21, color: BColors.brandDark),
+            ) : null,
+            titleSpacing: 4,
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Flexible(
+                    child: Text(
+                      'Shopping basket',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.35,
+                        color: BColors.ink,
+                      ),
+                    ),
                   ),
-                ],
-              ]),
-              const SizedBox(height: 4),
-              const _AddressLine(),
-            ]),
+                  if (!empty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: BColors.brandSurface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: const Color(0xFF99F6E4)),
+                      ),
+                      child: Text(
+                        '${store.cartCount} ${store.cartCount == 1 ? 'item' : 'items'}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: BColors.brandDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ]),
+                const SizedBox(height: 8),
+                const _AddressLine(),
+              ],
+            ),
             actions: [
               if (!empty)
-                TextButton(
+                TextButton.icon(
                   onPressed: () => setState(() => editing = !editing),
                   style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14)),
-                  child: Text(editing ? 'Done' : 'Edit',
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w800)),
+                    foregroundColor: BColors.brandDark,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    backgroundColor: BColors.brandSurface,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: Icon(editing ? Icons.check_rounded : Icons.edit_outlined, size: 16),
+                  label: Text(
+                    editing ? 'Done' : 'Edit',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
                 )
               else
                 const SizedBox(width: 56),
@@ -174,8 +200,8 @@ class _CartScreenState extends State<CartScreen> {
                     preferredSize: Size.fromHeight(2),
                     child: LinearProgressIndicator(
                         minHeight: 2,
-                        color: Colors.white,
-                        backgroundColor: Colors.transparent),
+                        color: BColors.brand,
+                        backgroundColor: BColors.brandSurface),
                   )
                 : null,
           ),
@@ -707,8 +733,10 @@ class _AddressLine extends StatelessWidget {
             .join(', ');
     if (text.isEmpty) text = 'Add a delivery address';
     return Material(
-      color: Colors.white.withValues(alpha: 0.18),
-      shape: const StadiumBorder(),
+      color: BColors.brandSurface,
+      shape: StadiumBorder(
+        side: BorderSide(color: const Color(0xFF99F6E4).withValues(alpha: 0.9)),
+      ),
       child: InkWell(
         onTap: () => showAddressSheet(context),
         customBorder: const StadiumBorder(),
@@ -718,7 +746,7 @@ class _AddressLine extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 3, 6, 3),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.location_on_rounded,
-                  size: 13, color: Colors.white),
+                  size: 13, color: BColors.brandDark),
               const SizedBox(width: 4),
               Flexible(
                   child: Text(text,
@@ -727,9 +755,9 @@ class _AddressLine extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white))),
+                          color: BColors.brandDark))),
               const Icon(Icons.keyboard_arrow_right_rounded,
-                  size: 15, color: Colors.white),
+                  size: 15, color: BColors.brandDark),
             ]),
           ),
         ),

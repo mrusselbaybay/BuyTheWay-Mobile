@@ -78,9 +78,10 @@ String _when(DateTime? d) {
 // ============================================================
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key, this.initialTab = 0});
+  const OrdersScreen({super.key, this.initialTab = 0, this.embedded = false});
 
   final int initialTab;
+  final bool embedded;
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -105,7 +106,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Opened from Account's shortcuts (not the shell tab): keep it fresh too.
-    if (!_pushed && ModalRoute.of(context)?.isFirst == false) {
+    if (!widget.embedded && !_pushed && ModalRoute.of(context)?.isFirst == false) {
       _pushed = true;
       store.orderDetailsOpened();
     }
@@ -128,10 +129,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Embedded as the Orders tab (no back arrow); pushed from Account's
-    // status shortcuts otherwise.
-    final pushed = Navigator.of(context).canPop() &&
-        !(ModalRoute.of(context)?.isFirst ?? true);
+    // Embedded as the Orders tab has no back arrow. Pushed Orders pages retain it.
+    final pushed = !widget.embedded;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: DefaultTabController(

@@ -38,7 +38,18 @@ class BuyerNavBar extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(34),
           border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.14),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: ListenableBuilder(
           listenable: store,
