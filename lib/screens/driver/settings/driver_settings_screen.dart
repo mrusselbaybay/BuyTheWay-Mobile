@@ -44,8 +44,6 @@ class DriverSettingsScreen extends StatefulWidget {
   final ValueChanged<bool> onNotificationsChanged;
   final bool soundEnabled;
   final ValueChanged<bool> onSoundChanged;
-  final String language;
-  final ValueChanged<String> onLanguageChanged;
 
   /// Pull-to-refresh — re-reads `GET /api/driver/profile` through the
   /// shell so the summary card, address row and vehicle row reflect
@@ -62,8 +60,6 @@ class DriverSettingsScreen extends StatefulWidget {
     required this.onNotificationsChanged,
     required this.soundEnabled,
     required this.onSoundChanged,
-    required this.language,
-    required this.onLanguageChanged,
     required this.onRefresh,
   });
 
@@ -105,22 +101,6 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
   void _openFindWork() {
     Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DriverWorkScreen(accessToken: widget.accessToken)));
-  }
-
-  void _pickLanguage() {
-    showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Select language'),
-        children: ['English', 'Filipino', 'Cebuano']
-            .map((lang) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(dialogContext, lang),
-                child: Text(lang)))
-            .toList(),
-      ),
-    ).then((value) {
-      if (value != null) widget.onLanguageChanged(value);
-    });
   }
 
   void _comingSoon(String label) =>
@@ -344,12 +324,6 @@ class _DriverSettingsScreenState extends State<DriverSettingsScreen> {
                   title: 'Sound alerts',
                   value: widget.soundEnabled,
                   onChanged: widget.onSoundChanged,
-                ),
-                SettingsNavTile(
-                  icon: Icons.language_rounded,
-                  title: 'Language',
-                  trailingText: widget.language,
-                  onTap: _pickLanguage,
                 ),
               ]),
               const SizedBox(height: 22),

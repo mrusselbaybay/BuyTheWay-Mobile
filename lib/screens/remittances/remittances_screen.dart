@@ -80,8 +80,9 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       ]);
       // _load() bumps the generation: a poll that began before the user changed
       // tab/page/filter/search (or finished an action) is dropped.
-      if (!isActive() || !mounted || generation != _generation || _loading)
+      if (!isActive() || !mounted || generation != _generation || _loading) {
         return;
+      }
       final records = result[1] as RemittancePageData;
       _mergeRemote(
           result[0] as Map<String, dynamic>, records.items, records.lastPage);
@@ -139,7 +140,9 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     if (!summaryChanged &&
         !rowsChanged &&
         !heldChanged &&
-        lastPage == _lastPage) return;
+        lastPage == _lastPage) {
+      return;
+    }
     setState(() {
       if (summaryChanged) _summary = summary;
       _rows = next;
@@ -159,9 +162,10 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       _heldRows = null;
       _selection.removeWhere((id) => !held.any((r) => '${r['id']}' == id));
     });
-    if (_scroll.hasClients)
+    if (_scroll.hasClients) {
       _scroll.animateTo(0,
           duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
   }
 
   Map<String, String> get _tabs => _seller
@@ -520,18 +524,14 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0B5F5A), Color(0xFF0D9488), Color(0xFF18A999)],
-            stops: [0, 0.62, 1],
-          ),
-          borderRadius: BorderRadius.circular(22),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: DriverColors.border.withOpacity(0.85)),
           boxShadow: [
             BoxShadow(
-              color: DriverColors.primaryDark.withOpacity(0.2),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+              color: DriverColors.textPrimary.withOpacity(0.035),
+              blurRadius: 18,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -545,7 +545,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: Colors.white.withOpacity(0.08), width: 22),
+                    color: DriverColors.primarySurface.withOpacity(0.65), width: 22),
               ),
             ),
           ),
@@ -557,7 +557,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               height: 130,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.045),
+                color: DriverColors.primarySurface.withOpacity(0.55),
               ),
             ),
           ),
@@ -569,7 +569,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 const Expanded(
                   child: Text('COURIER WALLET',
                       style: TextStyle(
-                          color: Color(0xFFC6F4EC),
+                          color: DriverColors.primaryDark,
                           fontSize: 10,
                           letterSpacing: 1.15,
                           fontWeight: FontWeight.w800)),
@@ -607,7 +607,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
               const SizedBox(height: 18),
               const Text('COD balance to remit',
                   style: TextStyle(
-                      color: Colors.white70,
+                      color: DriverColors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 3),
@@ -616,7 +616,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(remittanceMoney(owed),
                     style: const TextStyle(
-                        color: Colors.white,
+                        color: DriverColors.textPrimary,
                         fontSize: 38,
                         height: 1.08,
                         letterSpacing: -1.1,
@@ -628,7 +628,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                     ? 'You’re all caught up on cash collected for COD orders.'
                     : 'Submit a receipt for cash collected on delivered COD orders.',
                 style: const TextStyle(
-                    color: Color(0xFFD7F1EC), fontSize: 12, height: 1.4),
+                    color: DriverColors.textSecondary, fontSize: 12, height: 1.4),
               ),
               const SizedBox(height: 16),
               Row(children: [
@@ -647,8 +647,8 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                       }
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: DriverColors.primaryDark,
+                      backgroundColor: DriverColors.primaryDark,
+                      foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(44),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       shape: RoundedRectangleBorder(
@@ -665,9 +665,9 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.14),
+                    color: DriverColors.background,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    border: Border.all(color: DriverColors.border),
                   ),
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -675,14 +675,14 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                       children: [
                         const Text('EARNINGS',
                             style: TextStyle(
-                                color: Color(0xFFC6F4EC),
+                                color: DriverColors.textSecondary,
                                 fontSize: 8,
                                 letterSpacing: 0.65,
                                 fontWeight: FontWeight.w800)),
                         const SizedBox(height: 2),
                         Text(remittanceMoney(available),
                             style: const TextStyle(
-                                color: Colors.white,
+                                color: DriverColors.primaryDark,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800)),
                       ]),
@@ -795,8 +795,52 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       appBar: _headerVisible
           ? AppBar(
               automaticallyImplyLeading: false,
-              titleSpacing: 16,
-              title: Text(_seller ? 'Seller remittances' : 'Remittance ledger'))
+              titleSpacing: 18,
+              toolbarHeight: _seller ? null : 84,
+              backgroundColor: Colors.white,
+              foregroundColor: DriverColors.textPrimary,
+              elevation: 0,
+              surfaceTintColor: Colors.transparent,
+              shape: const Border(
+                  bottom: BorderSide(color: DriverColors.border)),
+              title: _seller
+                  ? const Text('Seller remittances')
+                  : const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(children: [
+                          SizedBox(
+                              width: 7,
+                              height: 7,
+                              child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                      color: DriverColors.primary,
+                                      shape: BoxShape.circle))),
+                          SizedBox(width: 7),
+                          Text('RIDER  /  FIELD ROUTE',
+                              style: TextStyle(
+                                  color: DriverColors.textSecondary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.0)),
+                        ]),
+                        SizedBox(height: 5),
+                        Text('Remittances',
+                            style: TextStyle(
+                                fontSize: 27,
+                                height: 1.05,
+                                fontWeight: FontWeight.w800,
+                                color: DriverColors.textPrimary,
+                                letterSpacing: -0.8)),
+                        SizedBox(height: 4),
+                        Text('COD collections and earnings',
+                            style: TextStyle(
+                                color: DriverColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ))
           : null,
       body: SafeArea(
           child: Stack(children: [
@@ -822,12 +866,12 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                               padding: const EdgeInsets.only(right: 8),
                               child: Material(
                                   color: active
-                                      ? DriverColors.primary
+                                      ? DriverColors.primaryDark
                                       : Colors.white,
                                   shape: StadiumBorder(
                                       side: BorderSide(
                                           color: active
-                                              ? DriverColors.primary
+                                              ? DriverColors.primaryDark
                                               : DriverColors.border)),
                                   child: InkWell(
                                       customBorder: const StadiumBorder(),

@@ -5,7 +5,6 @@ import '../../../services/user_error_handler.dart';
 import '../../driver/notifications/notification_inbox.dart';
 import '../inventory/inventory_detail_screen.dart';
 import '../logistics_models.dart';
-import '../widgets/logistics_nav_bar.dart';
 
 /// The staff notification inbox, opened from the bell on the Dashboard.
 /// Newest first, paged; read state lives on the server and is shared with

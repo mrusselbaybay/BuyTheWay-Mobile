@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/common.dart';
 import '../auth/auth_screen.dart';
 import '../../widgets/navigation/courier_navbar.dart';
+import '../driver/driver_theme.dart';
 
 const Color _teal = Color(0xFF0D9488);
 const Color _tealDark = Color(0xFF0F766E);
@@ -177,11 +178,11 @@ class SectionHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppColors.slate800)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: DriverColors.textPrimary)),
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
-            style: TextButton.styleFrom(foregroundColor: AppColors.teal600, padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            style: TextButton.styleFrom(foregroundColor: DriverColors.primaryDark, padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
             child: Text(actionLabel!, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
           ),
       ],
@@ -201,19 +202,19 @@ class MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 116,
+      width: 126,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.22)),
+        border: Border.all(color: DriverColors.border.withOpacity(0.85)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 15, color: Colors.white),
+              Icon(icon, size: 15, color: DriverColors.primary),
               const Spacer(),
               if (trend != null)
                 Row(
@@ -233,9 +234,9 @@ class MetricChip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+          Text(value, style: const TextStyle(color: DriverColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 17)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10.5, fontWeight: FontWeight.w600)),
+          Text(label, style: const TextStyle(color: DriverColors.textSecondary, fontSize: 10.5, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -309,9 +310,8 @@ class PickupTaskCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border(left: BorderSide(color: task.priority.color, width: 4)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DriverColors.border.withOpacity(0.85)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -564,7 +564,7 @@ class _CourierDashboardState extends State<CourierDashboard> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: DriverColors.background,
       extendBody: true,
       body: IndexedStack(index: _currentIndex, children: pages),
       floatingActionButton: _dashboardFab(),
@@ -669,7 +669,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: DriverColors.background,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -746,24 +746,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_teal, _tealDark]),
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: _teal.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))],
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: DriverColors.border.withOpacity(0.8))),
+        boxShadow: [BoxShadow(color: DriverColors.textPrimary.withOpacity(0.035), blurRadius: 18, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // "Find Work" (browsing logistics companies / applications) now
-              // lives in the driver app's Account tab — see
-              // DriverWorkScreen — since courier and driver share that UI.
-              // This spacer keeps the title centered.
-              const SizedBox(width: 36, height: 36),
-              const Text('BuyTheWay Courier', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.4)),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  SizedBox(width: 7, height: 7, child: DecoratedBox(decoration: BoxDecoration(color: DriverColors.primary, shape: BoxShape.circle))),
+                  SizedBox(width: 7),
+                  Text('RIDER  /  FIELD ROUTE', style: TextStyle(color: DriverColors.textSecondary, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.0)),
+                ]),
+                SizedBox(height: 5),
+                Text('Courier dashboard', style: TextStyle(fontSize: 27, height: 1.05, fontWeight: FontWeight.w800, color: DriverColors.textPrimary, letterSpacing: -0.8)),
+              ])),
               _headerIconButton(
                 icon: Icons.person_rounded,
                 tooltip: 'Profile',
@@ -771,14 +773,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.6), width: 2)),
-                child: const CircleAvatar(radius: 24, backgroundColor: Colors.white24, child: Icon(Icons.person_rounded, color: Colors.white, size: 26)),
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: DriverColors.primary.withOpacity(0.18), width: 2)),
+                child: const CircleAvatar(radius: 22, backgroundColor: DriverColors.primarySurface, child: Icon(Icons.person_rounded, color: DriverColors.primaryDark, size: 24)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -787,17 +789,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(driverProfile.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        Flexible(child: Text(driverProfile.name, overflow: TextOverflow.ellipsis, style: const TextStyle(color: DriverColors.textPrimary, fontWeight: FontWeight.w800, fontSize: 15))),
                         const SizedBox(width: 6),
                         Icon(Icons.star_rounded, size: 14, color: Colors.amber.shade300),
-                        Text(driverProfile.rating.toStringAsFixed(1), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text(driverProfile.rating.toStringAsFixed(1), style: const TextStyle(color: DriverColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w700)),
                       ],
                     ),
                     Row(
                       children: [
-                        Icon(Icons.local_shipping_rounded, size: 12, color: Colors.white.withOpacity(0.8)),
+                        const Icon(Icons.local_shipping_rounded, size: 12, color: DriverColors.textSecondary),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(driverProfile.hub, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(driverProfile.hub, style: const TextStyle(color: DriverColors.textSecondary, fontSize: 11.5), overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ],
@@ -807,9 +809,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           SizedBox(
-            height: 92,
+            height: 88,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
@@ -837,7 +839,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white.withOpacity(0.3))),
+        decoration: BoxDecoration(color: DriverColors.background, borderRadius: BorderRadius.circular(24), border: Border.all(color: DriverColors.border)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [_dutyPill('On', widget.isOnDuty), _dutyPill('Off', !widget.isOnDuty)]),
       ),
     );
@@ -847,8 +849,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: active ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: active ? _tealDark : Colors.white70)),
+      decoration: BoxDecoration(color: active ? DriverColors.primaryDark : Colors.transparent, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: active ? Colors.white : DriverColors.textSecondary)),
     );
   }
 
@@ -862,8 +864,8 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 36,
           height: 36,
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withOpacity(0.25))),
-          child: Icon(icon, color: Colors.white, size: 18),
+          decoration: BoxDecoration(color: DriverColors.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: DriverColors.border.withOpacity(0.9))),
+          child: Icon(icon, color: DriverColors.textSecondary, size: 19),
         ),
       ),
     );

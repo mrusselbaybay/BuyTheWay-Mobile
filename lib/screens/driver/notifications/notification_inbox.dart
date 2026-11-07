@@ -420,7 +420,7 @@ class _NotificationTile extends StatelessWidget {
             ),
             if (!n.read)
               Padding(
-                padding: EdgeInsets.only(left: 10, top: 6),
+                padding: const EdgeInsets.only(left: 10, top: 6),
                 child: SizedBox(
                   width: 9,
                   height: 9,

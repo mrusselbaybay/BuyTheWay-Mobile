@@ -38,31 +38,21 @@ enum _ScanFeedback { none, wrongParcel, unreadable }
 /// [QrScanResult] the instant *this parcel's* code is read, or `null` if
 /// the rider backs out without scanning anything.
 ///
-/// Camera configuration, in order of how much each one actually matters
-/// for real-world scan reliability:
+/// Camera configuration keeps QR decoding reliable while limiting work on
+/// each camera frame:
 ///
-/// 1. [MobileScannerController.cameraResolution] is set explicitly to
-///    1280x720. Left unset, the underlying CameraX `ImageAnalysis` stream
-///    defaults to roughly 480x640 — the mobile_scanner plugin's own
-///    Android source literally comments that this "is too low for ML
-///    Kit". At that resolution a code has to be large, flat-on, and
-///    dead-centre to carry enough resolvable pixels per module; anything
-///    less — a slight rotation, a moderate viewing angle, a bit more
-///    distance, or dimmer light — and there just isn't enough raw detail
-///    left to decode. Requesting 720p is the change that does the most
-///    for every scenario this screen needs to handle, while staying
-///    small enough that the detected frame — captured losslessly as PNG
-///    by the plugin's native side, since [returnImage] doubles it as the
-///    pickup/delivery proof photo — comfortably clears the backend's
-///    upload size limit (see DriverDeliveryController::pickup/deliver).
-///    1080p decodes just as reliably but produces a noticeably larger
-///    PNG for the same reason.
+/// 1. [MobileScannerController.cameraResolution] is set to 960x540. This
+///    gives ML Kit more image detail than its low default stream while
+///    reducing the image processing and proof-photo encoding cost of 720p.
+///    [returnImage] doubles the decoded frame as the pickup/delivery proof
+///    photo, so keeping resolution moderate helps the preview stay smooth
+///    and keeps uploads smaller.
 /// 2. [MobileScannerController.detectionSpeed] is [DetectionSpeed.normal],
 ///    which throttles analysis to one frame roughly every
 ///    [MobileScannerController.detectionTimeoutMs] instead of every single
 ///    camera frame. [DetectionSpeed.noDuplicates] disables that throttle
 ///    entirely (it forces the timeout to 0), which — combined with
-///    [returnImage] PNG-encoding each analyzed frame — pegged the camera
+///    [returnImage] encoding each analyzed frame — pegged the camera
 ///    pipeline and made the preview visibly lag. 250ms between analyses is
 ///    still fast enough that scanning feels instant, but leaves the UI
 ///    thread room to breathe.
@@ -93,7 +83,10 @@ class QrScanScreen extends StatefulWidget {
   /// `AssignedDeliveryDetailScreen._qrProofSection`).
   final String expectedToken;
 
-  const QrScanScreen({super.key, this.title = 'Scan parcel QR code', required this.expectedToken});
+  const QrScanScreen(
+      {super.key,
+      this.title = 'Scan parcel QR code',
+      required this.expectedToken});
 
   @override
   State<QrScanScreen> createState() => _QrScanScreenState();
@@ -104,7 +97,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.normal,
     detectionTimeoutMs: 250,
-    cameraResolution: const Size(1280, 720),
+    cameraResolution: const Size(960, 540),
     returnImage: true,
   );
 
@@ -184,7 +177,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
     // feedback at all, which is exactly what this screen is meant to fix.
     Timer(const Duration(milliseconds: 450), () {
       if (!mounted) return;
-      Navigator.of(context).pop(QrScanResult(rawValue: matchedRaw!, photoBytes: image));
+      Navigator.of(context)
+          .pop(QrScanResult(rawValue: matchedRaw!, photoBytes: image));
     });
   }
 
@@ -233,7 +227,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        title: Text(widget.title,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         actions: [
           ValueListenableBuilder<MobileScannerState>(
             valueListenable: _controller,
@@ -242,8 +237,11 @@ class _QrScanScreenState extends State<QrScanScreen> {
               final on = state.torchState == TorchState.on;
               return IconButton(
                 onPressed: unavailable ? null : () => _controller.toggleTorch(),
-                icon: Icon(on ? Icons.flash_on_rounded : Icons.flash_off_rounded),
-                tooltip: on ? 'Turn off flashlight' : 'Turn on flashlight (helps in low light)',
+                icon:
+                    Icon(on ? Icons.flash_on_rounded : Icons.flash_off_rounded),
+                tooltip: on
+                    ? 'Turn off flashlight'
+                    : 'Turn on flashlight (helps in low light)',
               );
             },
           ),
@@ -255,7 +253,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) => _PermissionError(onBack: () => Navigator.of(context).pop()),
+            errorBuilder: (context, error, child) =>
+                _PermissionError(onBack: () => Navigator.of(context).pop()),
           ),
           // A dimmed cutout frames roughly where to hold the code — purely
           // visual guidance (its color reflects detection state), it
@@ -280,8 +279,11 @@ class _QrScanScreenState extends State<QrScanScreen> {
                           child: Container(
                             width: 64,
                             height: 64,
-                            decoration: const BoxDecoration(color: DriverColors.success, shape: BoxShape.circle),
-                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 36),
+                            decoration: const BoxDecoration(
+                                color: DriverColors.success,
+                                shape: BoxShape.circle),
+                            child: const Icon(Icons.check_rounded,
+                                color: Colors.white, size: 36),
                           ),
                         ),
                       )
@@ -290,7 +292,9 @@ class _QrScanScreenState extends State<QrScanScreen> {
                             child: SizedBox(
                               width: 40,
                               height: 40,
-                              child: CircularProgressIndicator(color: DriverColors.primaryLight, strokeWidth: 3),
+                              child: CircularProgressIndicator(
+                                  color: DriverColors.primaryLight,
+                                  strokeWidth: 3),
                             ),
                           )
                         : null),
@@ -308,7 +312,9 @@ class _QrScanScreenState extends State<QrScanScreen> {
                 key: ValueKey(_caption),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _feedback == _ScanFeedback.none && !_success ? Colors.white.withOpacity(0.9) : _frameColor,
+                  color: _feedback == _ScanFeedback.none && !_success
+                      ? Colors.white.withOpacity(0.9)
+                      : _frameColor,
                   fontWeight: FontWeight.w700,
                   fontSize: 13.5,
                 ),
@@ -334,17 +340,23 @@ class _PermissionError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.no_photography_rounded, color: Colors.white70, size: 40),
+          const Icon(Icons.no_photography_rounded,
+              color: Colors.white70, size: 40),
           const SizedBox(height: 14),
           const Text(
             "Couldn't access the camera. Please allow camera access for this app in your device settings, then try again.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5),
           ),
           const SizedBox(height: 18),
           OutlinedButton(
             onPressed: onBack,
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white54)),
             child: const Text('Go back'),
           ),
         ],

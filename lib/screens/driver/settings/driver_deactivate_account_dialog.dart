@@ -143,14 +143,14 @@ Future<void> showDeactivateAccountDialog(
                             height: 1.45),
                       ),
                       const SizedBox(height: 16),
-                      _DeactivationConsequence(
+                      const _DeactivationConsequence(
                         icon: Icons.logout_outlined,
                         title: 'You’ll be signed out',
                         subtitle:
                             'Your session ends as soon as deactivation succeeds.',
                       ),
                       const SizedBox(height: 10),
-                      _DeactivationConsequence(
+                      const _DeactivationConsequence(
                         icon: Icons.support_agent_outlined,
                         title: 'Reactivation needs Support',
                         subtitle:

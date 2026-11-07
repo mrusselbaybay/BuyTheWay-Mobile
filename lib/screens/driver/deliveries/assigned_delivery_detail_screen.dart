@@ -126,7 +126,9 @@ class _AssignedDeliveryDetailScreenState
           epoch != _epoch ||
           _submitting ||
           _capturing ||
-          _inFlow) return;
+          _inFlow) {
+        return;
+      }
       if (match == null) {
         if (!_gone) setState(() => _gone = true);
         return;
@@ -177,8 +179,9 @@ class _AssignedDeliveryDetailScreenState
     super.initState();
     _approvalTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted &&
-          widget.delivery.status == AssignedDeliveryStatus.waitingApproval)
+          widget.delivery.status == AssignedDeliveryStatus.waitingApproval) {
         setState(() {});
+      }
     });
     _scheduleEligibilityRefresh();
     _poller.start();
@@ -196,7 +199,9 @@ class _AssignedDeliveryDetailScreenState
     final retryAt = attempt.retryAt;
     if (widget.delivery.status != AssignedDeliveryStatus.failedAttempt ||
         retryAt == null ||
-        attempt.eligible) return;
+        attempt.eligible) {
+      return;
+    }
     final wait = retryAt.difference(DateTime.now().toUtc());
     if (wait.isNegative) return;
     _midnightTimer = Timer(wait + const Duration(seconds: 1), () {
@@ -264,10 +269,11 @@ class _AssignedDeliveryDetailScreenState
     try {
       final response = await action();
       final data = response['data'];
-      if (data is! Map)
+      if (data is! Map) {
         throw ApiException(
             message: 'Invalid delivery response. Refresh and try again.',
             statusCode: 500);
+      }
       if (!mounted) return;
       setState(() {
         widget.delivery.applyFrom(
@@ -280,20 +286,27 @@ class _AssignedDeliveryDetailScreenState
       _scheduleEligibilityRefresh();
       DriverTopNotification.show(context, message: message);
     } on ApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(UserErrorMessages.from(e))));
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
                 'Could not update this delivery. Check your connection and refresh before retrying.')));
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
   final ApiService _api = ApiService();
+
+  bool _canReportParcelIssue(AssignedDelivery d) =>
+      d.status != AssignedDeliveryStatus.delivered &&
+      d.status != AssignedDeliveryStatus.transferred &&
+      d.status != AssignedDeliveryStatus.handedOver;
 
   Future<void> _reportParcelIssue() => _flow(_reportParcelIssueFlow);
 
@@ -615,9 +628,7 @@ class _AssignedDeliveryDetailScreenState
       return;
     }
 
-    final isPickup =
-        widget.delivery.status == AssignedDeliveryStatus.assigned ||
-            widget.delivery.status == AssignedDeliveryStatus.transferAssigned;
+    final isPickup = widget.delivery.canConfirmPickup;
     final isTransfer =
         widget.delivery.status == AssignedDeliveryStatus.readyToTransfer;
     final scanTitle = isPickup
@@ -777,13 +788,40 @@ class _AssignedDeliveryDetailScreenState
       return;
     }
 
+    final pathName = photoFilePath?.split(RegExp(r'[/\\]')).last;
+    final extension = photoBytes != null
+        ? _proofImageExtension(photoBytes)
+        : _pathImageExtension(pathName);
     setState(() {
       _photoBytes = photoBytes;
       _photoFilePath = photoFilePath;
       _photoFileName =
-          '$fileNameHint-${DateTime.now().millisecondsSinceEpoch}.jpg';
+          '$fileNameHint-${DateTime.now().millisecondsSinceEpoch}.$extension';
       _scannedToken = token;
     });
+  }
+
+  /// The scanner returns PNG bytes on Android and JPEG bytes on iOS. Keep
+  /// the multipart filename extension aligned with the actual encoding for
+  /// server-side file validation and storage.
+  String _proofImageExtension(Uint8List bytes) {
+    final isPng = bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A;
+    return isPng ? 'png' : 'jpg';
+  }
+
+  String _pathImageExtension(String? pathName) {
+    if (pathName == null) return 'jpg';
+    final dot = pathName.lastIndexOf('.');
+    if (dot < 0 || dot == pathName.length - 1) return 'jpg';
+    return pathName.substring(dot + 1).toLowerCase();
   }
 
   void _showProofError(String message) {
@@ -848,7 +886,8 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)),
+          behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -860,83 +899,95 @@ class _AssignedDeliveryDetailScreenState
     }
   }
 
-  /// Marks a 'pickedUp' delivery delivered — the button that calls this is
-  /// disabled until [_hasPhoto] is true (see [_buildActionBar]), so by the
-  /// time this runs a photo is already attached.
-  int? _parseCodAmountCents(String input) {
-    final raw = input.trim();
-    if (!RegExp(r'^(?:\d{1,10}|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$')
-        .hasMatch(raw)) return null;
-    final value = raw.replaceAll(',', '');
-    final parts = value.split('.');
-    final pesos = int.tryParse(parts.first);
-    final centavos =
-        parts.length == 1 ? 0 : int.tryParse(parts[1].padRight(2, '0'));
-    if (pesos == null || centavos == null || pesos > 1000000000) return null;
-    return pesos * 100 + centavos;
-  }
-
-  Future<int?> _requestCodAmount() async {
-    final controller = TextEditingController();
-    String? error;
-    try {
-      return await showDialog<int>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Confirm COD collected'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    'Expected full order total: ${remittanceMoney(widget.delivery.codAmountCents)}'),
-                const SizedBox(height: 8),
-                const Text(
-                    'Enter the total cash you collected from the buyer.'),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    labelText: 'Amount collected (₱)',
-                    hintText: 'e.g. 1250.00',
-                    errorText: error,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final amount = _parseCodAmountCents(controller.text);
-                  if (amount == null) {
-                    setDialogState(() => error =
-                        'Enter a valid amount with up to 2 decimal places.');
-                  } else if (amount != widget.delivery.codAmountCents) {
-                    setDialogState(() =>
-                        error = 'The amount must match the full order total.');
-                  } else {
-                    Navigator.of(dialogContext).pop(amount);
-                  }
-                },
-                child: const Text('Confirm amount'),
-              ),
-            ],
+  /// Shows the server-calculated amount for COD and asks for collection
+  /// confirmation. The amount is read-only here and is sent unchanged to the
+  /// delivery endpoint after the courier confirms.
+  Future<bool?> _requestCodConfirmation() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: DriverColors.success.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.payments_rounded,
+            color: DriverColors.success,
+            size: 26,
           ),
         ),
-      );
-    } finally {
-      controller.dispose();
-    }
+        title: const Text('Confirm COD collection'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.delivery.orderNumber == 'N/A'
+                  ? 'Collect this amount from the buyer.'
+                  : 'Order ${widget.delivery.orderNumber}',
+              textAlign: TextAlign.center,
+              style: DriverText.caption,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: DriverColors.success.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: DriverColors.success.withOpacity(0.22),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'AMOUNT TO COLLECT',
+                    style: TextStyle(
+                      color: DriverColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    remittanceMoney(widget.delivery.codAmountCents),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: DriverColors.textPrimary,
+                      fontSize: 28,
+                      height: 1.1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Confirm only after you have collected this cash from the buyer.',
+              textAlign: TextAlign.center,
+              style: DriverText.caption,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Close'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Confirm collected'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _markDelivered() async {
@@ -948,13 +999,27 @@ class _AssignedDeliveryDetailScreenState
             .contains(paymentMethod);
     int? codAmountCents;
     if (isCod) {
+      final expectedCodCents = widget.delivery.codAmountCents;
+      if (expectedCodCents <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'COD amount unavailable. Refresh this parcel before delivery.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ));
+        _poller.refreshNow();
+        return;
+      }
+
       _codPromptOpen = true;
+      bool? confirmed;
       try {
-        codAmountCents = await _requestCodAmount();
+        confirmed = await _requestCodConfirmation();
       } finally {
         _codPromptOpen = false;
       }
-      if (!mounted || codAmountCents == null) return;
+      if (!mounted || confirmed != true) return;
+      codAmountCents = expectedCodCents;
     }
 
     setState(() => _submitting = true);
@@ -985,7 +1050,8 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)),
+          behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -1029,7 +1095,8 @@ class _AssignedDeliveryDetailScreenState
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(UserErrorMessages.from(e)), behavior: SnackBarBehavior.floating));
+          content: Text(UserErrorMessages.from(e)),
+          behavior: SnackBarBehavior.floating));
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -1069,8 +1136,9 @@ class _AssignedDeliveryDetailScreenState
   Future<void> _call(String? phone) async {
     if (phone == null || phone.trim().isEmpty) return;
     try {
-      if (!await launchUrl(Uri(scheme: 'tel', path: phone.trim())))
+      if (!await launchUrl(Uri(scheme: 'tel', path: phone.trim()))) {
         throw Exception('launch failed');
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1134,7 +1202,8 @@ class _AssignedDeliveryDetailScreenState
     return '${months[local.month - 1]} ${local.day}, ${local.year} - $h:$m $period PHT';
   }
 
-  (String, Color, IconData) _actionTag(AssignedDeliveryStatus status) {
+  (String, Color, IconData) _actionTag(AssignedDeliveryStatus status,
+      {bool isDeliveryLeg = false}) {
     switch (status) {
       case AssignedDeliveryStatus.failedAttempt:
         return (
@@ -1149,7 +1218,9 @@ class _AssignedDeliveryDetailScreenState
           Icons.support_agent_rounded
         );
       case AssignedDeliveryStatus.assigned:
-        return ('To pick up', DriverColors.warning, Icons.storefront_rounded);
+        return isDeliveryLeg
+            ? ('To deliver', DriverColors.info, Icons.local_shipping_rounded)
+            : ('To pick up', DriverColors.warning, Icons.storefront_rounded);
       case AssignedDeliveryStatus.waitingApproval:
         return (
           'Waiting approval',
@@ -1183,8 +1254,8 @@ class _AssignedDeliveryDetailScreenState
     }
   }
 
-  Widget _parcelHeader(
-      AssignedDelivery d, String status, Color statusColor, IconData statusIcon) {
+  Widget _parcelHeader(AssignedDelivery d, String status, Color statusColor,
+      IconData statusIcon) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 20, 14),
@@ -1198,11 +1269,13 @@ class _AssignedDeliveryDetailScreenState
                 color: Colors.white,
                 shape: const CircleBorder(),
                 child: IconButton(
-                  constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+                  constraints:
+                      const BoxConstraints.tightFor(width: 44, height: 44),
                   padding: EdgeInsets.zero,
                   tooltip: 'Back to deliveries',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_rounded, color: DriverColors.textPrimary),
+                  icon: const Icon(Icons.arrow_back_rounded,
+                      color: DriverColors.textPrimary),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1216,33 +1289,51 @@ class _AssignedDeliveryDetailScreenState
                 ),
               ),
               const Spacer(),
-              Container(
-                constraints: const BoxConstraints(maxWidth: 160),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
+              if (_canReportParcelIssue(d))
+                Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: DriverColors.border),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    constraints:
+                        const BoxConstraints.tightFor(width: 44, height: 44),
+                    padding: EdgeInsets.zero,
+                    tooltip: 'Report a parcel issue',
+                    onPressed: _inFlow ? null : _reportParcelIssue,
+                    icon: const Icon(Icons.report_problem_outlined,
+                        color: DriverColors.error),
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 14, color: statusColor),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: DriverColors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(statusIcon, size: 14, color: statusColor),
+                  const SizedBox(width: 5),
+                  Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Column(
@@ -1252,7 +1343,12 @@ class _AssignedDeliveryDetailScreenState
                   '#${d.trackingNumber ?? d.orderNumber}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 24, height: 1.1, fontWeight: FontWeight.w900, letterSpacing: -.7, color: DriverColors.textPrimary),
+                  style: const TextStyle(
+                      fontSize: 24,
+                      height: 1.1,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -.7,
+                      color: DriverColors.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1274,7 +1370,8 @@ class _AssignedDeliveryDetailScreenState
   }
 
   Widget _deliveryOverview(AssignedDelivery d) {
-    final (status, statusColor, statusIcon) = _actionTag(d.status);
+    final (status, statusColor, statusIcon) =
+        _actionTag(d.status, isDeliveryLeg: d.isDeliveryLeg);
     final contents = d.items.isEmpty
         ? '${d.parcels} ${d.parcels == 1 ? 'parcel' : 'parcels'}'
         : '${d.parcels} items · ${d.items.length} ${d.items.length == 1 ? 'product' : 'products'}';
@@ -1316,9 +1413,14 @@ class _AssignedDeliveryDetailScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(status, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: DriverColors.textPrimary)),
+                    Text(status,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: DriverColors.textPrimary)),
                     const SizedBox(height: 3),
-                    Text('Assigned ${_formatDate(d.assignedAt)}', style: DriverText.caption),
+                    Text('Assigned ${_formatDate(d.assignedAt)}',
+                        style: DriverText.caption),
                   ],
                 ),
               ),
@@ -1329,10 +1431,16 @@ class _AssignedDeliveryDetailScreenState
             spacing: 8,
             runSpacing: 8,
             children: [
-              _overviewTag(d.isTransfer ? Icons.swap_horiz_rounded : Icons.local_shipping_outlined, d.isTransfer ? 'Hub transfer' : 'Delivery run'),
-              if (d.isReturn) _overviewTag(Icons.assignment_return_outlined, 'Return parcel'),
+              _overviewTag(
+                  d.isTransfer
+                      ? Icons.swap_horiz_rounded
+                      : Icons.local_shipping_outlined,
+                  d.isTransfer ? 'Hub transfer' : 'Delivery run'),
+              if (d.isReturn)
+                _overviewTag(Icons.assignment_return_outlined, 'Return parcel'),
               if (d.paymentMethod == 'cod' && d.codAmountCents > 0)
-                _overviewTag(Icons.payments_outlined, 'COD ₱${(d.codAmountCents / 100).toStringAsFixed(2)}'),
+                _overviewTag(Icons.payments_outlined,
+                    'COD ₱${(d.codAmountCents / 100).toStringAsFixed(2)}'),
             ],
           ),
           const SizedBox(height: 14),
@@ -1340,9 +1448,13 @@ class _AssignedDeliveryDetailScreenState
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _overviewFact('CONTENTS', contents, Icons.inventory_2_outlined)),
+              Expanded(
+                  child: _overviewFact(
+                      'CONTENTS', contents, Icons.inventory_2_outlined)),
               const SizedBox(width: 12),
-              Expanded(child: _overviewFact('PARCEL SIZE', package, Icons.straighten_rounded)),
+              Expanded(
+                  child: _overviewFact(
+                      'PARCEL SIZE', package, Icons.straighten_rounded)),
             ],
           ),
         ],
@@ -1352,13 +1464,19 @@ class _AssignedDeliveryDetailScreenState
 
   Widget _overviewTag(IconData icon, String label) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(color: DriverColors.primarySurface, borderRadius: BorderRadius.circular(9)),
+        decoration: BoxDecoration(
+            color: DriverColors.primarySurface,
+            borderRadius: BorderRadius.circular(9)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: DriverColors.primaryDark),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: DriverColors.textPrimary)),
           ],
         ),
       );
@@ -1372,9 +1490,17 @@ class _AssignedDeliveryDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: DriverText.label.copyWith(fontSize: 9, letterSpacing: .7)),
+                Text(label,
+                    style: DriverText.label
+                        .copyWith(fontSize: 9, letterSpacing: .7)),
                 const SizedBox(height: 3),
-                Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: DriverColors.textPrimary)),
+                Text(value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: DriverColors.textPrimary)),
               ],
             ),
           ),
@@ -1384,7 +1510,8 @@ class _AssignedDeliveryDetailScreenState
   @override
   Widget build(BuildContext context) {
     final d = widget.delivery;
-    final (tagLabel, tagColor, tagIcon) = _actionTag(d.status);
+    final (tagLabel, tagColor, tagIcon) =
+        _actionTag(d.status, isDeliveryLeg: d.isDeliveryLeg);
 
     return Scaffold(
       backgroundColor: DriverColors.background,
@@ -1606,19 +1733,24 @@ class _AssignedDeliveryDetailScreenState
                 children: [
                   _routeLocation(
                     icon: Icons.storefront_rounded,
-                    label: d.isReturn ? 'COLLECT FROM' : 'PICK UP FROM',
-                    address: d.isReturn
-                        ? (d.returnPickupAddress ?? d.pickupLabel)
-                        : (d.pickupAddress ??
-                            (d.status == AssignedDeliveryStatus.assigned &&
-                                    d.handedOffAt == null
-                                ? 'Seller pickup address unavailable — contact the seller or Logistics before traveling.'
-                                : d.pickupLabel)),
-                    emphasized: d.status == AssignedDeliveryStatus.assigned ||
-                        d.status == AssignedDeliveryStatus.transferAssigned,
+                    label: d.isDeliveryLeg
+                        ? 'FROM HUB'
+                        : (d.isReturn ? 'COLLECT FROM' : 'PICK UP FROM'),
+                    address: d.isDeliveryLeg
+                        ? d.pickupLabel
+                        : (d.isReturn
+                            ? (d.returnPickupAddress ?? d.pickupLabel)
+                            : (d.pickupAddress ??
+                                (d.status == AssignedDeliveryStatus.assigned &&
+                                        !d.isDeliveryLeg &&
+                                        d.handedOffAt == null
+                                    ? 'Seller pickup address unavailable — contact the seller or Logistics before traveling.'
+                                    : d.pickupLabel))),
+                    emphasized: d.isPickupTask,
                   ),
                   if (d.pickupAddressIsPartial &&
                       d.status == AssignedDeliveryStatus.assigned &&
+                      !d.isDeliveryLeg &&
                       !d.isReturn &&
                       d.handedOffAt == null) ...[
                     const SizedBox(height: 6),
@@ -1701,31 +1833,21 @@ class _AssignedDeliveryDetailScreenState
                 ],
               ),
             ),
-            if (d.status != AssignedDeliveryStatus.delivered &&
-                d.status != AssignedDeliveryStatus.transferred &&
-                d.status != AssignedDeliveryStatus.handedOver) ...[
-              const SizedBox(height: 16),
+            if (d.status == AssignedDeliveryStatus.assigned &&
+                d.isDeliveryLeg) ...[
               _sectionCard(
-                icon: Icons.report_problem_outlined,
-                title: 'Report a parcel issue',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                        'Report a parcel that is lost or damaged while in your care.',
-                        style: DriverText.caption),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: _inFlow ? null : _reportParcelIssue,
-                      icon: const Icon(Icons.add_alert_rounded),
-                      label: const Text('Report lost or damaged'),
-                    ),
-                  ],
-                ),
+                icon: d.hasConfirmationQr
+                    ? Icons.qr_code_scanner_rounded
+                    : Icons.camera_alt_outlined,
+                title: 'Proof of delivery',
+                child: d.hasConfirmationQr
+                    ? _qrProofSection(
+                        "Scan the parcel's QR code, or attach a picture of it, to confirm delivery (required)")
+                    : _legacyPhotoAttachTile(
+                        'Attach a photo of the parcel (required)'),
               ),
-              const SizedBox(height: 20),
-            ],
-            if (d.status == AssignedDeliveryStatus.assigned ||
+            ] else if ((d.status == AssignedDeliveryStatus.assigned &&
+                    !d.isDeliveryLeg) ||
                 d.status == AssignedDeliveryStatus.transferAssigned) ...[
               _sectionCard(
                 icon: d.hasConfirmationQr
@@ -2319,8 +2441,7 @@ class _AssignedDeliveryDetailScreenState
       );
     }
     final isTransfer = d.status == AssignedDeliveryStatus.readyToTransfer;
-    final isPickup = d.status == AssignedDeliveryStatus.assigned ||
-        d.status == AssignedDeliveryStatus.transferAssigned;
+    final isPickup = d.canConfirmPickup;
 
     return SafeArea(
       top: false,
@@ -2372,8 +2493,9 @@ class _AssignedDeliveryDetailScreenState
                         : (isTransfer
                             ? 'Confirm transfer'
                             : 'Mark as delivered'))),
-                style: DriverButtonStyle.primary(
-                    isPickup ? DriverColors.primary : DriverColors.success),
+                style: DriverButtonStyle.primary(isPickup
+                    ? DriverColors.primary
+                    : DriverColors.success),
               ),
             ),
           ],
@@ -2455,14 +2577,17 @@ class _AssignedDeliveryDetailScreenState
     required String address,
     required bool emphasized,
   }) {
-    final accent = emphasized ? DriverColors.primary : DriverColors.textSecondary;
+    final accent =
+        emphasized ? DriverColors.primary : DriverColors.textSecondary;
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
         width: 32,
         height: 32,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: emphasized ? DriverColors.primarySurface : const Color(0xFFF1F5F5),
+          color: emphasized
+              ? DriverColors.primarySurface
+              : const Color(0xFFF1F5F5),
           borderRadius: BorderRadius.circular(11),
         ),
         child: Icon(icon, size: 17, color: accent),
@@ -2471,7 +2596,8 @@ class _AssignedDeliveryDetailScreenState
       Expanded(
         child: Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
                 style: TextStyle(
                     fontSize: 9.5,
@@ -2597,7 +2723,12 @@ class _AssignedDeliveryDetailScreenState
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: DriverColors.border),
-          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withOpacity(0.025), blurRadius: 12, offset: const Offset(0, 4))]),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF0F172A).withOpacity(0.025),
+                blurRadius: 12,
+                offset: const Offset(0, 4))
+          ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

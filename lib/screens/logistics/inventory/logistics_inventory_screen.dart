@@ -558,8 +558,8 @@ class _ParcelListState extends State<_ParcelList> {
             const _ParcelSkeleton(),
             const _ParcelSkeleton(),
           ] else if (visibleParcels.isEmpty && parcels.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 24),
+            const Padding(
+              padding: EdgeInsets.only(top: 24),
               child: DriverEmptyState(
                 icon: Icons.manage_search_rounded,
                 title: 'No matching records',
@@ -1145,8 +1145,8 @@ class _ParcelCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Row(children: [
-              Icon(Icons.local_shipping_outlined,
-                  size: 14, color: const Color(0xFF748178)),
+              const Icon(Icons.local_shipping_outlined,
+                  size: 14, color: Color(0xFF748178)),
               const SizedBox(width: 5),
               Expanded(
                   child: Text(

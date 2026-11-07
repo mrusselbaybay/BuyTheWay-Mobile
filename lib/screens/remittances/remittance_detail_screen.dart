@@ -38,7 +38,9 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
       if (!isActive() || !mounted || _loading || page != _page) return;
       if (jsonEncode(records.items, toEncodable: (o) => '$o') ==
               jsonEncode(_rows, toEncodable: (o) => '$o') &&
-          records.lastPage == _lastPage) return;
+          records.lastPage == _lastPage) {
+        return;
+      }
       setState(() {
         _rows = records.items;
         _lastPage = records.lastPage;
@@ -121,10 +123,12 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
 
   Color _eventColor(dynamic action) {
     final key = '${action ?? ''}'.toLowerCase();
-    if (key.contains('reject') || key.contains('disput'))
+    if (key.contains('reject') || key.contains('disput')) {
       return DriverColors.error;
-    if (key.contains('verif') || key.contains('confirm') || key == 'paid')
+    }
+    if (key.contains('verif') || key.contains('confirm') || key == 'paid') {
       return DriverColors.success;
+    }
     if (key.contains('submit') || key == 'created') return DriverColors.primary;
     return DriverColors.textSecondary;
   }
@@ -136,8 +140,9 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
     if (key.contains('verif') || key.contains('confirm') || key == 'paid') {
       return Icons.check_rounded;
     }
-    if (key.contains('submit') || key == 'created')
+    if (key.contains('submit') || key == 'created') {
       return Icons.upload_file_rounded;
+    }
     return Icons.history_rounded;
   }
 
@@ -359,7 +364,7 @@ class _RemittanceDetailScreenState extends State<RemittanceDetailScreen> {
                                     ? 'Order charges included in this payout statement will appear here.'
                                     : 'Updates will appear here as this receipt moves through review.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                     color: DriverColors.textSecondary,
                                     fontSize: 12,
                                     height: 1.4)),

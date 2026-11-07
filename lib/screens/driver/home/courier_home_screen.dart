@@ -23,7 +23,12 @@ const Color _tealSoft = DriverColors.primarySurface;
 const Color _amber = Color(0xFF9B682D);
 const Color _gold = Color(0xFFE8A026);
 const Color _rose = Color(0xFFB95137);
-const List<Color> _coveragePalette = [_teal, Color(0xFF5D9C8B), Color(0xFF8FB6A4), Color(0xFFBCCFC0)];
+const List<Color> _coveragePalette = [
+  _teal,
+  Color(0xFF5D9C8B),
+  Color(0xFF8FB6A4),
+  Color(0xFFBCCFC0)
+];
 const double _radius = 24;
 
 /// The courier's Home tab: today's route, the next stop, money + COD on
@@ -69,7 +74,8 @@ class CourierHomeScreen extends StatefulWidget {
 }
 
 class _CourierHomeScreenState extends State<CourierHomeScreen> {
-  late final RemittanceApiService _money = RemittanceApiService(accessToken: widget.accessToken, role: RemittanceRole.courier);
+  late final RemittanceApiService _money = RemittanceApiService(
+      accessToken: widget.accessToken, role: RemittanceRole.courier);
   Map<String, dynamic>? _summary;
   List<Map<String, dynamic>> _ledger = const [];
   bool _moneyLoading = true;
@@ -95,7 +101,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
 
   Future<void> _loadMoney() async {
     try {
-      final results = await Future.wait([_money.summary(), _money.recentEarnings()]);
+      final results =
+          await Future.wait([_money.summary(), _money.recentEarnings()]);
       if (!mounted) return;
       setState(() {
         _summary = results[0] as Map<String, dynamic>;
@@ -130,10 +137,16 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         AssignedDeliveryStatus.readyToTransfer,
       }.contains(d.status);
 
-  static bool _isFailed(AssignedDelivery d) => d.status == AssignedDeliveryStatus.failedAttempt || d.status == AssignedDeliveryStatus.needsDispatcherReview;
+  static bool _isFailed(AssignedDelivery d) =>
+      d.status == AssignedDeliveryStatus.failedAttempt ||
+      d.status == AssignedDeliveryStatus.needsDispatcherReview;
 
   static bool _isDoneToday(AssignedDelivery d) =>
-      const {AssignedDeliveryStatus.delivered, AssignedDeliveryStatus.transferred, AssignedDeliveryStatus.handedOver}.contains(d.status) &&
+      const {
+        AssignedDeliveryStatus.delivered,
+        AssignedDeliveryStatus.transferred,
+        AssignedDeliveryStatus.handedOver
+      }.contains(d.status) &&
       _isToday(d.deliveredAt ?? d.transferredAt ?? d.handedOffAt);
 
   /// Route order: parcels already in hand first (the rider is mid-delivery),
@@ -141,23 +154,29 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   List<AssignedDelivery> get _queue {
     final rows = widget.deliveries.where(_isPending).toList()
       ..sort((a, b) {
-        final inHand = (b.status == AssignedDeliveryStatus.pickedUp ? 1 : 0) - (a.status == AssignedDeliveryStatus.pickedUp ? 1 : 0);
+        final inHand = (b.isDeliveryTask ? 1 : 0) - (a.isDeliveryTask ? 1 : 0);
         if (inHand != 0) return inHand;
-        return (a.assignedAt ?? DateTime(2100)).compareTo(b.assignedAt ?? DateTime(2100));
+        return (a.assignedAt ?? DateTime(2100))
+            .compareTo(b.assignedAt ?? DateTime(2100));
       });
     return rows;
   }
 
   static int _intOf(dynamic v) => (v as num?)?.toInt() ?? 0;
   int get _cents => _intOf(_summary?['cod_owed_cents']);
-  DateTime? get _codDue => DateTime.tryParse('${_summary?['cod_due_at'] ?? ''}')?.toLocal();
+  DateTime? get _codDue =>
+      DateTime.tryParse('${_summary?['cod_due_at'] ?? ''}')?.toLocal();
 
   // ---------------------------------------------------------------- actions
 
   Future<void> _openDetail(AssignedDelivery d) async {
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AssignedDeliveryDetailScreen(delivery: d, accessToken: widget.accessToken, controller: widget.controller)),
+      MaterialPageRoute(
+          builder: (_) => AssignedDeliveryDetailScreen(
+              delivery: d,
+              accessToken: widget.accessToken,
+              controller: widget.controller)),
     );
     if (!mounted) return;
     setState(() {});
@@ -165,23 +184,27 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   }
 
   Future<void> _navigate(AssignedDelivery d) async {
-    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned ||
-        (d.status == AssignedDeliveryStatus.waitingApproval && d.handedOffAt == null);
-    final uri = Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': toPickup ? d.pickupLabel : d.dropoffLabel});
+    final toPickup = d.isPickupTask;
+    final uri = Uri.https('www.google.com', '/maps/search/',
+        {'api': '1', 'query': toPickup ? d.pickupLabel : d.dropoffLabel});
     await _launch(uri, 'Could not open maps.');
   }
 
   Future<void> _call(String? phone) async {
     if (phone == null || phone.trim().isEmpty) return;
-    await _launch(Uri(scheme: 'tel', path: phone.trim()), 'Could not start a call. Please dial manually.');
+    await _launch(Uri(scheme: 'tel', path: phone.trim()),
+        'Could not start a call. Please dial manually.');
   }
 
   Future<void> _launch(Uri uri, String failure) async {
     try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) throw Exception('launch failed');
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception('launch failed');
+      }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(failure), behavior: SnackBarBehavior.floating));
     }
   }
 
@@ -193,7 +216,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final initialLoad = widget.loading && widget.deliveries.isEmpty;
     final hardError = widget.error != null && widget.deliveries.isEmpty;
     var i = 0;
-    Widget reveal(String key, Widget child) => _Reveal(key: ValueKey(key), index: i++, child: child);
+    Widget reveal(String key, Widget child) =>
+        _Reveal(key: ValueKey(key), index: i++, child: child);
 
     return Scaffold(
       backgroundColor: _bg,
@@ -208,13 +232,35 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             _hero(initialLoad: initialLoad, hardError: hardError),
             reveal('earnings-trend', _earningsTrend()),
             if (initialLoad)
-              const Padding(padding: EdgeInsets.fromLTRB(16, 24, 16, 0), child: Column(children: [DriverCardSkeleton(), DriverCardSkeleton()]))
+              const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: Column(
+                      children: [DriverCardSkeleton(), DriverCardSkeleton()]))
             else if (hardError)
-              Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 0), child: _inlineRetry(widget.error!, widget.onRefresh))
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  child: _inlineRetry(widget.error!, widget.onRefresh))
             else ...[
-              reveal('route', Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _routeCard())),
-              reveal('next', _section('Next stop', action: queue.isEmpty ? null : 'View route', onAction: widget.onOpenDeliveries, child: queue.isEmpty ? _emptyStop() : _nextStop(queue.first))),
-              if (queue.length > 1) reveal('upnext', Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _upNext(queue.skip(1).take(3).toList(), queue.length - 1))),
+              reveal(
+                  'route',
+                  Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: _routeCard())),
+              reveal(
+                  'next',
+                  _section('Next stop',
+                      action: queue.isEmpty ? null : 'View route',
+                      onAction: widget.onOpenDeliveries,
+                      child: queue.isEmpty
+                          ? _emptyStop()
+                          : _nextStop(queue.first))),
+              if (queue.length > 1)
+                reveal(
+                    'upnext',
+                    Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _upNext(
+                            queue.skip(1).take(3).toList(), queue.length - 1))),
             ],
             reveal('money', _section('Money', child: _moneyCard())),
             reveal('cod', _codCard()),
@@ -227,7 +273,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     );
   }
 
-  Widget _section(String title, {required Widget child, String? action, VoidCallback? onAction}) {
+  Widget _section(String title,
+      {required Widget child, String? action, VoidCallback? onAction}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 26, 16, 0),
       child: Column(
@@ -235,7 +282,15 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: Semantics(header: true, child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: _ink)))),
+              Expanded(
+                  child: Semantics(
+                      header: true,
+                      child: Text(title,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                              color: _ink)))),
               if (action != null) _linkButton(action, onAction!),
             ],
           ),
@@ -254,7 +309,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final totals = List<int>.filled(7, 0);
     for (final row in _ledger) {
       if ('${row['status']}' == 'void') continue;
-      final created = DateTime.tryParse('${row['created_at'] ?? ''}')?.toLocal();
+      final created =
+          DateTime.tryParse('${row['created_at'] ?? ''}')?.toLocal();
       if (created == null) continue;
       final day = DateTime(created.year, created.month, created.day);
       final index = day.difference(start).inDays;
@@ -290,7 +346,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                       ),
                     ),
                   SizedBox(
-                    height: 92,
+                    height: 100,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: List.generate(7, (index) {
@@ -363,7 +419,9 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _teal)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700, color: _teal)),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_forward_rounded, size: 17, color: _teal),
           ]),
@@ -374,28 +432,47 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(color: _line.withOpacity(0.7)),
-        boxShadow: [BoxShadow(color: _tealDeep.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 10))],
+        boxShadow: [
+          BoxShadow(
+              color: _tealDeep.withOpacity(0.06),
+              blurRadius: 24,
+              offset: const Offset(0, 10))
+        ],
       );
 
   // ------------------------------------------------------------------- hero
 
-  static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  static const _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
+  ];
 
   /// Mirrors the logistics dashboard header: shared logo, name, and alert
   /// control, with courier availability kept beside the driver's name.
   Widget _hero({required bool initialLoad, required bool hardError}) {
     final top = MediaQuery.of(context).padding.top;
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, top + 10, 18, initialLoad || hardError ? 24 : 8),
+      padding: EdgeInsets.fromLTRB(
+          18, top + 10, 18, initialLoad || hardError ? 24 : 8),
       child: Row(children: [
         Expanded(
           child: Image.asset(
-              'assets/images/logo-buytheway.png',
-              width: 130,
-              height: 35,
-              fit: BoxFit.contain,
-              alignment: Alignment.centerLeft,
-              semanticLabel: 'BuyTheWay',
+            'assets/images/logo-buytheway.png',
+            width: 130,
+            height: 35,
+            fit: BoxFit.contain,
+            alignment: Alignment.centerLeft,
+            semanticLabel: 'BuyTheWay',
           ),
         ),
         const SizedBox(width: 8),
@@ -416,23 +493,31 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             border: Border.all(color: online ? const Color(0xFFB8D9CF) : _line),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 6, height: 6, decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: online ? const Color(0xFF287A5A) : const Color(0xFF89938A),
-            )),
+            Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: online
+                      ? const Color(0xFF287A5A)
+                      : const Color(0xFF89938A),
+                )),
             const SizedBox(width: 5),
-            Text(online ? 'Online' : 'Offline', style: TextStyle(
-              color: online ? const Color(0xFF245D48) : _inkSoft,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-            )),
+            Text(online ? 'Online' : 'Offline',
+                style: TextStyle(
+                  color: online ? const Color(0xFF245D48) : _inkSoft,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                )),
           ]),
         ),
       );
 
   Widget _courierNotificationButton() => Badge(
         isLabelVisible: widget.unreadNotifications > 0,
-        label: Text(widget.unreadNotifications > 99 ? '99+' : '${widget.unreadNotifications}'),
+        label: Text(widget.unreadNotifications > 99
+            ? '99+'
+            : '${widget.unreadNotifications}'),
         backgroundColor: const Color(0xFFB95137),
         child: IconButton(
           onPressed: widget.onOpenNotifications,
@@ -442,7 +527,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             backgroundColor: Colors.white,
             foregroundColor: _inkSoft,
             minimumSize: const Size(42, 42),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             side: const BorderSide(color: _line),
           ),
         ),
@@ -469,61 +555,146 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _line),
-        boxShadow: [BoxShadow(color: _ink.withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+              color: _ink.withOpacity(0.07),
+              blurRadius: 20,
+              offset: const Offset(0, 8))
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('ROUTE CONTROL', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2, color: _inkSoft)),
+          const Text('ROUTE CONTROL',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: _inkSoft)),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(color: complete ? const Color(0xFFE4F0E8) : failed > 0 ? const Color(0xFFF7E9E4) : _tealSoft, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+                color: complete
+                    ? const Color(0xFFE4F0E8)
+                    : failed > 0
+                        ? const Color(0xFFF7E9E4)
+                        : _tealSoft,
+                borderRadius: BorderRadius.circular(20)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: failed > 0 ? _rose : complete ? const Color(0xFF16A34A) : _teal)),
+              Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: failed > 0
+                          ? _rose
+                          : complete
+                              ? const Color(0xFF16A34A)
+                              : _teal)),
               const SizedBox(width: 6),
-            Text(
-              failed > 0
-                  ? 'NEEDS ATTENTION'
-                  : pending > 0
-                      ? 'IN PROGRESS'
-                      : total == 0
-                          ? 'NO STOPS'
-                          : 'COMPLETE',
-              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: routeStateColor),
-            ),
+              Text(
+                failed > 0
+                    ? 'NEEDS ATTENTION'
+                    : pending > 0
+                        ? 'IN PROGRESS'
+                        : total == 0
+                            ? 'NO STOPS'
+                            : 'COMPLETE',
+                style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: routeStateColor),
+              ),
             ]),
           ),
         ]),
         const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text('$done', style: const TextStyle(fontSize: 38, height: 1, fontWeight: FontWeight.w900, letterSpacing: -1.6, color: _ink, fontFeatures: [FontFeature.tabularFigures()])),
-          const SizedBox(width: 6),
-          Flexible(child: Text('/ $total stops completed', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _inkSoft), maxLines: 1, overflow: TextOverflow.ellipsis)),
-        ]),
+        Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('$done',
+                  style: const TextStyle(
+                      fontSize: 38,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.6,
+                      color: _ink,
+                      fontFeatures: [FontFeature.tabularFigures()])),
+              const SizedBox(width: 6),
+              Flexible(
+                  child: Text('/ $total stops completed',
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _inkSoft),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis)),
+            ]),
         const SizedBox(height: 14),
-        ClipRRect(borderRadius: BorderRadius.circular(5), child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: pct),
-          duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 700),
-          curve: Curves.easeOutCubic,
-          builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 7, backgroundColor: const Color(0xFFE7EBE5), color: _teal),
-        )),
+        ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: pct),
+              duration: MediaQuery.of(context).disableAnimations
+                  ? Duration.zero
+                  : const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, __) => LinearProgressIndicator(
+                  value: v,
+                  minHeight: 7,
+                  backgroundColor: const Color(0xFFE7EBE5),
+                  color: _teal),
+            )),
         const SizedBox(height: 14),
         Row(children: [
-          Expanded(child: _routeStat(Icons.schedule_rounded, 'In progress', '$pending', const Color(0xFFD98A0B))),
-          Container(width: 1, height: 36, margin: const EdgeInsets.symmetric(horizontal: 16), color: _line),
-          Expanded(child: _routeStat(failed > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline_rounded, 'Issues', failed > 0 ? '$failed' : 'None', failed > 0 ? _rose : const Color(0xFF16A34A))),
+          Expanded(
+              child: _routeStat(Icons.schedule_rounded, 'In progress',
+                  '$pending', const Color(0xFFD98A0B))),
+          Container(
+              width: 1,
+              height: 36,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: _line),
+          Expanded(
+              child: _routeStat(
+                  failed > 0
+                      ? Icons.warning_amber_rounded
+                      : Icons.check_circle_outline_rounded,
+                  'Issues',
+                  failed > 0 ? '$failed' : 'None',
+                  failed > 0 ? _rose : const Color(0xFF16A34A))),
         ]),
       ]),
     );
   }
 
-  Widget _routeStat(IconData icon, String label, String value, Color color) => Row(children: [
-        Container(width: 34, height: 34, decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 18, color: color)),
+  Widget _routeStat(IconData icon, String label, String value, Color color) =>
+      Row(children: [
+        Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(11)),
+            child: Icon(icon, size: 18, color: color)),
         const SizedBox(width: 9),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _inkSoft)),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: _inkSoft)),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: value == 'None' ? color : _ink, fontFeatures: const [FontFeature.tabularFigures()])),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: value == 'None' ? color : _ink,
+                  fontFeatures: const [FontFeature.tabularFigures()])),
         ])),
       ]);
 
@@ -537,13 +708,21 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
           Container(
             width: 60,
             height: 60,
-            decoration: const BoxDecoration(color: _tealSoft, shape: BoxShape.circle),
+            decoration:
+                const BoxDecoration(color: _tealSoft, shape: BoxShape.circle),
             child: const Icon(Icons.task_alt_rounded, color: _teal, size: 30),
           ),
           const SizedBox(height: 14),
-          const Text('All caught up', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
+          const Text('All caught up',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w800, color: _ink)),
           const SizedBox(height: 4),
-          Text(widget.isOnline ? 'New assignments from dispatch will show up here.' : 'Go online in Settings to receive assignments.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 12.5, color: _inkSoft)),
+          Text(
+              widget.isOnline
+                  ? 'New assignments from dispatch will show up here.'
+                  : 'Go online in Settings to receive assignments.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, color: _inkSoft)),
         ]),
       );
 
@@ -557,7 +736,9 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       ),
       child: Column(children: [
         _activeRoutePoint(
-          icon: d.isReturn ? Icons.assignment_return_rounded : Icons.storefront_rounded,
+          icon: d.isReturn
+              ? Icons.assignment_return_rounded
+              : Icons.storefront_rounded,
           label: d.isReturn ? 'COLLECT RETURN' : 'PICK UP',
           address: d.pickupLabel,
           active: toPickup,
@@ -570,12 +751,16 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             child: Container(
               height: 20,
               width: 2,
-            decoration: BoxDecoration(color: _teal.withOpacity(0.32), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                  color: _teal.withOpacity(0.32),
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
         ),
         _activeRoutePoint(
-          icon: d.isTransfer ? Icons.compare_arrows_rounded : Icons.location_on_rounded,
+          icon: d.isTransfer
+              ? Icons.compare_arrows_rounded
+              : Icons.location_on_rounded,
           label: d.isTransfer ? 'HAND OFF' : 'DELIVER TO',
           address: d.dropoffLabel,
           active: !toPickup,
@@ -599,45 +784,89 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         height: 32,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? _teal : complete ? const Color(0xFF16A34A) : Colors.white,
+          color: active
+              ? _teal
+              : complete
+                  ? const Color(0xFF16A34A)
+                  : Colors.white,
           shape: BoxShape.circle,
-          border: active || complete ? null : Border.all(color: _line, width: 1.5),
+          border:
+              active || complete ? null : Border.all(color: _line, width: 1.5),
         ),
-        child: Icon(complete ? Icons.check_rounded : icon, size: 17, color: active || complete ? Colors.white : _inkSoft),
+        child: Icon(complete ? Icons.check_rounded : icon,
+            size: 17, color: active || complete ? Colors.white : _inkSoft),
       ),
       const SizedBox(width: 10),
-      Expanded(child: Padding(
+      Expanded(
+          child: Padding(
         padding: const EdgeInsets.only(top: 1),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.7, color: active ? _tealDeep : _inkSoft)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                    color: active ? _tealDeep : _inkSoft)),
             if (active) ...[
               const SizedBox(width: 7),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _tealSoft, borderRadius: BorderRadius.circular(8)), child: const Text('NEXT', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: _tealDeep, letterSpacing: 0.4))),
+              Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _tealSoft, borderRadius: BorderRadius.circular(8)),
+                  child: const Text('NEXT',
+                      style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: _tealDeep,
+                          letterSpacing: 0.4))),
             ],
           ]),
           const SizedBox(height: 3),
-          Text(address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, height: 1.3, fontWeight: active ? FontWeight.w800 : FontWeight.w600, color: active ? _ink : color)),
+          Text(address,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 13,
+                  height: 1.3,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                  color: active ? _ink : color)),
         ]),
       )),
     ]);
   }
 
   Widget _nextStop(AssignedDelivery d) {
-    final toPickup = d.status == AssignedDeliveryStatus.assigned || d.status == AssignedDeliveryStatus.transferAssigned ||
-        (d.status == AssignedDeliveryStatus.waitingApproval && d.handedOffAt == null);
-    final (primaryLabel, primaryIcon) = switch (d.status) {
-      AssignedDeliveryStatus.pickedUp => ('Delivered', Icons.check_rounded),
-      AssignedDeliveryStatus.readyToTransfer => ('Hand over', Icons.check_rounded),
-      _ => ('Pick up', Icons.inventory_2_outlined),
-    };
-    final stage = switch (d.status) {
-      AssignedDeliveryStatus.pickedUp => 'Out for delivery',
-      AssignedDeliveryStatus.readyToTransfer => 'Ready to hand over',
-      AssignedDeliveryStatus.waitingApproval => 'Waiting approval',
-      _ => 'Ready for pickup',
-    };
-    final kind = d.isTransfer ? 'Transfer' : d.isReturn ? 'Return' : null;
+    final toPickup = d.isPickupTask;
+    final isDeliveryReceipt =
+        d.status == AssignedDeliveryStatus.assigned && d.isDeliveryLeg;
+    final (primaryLabel, primaryIcon) = isDeliveryReceipt
+        ? ('Confirm receipt', Icons.qr_code_scanner_rounded)
+        : switch (d.status) {
+            AssignedDeliveryStatus.pickedUp => (
+                'Delivered',
+                Icons.check_rounded
+              ),
+            AssignedDeliveryStatus.readyToTransfer => (
+                'Hand over',
+                Icons.check_rounded
+              ),
+            _ => ('Pick up', Icons.inventory_2_outlined),
+          };
+    final stage = isDeliveryReceipt
+        ? 'Confirm delivery receipt'
+        : switch (d.status) {
+            AssignedDeliveryStatus.pickedUp => 'Out for delivery',
+            AssignedDeliveryStatus.readyToTransfer => 'Ready to hand over',
+            AssignedDeliveryStatus.waitingApproval => 'Waiting approval',
+            _ => 'Ready for pickup',
+          };
+    final kind = d.isTransfer
+        ? 'Transfer'
+        : d.isReturn
+            ? 'Return'
+            : null;
     final cod = d.codAmountCents;
     final canCall = (d.customerContactNo ?? '').trim().isNotEmpty;
 
@@ -647,12 +876,23 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.all(18),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               _chip(stage, _teal, dot: true),
-              if (kind != null) ...[const SizedBox(width: 6), _chip(kind, _gold)],
+              if (kind != null) ...[
+                const SizedBox(width: 6),
+                _chip(kind, _gold)
+              ],
               const Spacer(),
-              Flexible(child: Text('#${d.trackingNumber ?? d.orderNumber}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _inkSoft))),
+              Flexible(
+                  child: Text('#${d.trackingNumber ?? d.orderNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _inkSoft))),
             ]),
             const SizedBox(height: 16),
             Row(children: [
@@ -660,15 +900,32 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 width: 42,
                 height: 42,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: _tealSoft, borderRadius: BorderRadius.circular(14)),
-                child: const Icon(Icons.person_pin_circle_rounded, color: _tealDeep, size: 25),
+                decoration: BoxDecoration(
+                    color: _tealSoft, borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.person_pin_circle_rounded,
+                    color: _tealDeep, size: 25),
               ),
               const SizedBox(width: 11),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('DELIVERY FOR', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 0.9, color: _inkSoft)),
-                const SizedBox(height: 2),
-                Text(d.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: _ink)),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Text('DELIVERY FOR',
+                        style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.9,
+                            color: _inkSoft)),
+                    const SizedBox(height: 2),
+                    Text(d.customerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            color: _ink)),
+                  ])),
             ]),
             const SizedBox(height: 16),
             _activeRouteRail(d, toPickup: toPickup),
@@ -677,30 +934,63 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
-                  decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(18), border: Border.all(color: _line)),
+                  decoration: BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _line)),
                   child: Row(children: [
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(color: cod > 0 ? _amber : const Color(0xFF16A34A), borderRadius: BorderRadius.circular(13)),
-                      child: Icon(cod > 0 ? Icons.payments_rounded : Icons.verified_rounded, color: Colors.white, size: 21),
+                      decoration: BoxDecoration(
+                          color: cod > 0 ? _amber : const Color(0xFF16A34A),
+                          borderRadius: BorderRadius.circular(13)),
+                      child: Icon(
+                          cod > 0
+                              ? Icons.payments_rounded
+                              : Icons.verified_rounded,
+                          color: Colors.white,
+                          size: 21),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(cod > 0 ? 'COD to collect' : 'Payment', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _inkSoft)),
-                        cod > 0
-                            ? FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(remittanceMoney(cod), style: const TextStyle(fontSize: 22, height: 1.15, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: _ink)))
-                            : const Text('Paid online', style: TextStyle(fontSize: 17, height: 1.2, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
-                      ]),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(cod > 0 ? 'COD to collect' : 'Payment',
+                                style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _inkSoft)),
+                            cod > 0
+                                ? FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(remittanceMoney(cod),
+                                        style: const TextStyle(
+                                            fontSize: 22,
+                                            height: 1.15,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.4,
+                                            color: _ink)))
+                                : const Text('Paid online',
+                                    style: TextStyle(
+                                        fontSize: 17,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF15803D))),
+                          ]),
                     ),
                   ]),
                 ),
               ),
               const SizedBox(width: 12),
-              _roundIcon(Icons.call_rounded, 'Call ${d.customerName}', canCall ? () => _call(d.customerContactNo) : null, filled: true),
+              _roundIcon(Icons.call_rounded, 'Call ${d.customerName}',
+                  canCall ? () => _call(d.customerContactNo) : null,
+                  filled: true),
               const SizedBox(width: 10),
-              _roundIcon(Icons.chat_bubble_outline_rounded, 'Message ${d.customerName}', () => _openDetail(d)),
+              _roundIcon(Icons.chat_bubble_outline_rounded,
+                  'Message ${d.customerName}', () => _openDetail(d)),
             ]),
             const SizedBox(height: 16),
             Row(children: [
@@ -714,7 +1004,14 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                     onPressed: () => _navigate(d),
                     icon: const Icon(Icons.navigation_rounded, size: 19),
                     label: const Text('Navigate'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, minimumSize: const Size.fromHeight(54), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size.fromHeight(54),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18)),
+                        textStyle: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w800)),
                   ),
                 ),
               ),
@@ -724,7 +1021,15 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                   onPressed: () => _openDetail(d),
                   icon: Icon(primaryIcon, size: 19),
                   label: Text(primaryLabel),
-                  style: FilledButton.styleFrom(backgroundColor: _tealSoft, foregroundColor: _tealDeep, elevation: 0, minimumSize: const Size.fromHeight(54), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: _tealSoft,
+                      foregroundColor: _tealDeep,
+                      elevation: 0,
+                      minimumSize: const Size.fromHeight(54),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
+                      textStyle: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w800)),
                 ),
               ),
             ]),
@@ -733,10 +1038,14 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         const Divider(height: 1, color: _line),
         IntrinsicHeight(
           child: Row(children: [
-            Expanded(child: _footerAction(Icons.inventory_2_outlined, 'View details', _inkSoft, () => _openDetail(d))),
+            Expanded(
+                child: _footerAction(Icons.inventory_2_outlined, 'View details',
+                    _inkSoft, () => _openDetail(d))),
             if (d.canMarkFailed) ...[
               const VerticalDivider(width: 1, color: _line),
-              Expanded(child: _footerAction(Icons.close_rounded, 'Mark failed', DriverColors.error, () => _openDetail(d))),
+              Expanded(
+                  child: _footerAction(Icons.close_rounded, 'Mark failed',
+                      DriverColors.error, () => _openDetail(d))),
             ],
           ]),
         ),
@@ -746,14 +1055,26 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
 
   Widget _chip(String label, Color color, {bool dot = false}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(color: color.withOpacity(0.11), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.11),
+            borderRadius: BorderRadius.circular(20)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (dot) ...[Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: color)), const SizedBox(width: 6)],
-          Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color)),
+          if (dot) ...[
+            Container(
+                width: 6,
+                height: 6,
+                decoration:
+                    BoxDecoration(shape: BoxShape.circle, color: color)),
+            const SizedBox(width: 6)
+          ],
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w800, color: color)),
         ]),
       );
 
-  Widget _roundIcon(IconData icon, String label, VoidCallback? onTap, {bool filled = false}) {
+  Widget _roundIcon(IconData icon, String label, VoidCallback? onTap,
+      {bool filled = false}) {
     final enabled = onTap != null;
     return Semantics(
       button: true,
@@ -761,24 +1082,32 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       label: label,
       child: Material(
         color: filled && enabled ? _tealSoft : Colors.transparent,
-          shape: CircleBorder(side: BorderSide(color: enabled ? const Color(0xFFB8D9CF) : _line)),
+        shape: CircleBorder(
+            side: BorderSide(color: enabled ? const Color(0xFFB8D9CF) : _line)),
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          child: SizedBox(width: 48, height: 48, child: Icon(icon, color: enabled ? _teal : _line, size: 22)),
+          child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(icon, color: enabled ? _teal : _line, size: 22)),
         ),
       ),
     );
   }
 
-  Widget _footerAction(IconData icon, String label, Color color, VoidCallback onTap) => InkWell(
+  Widget _footerAction(
+          IconData icon, String label, Color color, VoidCallback onTap) =>
+      InkWell(
         onTap: onTap,
         child: SizedBox(
           height: 52,
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
           ]),
         ),
       );
@@ -792,14 +1121,19 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         Row(children: [
           const Icon(Icons.alt_route_rounded, size: 18, color: _inkSoft),
           const SizedBox(width: 8),
-          const Text('Up next', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
+          const Text('Up next',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: _ink)),
           const SizedBox(width: 6),
-          const Text('· Route order', style: TextStyle(fontSize: 12.5, color: _inkSoft)),
+          const Text('· Route order',
+              style: TextStyle(fontSize: 12.5, color: _inkSoft)),
           const Spacer(),
-          if (total > rows.length) _chip('+${total - rows.length} more', _inkSoft),
+          if (total > rows.length)
+            _chip('+${total - rows.length} more', _inkSoft),
         ]),
         const SizedBox(height: 10),
-        for (var i = 0; i < rows.length; i++) _timelineStop(rows[i], i + 2, last: i == rows.length - 1),
+        for (var i = 0; i < rows.length; i++)
+          _timelineStop(rows[i], i + 2, last: i == rows.length - 1),
       ]),
     );
   }
@@ -819,10 +1153,25 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 width: 34,
                 height: 34,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: _tealSoft, shape: BoxShape.circle, border: Border.all(color: _teal, width: 2)),
-                child: Text('$number', style: const TextStyle(fontWeight: FontWeight.w800, color: _tealDeep, fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()])),
+                decoration: BoxDecoration(
+                    color: _tealSoft,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _teal, width: 2)),
+                child: Text('$number',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: _tealDeep,
+                        fontSize: 13.5,
+                        fontFeatures: [FontFeature.tabularFigures()])),
               ),
-              if (!last) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 3), decoration: BoxDecoration(color: const Color(0xFFB8D9CF), borderRadius: BorderRadius.circular(2)))),
+              if (!last)
+                Expanded(
+                    child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 3),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFB8D9CF),
+                            borderRadius: BorderRadius.circular(2)))),
             ]),
           ),
           const SizedBox(width: 12),
@@ -831,19 +1180,36 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
               padding: EdgeInsets.only(bottom: last ? 10 : 16),
               child: Row(children: [
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(d.customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: _ink)),
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      const Icon(Icons.location_on_outlined, size: 13, color: _inkSoft),
-                      const SizedBox(width: 3),
-                      Expanded(child: Text(d.deliveryArea ?? d.dropoffLabel, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _inkSoft))),
-                    ]),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(d.customerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.5,
+                                color: _ink)),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          const Icon(Icons.location_on_outlined,
+                              size: 13, color: _inkSoft),
+                          const SizedBox(width: 3),
+                          Expanded(
+                              child: Text(d.deliveryArea ?? d.dropoffLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: _inkSoft))),
+                        ]),
+                      ]),
                 ),
                 const SizedBox(width: 8),
-                d.codAmountCents > 0 ? _chip(remittanceMoney(d.codAmountCents), _amber) : _chip('Paid', const Color(0xFF16A34A)),
-                const Icon(Icons.chevron_right_rounded, size: 20, color: _inkSoft),
+                d.codAmountCents > 0
+                    ? _chip(remittanceMoney(d.codAmountCents), _amber)
+                    : _chip('Paid', const Color(0xFF16A34A)),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 20, color: _inkSoft),
               ]),
             ),
           ),
@@ -872,24 +1238,40 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Icon(Icons.account_balance_wallet_outlined, size: 16, color: Colors.white.withOpacity(0.8)),
+                Icon(Icons.account_balance_wallet_outlined,
+                    size: 16, color: Colors.white.withOpacity(0.8)),
                 const SizedBox(width: 6),
-                Text('Available balance', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8))),
+                Text('Available balance',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.8))),
               ]),
               const SizedBox(height: 6),
               loading
                   ? const DriverShimmerBox(height: 32, width: 150)
-                  : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v('available_cents'), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8, color: Colors.white))),
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(v('available_cents'),
+                          style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                              color: Colors.white))),
             ]),
           ),
         ]),
         const SizedBox(height: 16),
         Row(children: [
-          _moneyTile(Icons.today_rounded, 'Today', loading ? null : v('earned_today_cents')),
+          _moneyTile(Icons.today_rounded, 'Today',
+              loading ? null : v('earned_today_cents')),
           const SizedBox(width: 10),
-          _moneyTile(Icons.date_range_rounded, 'This week', loading ? null : v('earned_week_cents')),
+          _moneyTile(Icons.date_range_rounded, 'This week',
+              loading ? null : v('earned_week_cents')),
         ]),
       ]),
     );
@@ -898,18 +1280,39 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   Widget _moneyTile(IconData icon, String label, String? value) => Expanded(
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.14))),
+          decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.14))),
           child: Row(children: [
-            Container(width: 34, height: 34, decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 18, color: Colors.white)),
+            Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, size: 18, color: Colors.white)),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(label, style: TextStyle(fontSize: 11.5, color: Colors.white.withOpacity(0.78))),
-                const SizedBox(height: 2),
-                value == null
-                    ? const DriverShimmerBox(height: 16, width: 56)
-                    : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Colors.white))),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.white.withOpacity(0.78))),
+                    const SizedBox(height: 2),
+                    value == null
+                        ? const DriverShimmerBox(height: 16, width: 56)
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(value,
+                                style: const TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white))),
+                  ]),
             ),
           ]),
         ),
@@ -920,7 +1323,8 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     if (due == null) return null;
     if (due.isBefore(DateTime.now())) return 'Overdue — remit now';
     final h = due.hour % 12 == 0 ? 12 : due.hour % 12;
-    final time = '$h:${due.minute.toString().padLeft(2, '0')} ${due.hour < 12 ? 'AM' : 'PM'}';
+    final time =
+        '$h:${due.minute.toString().padLeft(2, '0')} ${due.hour < 12 ? 'AM' : 'PM'}';
     return 'Remit by $time ${_isToday(due) ? 'today' : '${_months[due.month - 1].substring(0, 3)} ${due.day}'}';
   }
 
@@ -940,20 +1344,46 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
             Container(
               width: 50,
               height: 50,
-              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(16)),
-              child: Icon(urgent ? Icons.payments_rounded : Icons.verified_rounded, color: Colors.white, size: 26),
+              decoration: BoxDecoration(
+                  color: accent, borderRadius: BorderRadius.circular(16)),
+              child: Icon(
+                  urgent ? Icons.payments_rounded : Icons.verified_rounded,
+                  color: Colors.white,
+                  size: 26),
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('COD on hand', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _inkSoft)),
-                FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(remittanceMoney(owed), style: const TextStyle(fontSize: 27, height: 1.15, fontWeight: FontWeight.w800, letterSpacing: -0.6, color: _ink))),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('COD on hand',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: _inkSoft)),
+                    FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(remittanceMoney(owed),
+                            style: const TextStyle(
+                                fontSize: 27,
+                                height: 1.15,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.6,
+                                color: _ink))),
+                  ]),
             ),
             if (urgent)
               FilledButton(
                 onPressed: widget.onOpenRemittances,
-                style: FilledButton.styleFrom(backgroundColor: _tealDeep, minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800)),
+                style: FilledButton.styleFrom(
+                    backgroundColor: _tealDeep,
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(
+                        fontSize: 13.5, fontWeight: FontWeight.w800)),
                 child: const Text('Remit now'),
               ),
           ]),
@@ -961,11 +1391,25 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(color: accent.withOpacity(0.09), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+                color: accent.withOpacity(0.09),
+                borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              Icon(urgent ? Icons.schedule_rounded : Icons.check_circle_rounded, size: 16, color: accent),
+              Icon(urgent ? Icons.schedule_rounded : Icons.check_circle_rounded,
+                  size: 16, color: accent),
               const SizedBox(width: 8),
-              Expanded(child: Text(urgent ? (hint ?? 'Remit your collected cash to your logistics company') : 'All cash remitted — nothing due', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: urgent ? const Color(0xFF8A4B08) : const Color(0xFF15803D)))),
+              Expanded(
+                  child: Text(
+                      urgent
+                          ? (hint ??
+                              'Remit your collected cash to your logistics company')
+                          : 'All cash remitted — nothing due',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: urgent
+                              ? const Color(0xFF8A4B08)
+                              : const Color(0xFF15803D)))),
             ]),
           ),
         ]),
@@ -988,31 +1432,51 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 : 'is due in ${diff.inMinutes.clamp(1, 59)} min';
         items.add(_attentionTile(
           icon: Icons.warning_amber_rounded,
-          title: diff.isNegative ? 'COD remittance overdue' : 'COD remittance due soon',
-          body: '${remittanceMoney(_cents)} $when. Remit on time to keep accepting COD parcels.',
+          title: diff.isNegative
+              ? 'COD remittance overdue'
+              : 'COD remittance due soon',
+          body:
+              '${remittanceMoney(_cents)} $when. Remit on time to keep accepting COD parcels.',
           warn: true,
           onTap: widget.onOpenRemittances,
         ));
       }
     }
 
-    final fresh = widget.deliveries.where((d) => d.status == AssignedDeliveryStatus.assigned && d.assignedAt != null && DateTime.now().difference(d.assignedAt!) < const Duration(hours: 6)).toList();
+    final fresh = widget.deliveries
+        .where((d) =>
+            d.status == AssignedDeliveryStatus.assigned &&
+            d.assignedAt != null &&
+            DateTime.now().difference(d.assignedAt!) < const Duration(hours: 6))
+        .toList();
     if (fresh.isNotEmpty) {
       final area = fresh.first.deliveryArea;
       items.add(_attentionTile(
         icon: Icons.alt_route_rounded,
         title: 'New area assignment',
-        body: '${fresh.length} ${fresh.length == 1 ? 'parcel' : 'parcels'}${area != null ? ' in $area' : ''} ${fresh.length == 1 ? 'was' : 'were'} added to your route.',
+        body:
+            '${fresh.length} ${fresh.length == 1 ? 'parcel' : 'parcels'}${area != null ? ' in $area' : ''} ${fresh.length == 1 ? 'was' : 'were'} added to your route.',
         onTap: widget.onOpenDeliveries,
       ));
     }
     if (items.isEmpty) return const [];
     return [
-      _section('Needs attention', child: Column(children: [for (var i = 0; i < items.length; i++) ...[if (i > 0) const SizedBox(height: 10), items[i]]]))
+      _section('Needs attention',
+          child: Column(children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              items[i]
+            ]
+          ]))
     ];
   }
 
-  Widget _attentionTile({required IconData icon, required String title, required String body, required VoidCallback onTap, bool warn = false}) {
+  Widget _attentionTile(
+      {required IconData icon,
+      required String title,
+      required String body,
+      required VoidCallback onTap,
+      bool warn = false}) {
     final accent = warn ? _amber : _teal;
     return Material(
       color: Colors.white,
@@ -1022,27 +1486,47 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         borderRadius: BorderRadius.circular(22),
         child: Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(22), border: Border.all(color: warn ? _amber.withOpacity(0.35) : _line, width: warn ? 1.5 : 1)),
+          decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                  color: warn ? _amber.withOpacity(0.35) : _line,
+                  width: warn ? 1.5 : 1)),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
               width: 46,
               height: 46,
-              decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(15)),
+              decoration: BoxDecoration(
+                  color: accent, borderRadius: BorderRadius.circular(15)),
               child: Icon(icon, color: Colors.white, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(child: Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: _ink))),
-                  if (warn) ...[const SizedBox(width: 8), _chip('Action needed', _amber)],
-                ]),
-                const SizedBox(height: 3),
-                Text(body, style: const TextStyle(fontSize: 12.5, color: _inkSoft, height: 1.35)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Flexible(
+                          child: Text(title,
+                              style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: _ink))),
+                      if (warn) ...[
+                        const SizedBox(width: 8),
+                        _chip('Action needed', _amber)
+                      ],
+                    ]),
+                    const SizedBox(height: 3),
+                    Text(body,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: _inkSoft, height: 1.35)),
+                  ]),
             ),
             const SizedBox(width: 6),
-            const Padding(padding: EdgeInsets.only(top: 12), child: Icon(Icons.chevron_right_rounded, size: 22, color: _inkSoft)),
+            const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Icon(Icons.chevron_right_rounded,
+                    size: 22, color: _inkSoft)),
           ]),
         ),
       ),
@@ -1059,10 +1543,15 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
       counts[key] = (counts[key] ?? 0) + 1;
     }
     if (counts.isEmpty) return const SizedBox.shrink();
-    final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final shown = sorted.take(_coveragePalette.length).toList();
-    final rest = sorted.skip(_coveragePalette.length).fold<int>(0, (s, e) => s + e.value);
-    if (rest > 0) shown[shown.length - 1] = MapEntry('Others', shown.last.value + rest);
+    final rest = sorted
+        .skip(_coveragePalette.length)
+        .fold<int>(0, (s, e) => s + e.value);
+    if (rest > 0) {
+      shown[shown.length - 1] = MapEntry('Others', shown.last.value + rest);
+    }
     final total = shown.fold<int>(0, (s, e) => s + e.value);
     final peak = shown.first.value;
 
@@ -1075,55 +1564,105 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         decoration: _card,
         child: Column(children: [
           Row(children: [
-            Container(width: 48, height: 48, decoration: BoxDecoration(color: _tealSoft, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.map_rounded, color: _teal, size: 24)),
+            Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                    color: _tealSoft, borderRadius: BorderRadius.circular(16)),
+                child: const Icon(Icons.map_rounded, color: _teal, size: 24)),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('$total ${total == 1 ? 'parcel' : 'parcels'} on route', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: _ink)),
-                Text('Across ${shown.length} ${shown.length == 1 ? 'area' : 'areas'}', style: const TextStyle(fontSize: 12.5, color: _inkSoft)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$total ${total == 1 ? 'parcel' : 'parcels'} on route',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: _ink)),
+                    Text(
+                        'Across ${shown.length} ${shown.length == 1 ? 'area' : 'areas'}',
+                        style:
+                            const TextStyle(fontSize: 12.5, color: _inkSoft)),
+                  ]),
             ),
           ]),
           const SizedBox(height: 16),
           for (var i = 0; i < shown.length; i++) ...[
             if (i > 0) const SizedBox(height: 14),
-            _areaRow(shown[i].key, shown[i].value, total, peak, _coveragePalette[i], busiest: i == 0 && shown.length > 1),
+            _areaRow(
+                shown[i].key, shown[i].value, total, peak, _coveragePalette[i],
+                busiest: i == 0 && shown.length > 1),
           ],
         ]),
       ),
     );
   }
 
-  Widget _areaRow(String name, int count, int total, int peak, Color color, {bool busiest = false}) {
+  Widget _areaRow(String name, int count, int total, int peak, Color color,
+      {bool busiest = false}) {
     final pct = total == 0 ? 0 : (count / total * 100).round();
     return Semantics(
       label: '$name, $count ${count == 1 ? 'parcel' : 'parcels'}, $pct percent',
       excludeSemantics: true,
       child: Row(children: [
-        Container(width: 38, height: 38, decoration: BoxDecoration(color: color.withOpacity(0.14), borderRadius: BorderRadius.circular(13)), child: Icon(Icons.location_on_rounded, size: 20, color: color)),
+        Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(13)),
+            child: Icon(Icons.location_on_rounded, size: 20, color: color)),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _ink))),
-              if (busiest) ...[const SizedBox(width: 6), _chip('Busiest', color)],
+              Flexible(
+                  child: Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _ink))),
+              if (busiest) ...[
+                const SizedBox(width: 6),
+                _chip('Busiest', color)
+              ],
             ]),
             const SizedBox(height: 7),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: peak == 0 ? 0 : count / peak),
-                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 600),
+                duration: MediaQuery.of(context).disableAnimations
+                    ? Duration.zero
+                    : const Duration(milliseconds: 600),
                 curve: Curves.easeOutCubic,
-                builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 7, backgroundColor: color.withOpacity(0.12), color: color),
+                builder: (_, v, __) => LinearProgressIndicator(
+                    value: v,
+                    minHeight: 7,
+                    backgroundColor: color.withOpacity(0.12),
+                    color: color),
               ),
             ),
           ]),
         ),
         const SizedBox(width: 14),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('$count', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _ink, fontFeatures: [FontFeature.tabularFigures()])),
-          Text('$pct%', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _inkSoft)),
+          Text('$count',
+              style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+          Text('$pct%',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: _inkSoft)),
         ]),
       ]),
     );
@@ -1135,16 +1674,22 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     if (at == null) return '';
     final l = at.toLocal(), n = DateTime.now();
     final h = l.hour % 12 == 0 ? 12 : l.hour % 12;
-    final time = '$h:${l.minute.toString().padLeft(2, '0')} ${l.hour < 12 ? 'AM' : 'PM'}';
+    final time =
+        '$h:${l.minute.toString().padLeft(2, '0')} ${l.hour < 12 ? 'AM' : 'PM'}';
     if (_isToday(l)) return 'Today, $time';
     final y = n.subtract(const Duration(days: 1));
-    if (l.year == y.year && l.month == y.month && l.day == y.day) return 'Yesterday, $time';
+    if (l.year == y.year && l.month == y.month && l.day == y.day) {
+      return 'Yesterday, $time';
+    }
     return '${_months[l.month - 1].substring(0, 3)} ${l.day}, $time';
   }
 
   Widget _activity() {
-    if (_moneyLoading) return _section('Recent activity', child: const DriverCardSkeleton());
-    final rows = _ledger.where((r) => '${r['status']}' != 'void').take(5).toList();
+    if (_moneyLoading) {
+      return _section('Recent activity', child: const DriverCardSkeleton());
+    }
+    final rows =
+        _ledger.where((r) => '${r['status']}' != 'void').take(5).toList();
     if (rows.isEmpty) return const SizedBox.shrink();
     return _section(
       'Recent activity',
@@ -1169,15 +1714,31 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     final type = '${r['type']}';
     final (label, icon, color) = switch (type) {
       'delivery' => ('Delivery earnings', Icons.local_shipping_rounded, _teal),
-      'pickup' => ('Pickup earnings', Icons.inventory_2_rounded, const Color(0xFF5D9C8B)),
-      'transfer' => ('Transfer earnings', Icons.swap_horiz_rounded, const Color(0xFF8FB6A4)),
+      'pickup' => (
+          'Pickup earnings',
+          Icons.inventory_2_rounded,
+          const Color(0xFF5D9C8B)
+        ),
+      'transfer' => (
+          'Transfer earnings',
+          Icons.swap_horiz_rounded,
+          const Color(0xFF8FB6A4)
+        ),
       'failed_attempt' => ('Failed attempt fee', Icons.replay_rounded, _gold),
       'bonus' => ('Bonus', Icons.workspace_premium_rounded, _gold),
       'deduction' => ('Deduction', Icons.remove_circle_rounded, _rose),
       'refund_adjustment' => ('Refund adjustment', Icons.undo_rounded, _rose),
-      _ => (type.isEmpty ? 'Adjustment' : type[0].toUpperCase() + type.substring(1).replaceAll('_', ' '), Icons.tune_rounded, _inkSoft),
+      _ => (
+          type.isEmpty
+              ? 'Adjustment'
+              : type[0].toUpperCase() + type.substring(1).replaceAll('_', ' '),
+          Icons.tune_rounded,
+          _inkSoft
+        ),
     };
-    final order = (r['order'] is Map ? (r['order'] as Map)['order_number'] : null)?.toString();
+    final order =
+        (r['order'] is Map ? (r['order'] as Map)['order_number'] : null)
+            ?.toString();
     final when = _when(DateTime.tryParse('${r['created_at']}'));
     final amountColor = negative ? _rose : const Color(0xFF15803D);
     return Padding(
@@ -1186,22 +1747,36 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         Container(
           width: 46,
           height: 46,
-          decoration: BoxDecoration(color: color.withOpacity(0.13), borderRadius: BorderRadius.circular(15)),
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.13),
+              borderRadius: BorderRadius.circular(15)),
           child: Icon(icon, color: color, size: 23),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: _ink)),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: _ink)),
             const SizedBox(height: 1),
-            Text(order == null || order.isEmpty ? when : '#$order · $when', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _inkSoft)),
+            Text(order == null || order.isEmpty ? when : '#$order · $when',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: _inkSoft)),
           ]),
         ),
         const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(color: amountColor.withOpacity(0.09), borderRadius: BorderRadius.circular(12)),
-          child: Text('${negative ? '' : '+'}${remittanceMoney(cents)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: amountColor)),
+          decoration: BoxDecoration(
+              color: amountColor.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(12)),
+          child: Text('${negative ? '' : '+'}${remittanceMoney(cents)}',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: amountColor)),
         ),
       ]),
     );
@@ -1216,9 +1791,14 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         child: Column(children: [
           const Icon(Icons.wifi_off_rounded, color: _inkSoft, size: 30),
           const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: _ink)),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13.5, color: _ink)),
           const SizedBox(height: 8),
-          TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded, size: 18), label: const Text('Try again')),
+          TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try again')),
         ]),
       );
 }
@@ -1239,7 +1819,10 @@ class _Reveal extends StatelessWidget {
       duration: Duration(milliseconds: 380 + index.clamp(0, 6) * 70),
       curve: Curves.easeOutCubic,
       child: child,
-      builder: (_, t, c) => Opacity(opacity: t, child: Transform.translate(offset: Offset(0, (1 - t) * 14), child: c)),
+      builder: (_, t, c) => Opacity(
+          opacity: t,
+          child:
+              Transform.translate(offset: Offset(0, (1 - t) * 14), child: c)),
     );
   }
 }

@@ -151,7 +151,7 @@ class LogisticsDashboardScreen extends StatelessWidget {
                         parcel: oldest, onTap: () => onOpenParcel(oldest)),
                   ],
                   const SizedBox(height: 22),
-                  _SectionHeading(
+                  const _SectionHeading(
                       title: 'Parcel flow', caption: 'AWAITING VERIFICATION'),
                   const SizedBox(height: 10),
                   if (wide)
@@ -194,7 +194,7 @@ class LogisticsDashboardScreen extends StatelessWidget {
                         onOpenRoute: onOpenRoute),
                   if (recentScans.isNotEmpty) ...[
                     const SizedBox(height: 22),
-                    _SectionHeading(
+                    const _SectionHeading(
                         title: 'Recent activity', caption: 'LATEST SCANS'),
                     const SizedBox(height: 9),
                     _RecentActivity(
@@ -288,10 +288,12 @@ class _ScannerHero extends StatelessWidget {
   String get _oldestLabel {
     if (oldest == null) return 'Ready for the next courier handover.';
     final elapsed = DateTime.now().difference(oldest!.toLocal());
-    if (elapsed.inMinutes < 60)
+    if (elapsed.inMinutes < 60) {
       return 'Oldest parcel waiting ${elapsed.inMinutes.clamp(0, 59)} minutes.';
-    if (elapsed.inHours < 24)
+    }
+    if (elapsed.inHours < 24) {
       return 'Oldest parcel waiting ${elapsed.inHours} hours.';
+    }
     return 'Oldest parcel waiting ${elapsed.inDays} days.';
   }
 
@@ -746,8 +748,9 @@ class _AttentionCard extends StatelessWidget {
     final received = parcel.forInventoryAt;
     if (received == null) return 'Waiting for verification';
     final elapsed = DateTime.now().difference(received.toLocal());
-    if (elapsed.inMinutes < 60)
+    if (elapsed.inMinutes < 60) {
       return 'Waiting ${elapsed.inMinutes.clamp(0, 59)} minutes';
+    }
     if (elapsed.inHours < 24) return 'Waiting ${elapsed.inHours} hours';
     return 'Waiting ${elapsed.inDays} days';
   }

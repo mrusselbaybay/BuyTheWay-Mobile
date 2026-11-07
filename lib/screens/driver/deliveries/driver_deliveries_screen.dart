@@ -92,18 +92,9 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
       case _QuickFilter.all:
         return all;
       case _QuickFilter.toPickUp:
-        return all
-            .where((d) =>
-                d.status == AssignedDeliveryStatus.assigned ||
-                d.status == AssignedDeliveryStatus.transferAssigned ||
-                d.status == AssignedDeliveryStatus.waitingApproval)
-            .toList();
+        return all.where((d) => d.isPickupTask).toList();
       case _QuickFilter.toDeliver:
-        return all
-            .where((d) =>
-                d.status == AssignedDeliveryStatus.pickedUp ||
-                d.status == AssignedDeliveryStatus.readyToTransfer)
-            .toList();
+        return all.where((d) => d.isDeliveryTask).toList();
       case _QuickFilter.done:
         return all.where(_isDone).toList();
       case _QuickFilter.attention:
@@ -157,11 +148,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
   Widget build(BuildContext context) {
     final results = _filtered;
     final total = widget.deliveries.length;
-    final inProgress = widget.deliveries
-        .where((d) =>
-            d.status == AssignedDeliveryStatus.pickedUp ||
-            d.status == AssignedDeliveryStatus.readyToTransfer)
-        .length;
+    final inProgress = widget.deliveries.where((d) => d.isDeliveryTask).length;
     final needsAttention = widget.deliveries.where(_needsAttention).length;
     final completed = widget.deliveries.where(_isDone).length;
     final attention = _attentionDelivery;
@@ -241,15 +228,7 @@ class _DriverDeliveriesScreenState extends State<DriverDeliveriesScreen> {
                             counts: {
                               _QuickFilter.all: total,
                               _QuickFilter.toPickUp: widget.deliveries
-                                  .where((d) =>
-                                      d.status ==
-                                          AssignedDeliveryStatus.assigned ||
-                                      d.status ==
-                                          AssignedDeliveryStatus
-                                              .transferAssigned ||
-                                      d.status ==
-                                          AssignedDeliveryStatus
-                                              .waitingApproval)
+                                  .where((d) => d.isPickupTask)
                                   .length,
                               _QuickFilter.toDeliver: inProgress,
                               _QuickFilter.attention: needsAttention,
@@ -353,7 +332,9 @@ class _CourierDispatchHeader extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: DriverColors.border.withValues(alpha: 0.8))),
+        border: Border(
+            bottom:
+                BorderSide(color: DriverColors.border.withValues(alpha: 0.8))),
         boxShadow: [
           BoxShadow(
             color: DriverColors.textPrimary.withValues(alpha: 0.035),
@@ -495,7 +476,7 @@ class _CapacityRibbon extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: DriverColors.textPrimary))),
               Text(
-                  '${used.toStringAsFixed(used == used.roundToDouble() ? 0 : 1)}',
+                  used.toStringAsFixed(used == used.roundToDouble() ? 0 : 1),
                   style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -746,8 +727,8 @@ class _MissionCardState extends State<_MissionCard> {
   double _drag = 0;
 
   Widget _productImage(String url) {
-    const fallback = Icon(Icons.image_outlined,
-        color: DriverColors.textSecondary, size: 23);
+    const fallback =
+        Icon(Icons.image_outlined, color: DriverColors.textSecondary, size: 23);
     if (url.startsWith('data:image/')) {
       try {
         final comma = url.indexOf(',');
@@ -771,6 +752,7 @@ class _MissionCardState extends State<_MissionCard> {
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => fallback);
   }
+
   String? _resolveProductImage(String? value) {
     final raw = value?.trim() ?? '';
     if (raw.isEmpty) return null;
@@ -778,7 +760,9 @@ class _MissionCardState extends State<_MissionCard> {
     if (uri == null) return null;
     if (uri.hasScheme) return uri.toString();
     final origin = Uri.parse(ApiService.baseUrl).replace(path: '');
-    return origin.resolve('/${raw.replaceFirst(RegExp(r'^/+'), '')}').toString();
+    return origin
+        .resolve('/${raw.replaceFirst(RegExp(r'^/+'), '')}')
+        .toString();
   }
 
   (String, Color, IconData) get _actionTag {
@@ -796,7 +780,9 @@ class _MissionCardState extends State<_MissionCard> {
           Icons.support_agent_outlined
         );
       case AssignedDeliveryStatus.assigned:
-        return ('To pick up', DriverColors.warning, Icons.storefront_outlined);
+        return widget.delivery.isDeliveryLeg
+            ? ('To deliver', DriverColors.info, Icons.local_shipping_outlined)
+            : ('To pick up', DriverColors.warning, Icons.storefront_outlined);
       case AssignedDeliveryStatus.waitingApproval:
         return (
           'Waiting approval',
@@ -848,7 +834,20 @@ class _MissionCardState extends State<_MissionCard> {
   String _formatDateTime(DateTime? date) {
     if (date == null) return 'Time unavailable';
     final local = date.toLocal();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     return '${months[local.month - 1]} ${local.day} · $hour:$minute ${local.hour < 12 ? 'AM' : 'PM'}';
@@ -881,9 +880,7 @@ class _MissionCardState extends State<_MissionCard> {
     final handedOver = d.status == AssignedDeliveryStatus.handedOver ||
         d.status == AssignedDeliveryStatus.awaitingInventory;
     final done = completed || handedOver;
-    final nextIsPickup = d.status == AssignedDeliveryStatus.assigned ||
-        d.status == AssignedDeliveryStatus.transferAssigned ||
-        d.status == AssignedDeliveryStatus.waitingApproval;
+    final nextIsPickup = d.isPickupTask;
     final nextStop = switch (d.status) {
       AssignedDeliveryStatus.awaitingInventory =>
         'Picked up · waiting for logistics scan',
@@ -1000,7 +997,8 @@ class _MissionCardState extends State<_MissionCard> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w800,
                                                 fontSize: 14.5,
-                                                color: DriverColors.textPrimary)),
+                                                color:
+                                                    DriverColors.textPrimary)),
                                         const SizedBox(height: 3),
                                         Row(children: [
                                           if (widget.atRisk) ...[
@@ -1028,9 +1026,11 @@ class _MissionCardState extends State<_MissionCard> {
                                 ]),
                                 if (d.deliveryAttempt.reason != null &&
                                     (d.status ==
-                                            AssignedDeliveryStatus.failedAttempt ||
+                                            AssignedDeliveryStatus
+                                                .failedAttempt ||
                                         d.status ==
-                                            AssignedDeliveryStatus.needsDispatcherReview))
+                                            AssignedDeliveryStatus
+                                                .needsDispatcherReview))
                                   Padding(
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Text(d.deliveryAttempt.reason!,
@@ -1117,7 +1117,8 @@ class _MissionCardState extends State<_MissionCard> {
                                 const SizedBox(height: 11),
                                 Container(
                                     height: 1,
-                                    color: DriverColors.border.withValues(alpha: 0.8)),
+                                    color: DriverColors.border
+                                        .withValues(alpha: 0.8)),
                                 const SizedBox(height: 9),
                                 Row(
                                   children: [

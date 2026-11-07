@@ -8,7 +8,13 @@
 // below, exactly as requested ("hardcode this for now").
 // ============================================================
 
-enum DeliveryStage { headingToPickup, atPickup, headingToDropoff, atDropoff, completed }
+enum DeliveryStage {
+  headingToPickup,
+  atPickup,
+  headingToDropoff,
+  atDropoff,
+  completed
+}
 
 enum HistoryStatus { completed, cancelled }
 
@@ -205,14 +211,18 @@ class AssignedDeliveryItem {
     String n(dynamic v) {
       final num? parsed = v is num ? v : num.tryParse('$v');
       if (parsed == null) return '$v';
-      return parsed == parsed.roundToDouble() ? parsed.toInt().toString() : parsed.toString();
+      return parsed == parsed.roundToDouble()
+          ? parsed.toInt().toString()
+          : parsed.toString();
     }
 
     return '${n(l)} × ${n(w)} × ${n(h)}${unit != null && unit.isNotEmpty ? ' $unit' : ''}';
   }
 
   /// "1.2 kg" or null.
-  String? get weightLabel => weightKg == null ? null : '${weightKg!.toStringAsFixed(weightKg! == weightKg!.roundToDouble() ? 0 : 2)} kg';
+  String? get weightLabel => weightKg == null
+      ? null
+      : '${weightKg!.toStringAsFixed(weightKg! == weightKg!.roundToDouble() ? 0 : 2)} kg';
 }
 
 class DeliveryAttemptInfo {
@@ -226,8 +236,16 @@ class DeliveryAttemptInfo {
   final bool eligible;
   final DateTime? returnFlaggedAt;
 
-  const DeliveryAttemptInfo({this.count = 0, this.limit = 3, this.retryAt, this.failedAt,
-    this.reason, this.description, this.needsReview = false, this.eligible = false, this.returnFlaggedAt});
+  const DeliveryAttemptInfo(
+      {this.count = 0,
+      this.limit = 3,
+      this.retryAt,
+      this.failedAt,
+      this.reason,
+      this.description,
+      this.needsReview = false,
+      this.eligible = false,
+      this.returnFlaggedAt});
 
   factory DeliveryAttemptInfo.fromApi(Map<String, dynamic> json) {
     final latest = json['latest_attempt'] as Map?;
@@ -238,7 +256,8 @@ class DeliveryAttemptInfo {
       failedAt: DateTime.tryParse(latest?['failed_at'] as String? ?? ''),
       reason: latest?['reason_label'] as String?,
       description: latest?['description'] as String?,
-      returnFlaggedAt: DateTime.tryParse(json['return_flagged_at'] as String? ?? ''),
+      returnFlaggedAt:
+          DateTime.tryParse(json['return_flagged_at'] as String? ?? ''),
       needsReview: json['needs_review'] == true,
       eligible: json['can_reattempt'] == true,
     );
@@ -309,12 +328,36 @@ class AssignedDelivery {
   /// `is_return`). Its final drop-off ([dropoffLabel]) is the seller.
   final bool isReturn;
 
+  /// Dispatch, inventory scan, or prior assignment confirms this parcel is
+  /// on its delivery leg. It may be missing handed_off_at when a hub scan or
+  /// transfer receipt established custody.
+  bool isDeliveryLeg;
+
+  bool get isPickupTask =>
+      status == AssignedDeliveryStatus.transferAssigned ||
+      ((status == AssignedDeliveryStatus.assigned ||
+              status == AssignedDeliveryStatus.waitingApproval) &&
+          !isDeliveryLeg);
+
+  bool get canConfirmPickup =>
+      status == AssignedDeliveryStatus.transferAssigned ||
+      (status == AssignedDeliveryStatus.assigned && !isDeliveryLeg);
+
+  bool get isDeliveryTask =>
+      status == AssignedDeliveryStatus.pickedUp ||
+      status == AssignedDeliveryStatus.readyToTransfer ||
+      ((status == AssignedDeliveryStatus.assigned ||
+              status == AssignedDeliveryStatus.waitingApproval) &&
+          isDeliveryLeg);
+
   /// The buyer's reason for returning the item, shown on return legs.
   final String? returnReason;
 
   /// This rider's return leg is finished (handed to the seller or the next hub).
   bool get isReturned =>
-      isReturn && (status == AssignedDeliveryStatus.delivered || status == AssignedDeliveryStatus.transferred);
+      isReturn &&
+      (status == AssignedDeliveryStatus.delivered ||
+          status == AssignedDeliveryStatus.transferred);
 
   /// Buyer's address to collect from — only on a return's first leg.
   final String? returnPickupAddress;
@@ -371,6 +414,7 @@ class AssignedDelivery {
     this.canMarkFailed = false,
     this.isTransfer = false,
     this.isReturn = false,
+    this.isDeliveryLeg = false,
     this.returnReason,
     this.returnPickupAddress,
   });
@@ -397,31 +441,69 @@ class AssignedDelivery {
       return null;
     }
 
+    bool flag(dynamic v) =>
+        v == true ||
+        v == 1 ||
+        (v is String && const {'true', '1'}.contains(v.trim().toLowerCase()));
+
+    bool hasValue(dynamic v) => v != null && v.toString().trim().isNotEmpty;
+
+    final phase = str(json['phase']).toLowerCase();
+    final isDeliveryLeg = flag(json['is_delivery_leg']) ||
+        phase == 'delivery' ||
+        parseDate(json['handed_off_at']) != null ||
+        parseDate(json['inventory_scanned_at']) != null ||
+        hasValue(json['picked_up_by']) ||
+        hasValue(json['previous_assignment_id']);
+
     return AssignedDelivery(
-      earningPreviewCents: (json['earning_preview_cents'] as num?)?.toInt() ?? 0,
+      earningPreviewCents:
+          (json['earning_preview_cents'] as num?)?.toInt() ?? 0,
       earningIsEstimate: json['earning_is_estimate'] != false,
       id: str(json['id']),
-      packageSize: str(json['package_size']).isEmpty ? null : str(json['package_size']),
+      packageSize:
+          str(json['package_size']).isEmpty ? null : str(json['package_size']),
       parcelUnits: (json['parcel_units'] as num?)?.toInt(),
-      orderNumber: str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
+      orderNumber:
+          str(json['order_number']).isEmpty ? 'N/A' : str(json['order_number']),
       financialFlow: str(json['financial_flow']),
       paymentMethod: str(json['payment_method']),
       codAmountCents: (json['cod_amount_cents'] as num?)?.toInt() ?? 0,
-      trackingNumber: str(json['tracking_number']).isEmpty ? null : str(json['tracking_number']),
-      customerName: str(json['customer_name']).isEmpty ? 'Customer' : str(json['customer_name']),
-      customerContactNo: str(json['customer_contact_no']).isEmpty ? null : str(json['customer_contact_no']),
-      sellerName: str(json['seller_name']).isEmpty ? null : str(json['seller_name']),
-      sellerContactNo: str(json['seller_contact_no']).isEmpty ? null : str(json['seller_contact_no']),
-      sellerShopName: str(json['seller_shop_name']).isEmpty ? null : str(json['seller_shop_name']),
-      pickupLabel: str(json['pickup_label']).isEmpty ? 'Sorting hub' : str(json['pickup_label']),
-      pickupAddress: str(json['pickup_address']).isEmpty ? null : str(json['pickup_address']),
+      trackingNumber: str(json['tracking_number']).isEmpty
+          ? null
+          : str(json['tracking_number']),
+      customerName: str(json['customer_name']).isEmpty
+          ? 'Customer'
+          : str(json['customer_name']),
+      customerContactNo: str(json['customer_contact_no']).isEmpty
+          ? null
+          : str(json['customer_contact_no']),
+      sellerName:
+          str(json['seller_name']).isEmpty ? null : str(json['seller_name']),
+      sellerContactNo: str(json['seller_contact_no']).isEmpty
+          ? null
+          : str(json['seller_contact_no']),
+      sellerShopName: str(json['seller_shop_name']).isEmpty
+          ? null
+          : str(json['seller_shop_name']),
+      pickupLabel: str(json['pickup_label']).isEmpty
+          ? 'Sorting hub'
+          : str(json['pickup_label']),
+      pickupAddress: str(json['pickup_address']).isEmpty
+          ? null
+          : str(json['pickup_address']),
       pickupAddressIsPartial: json['pickup_address_is_partial'] == true,
-      dropoffLabel: str(json['dropoff_label']).isEmpty ? 'Address on file' : str(json['dropoff_label']),
-      deliveryArea: str(json['delivery_area']).isEmpty ? null : str(json['delivery_area']),
+      dropoffLabel: str(json['dropoff_label']).isEmpty
+          ? 'Address on file'
+          : str(json['dropoff_label']),
+      deliveryArea: str(json['delivery_area']).isEmpty
+          ? null
+          : str(json['delivery_area']),
       parcels: (json['parcels'] as num?)?.toInt() ?? 0,
       items: (json['items'] as List? ?? const [])
           .whereType<Map>()
-          .map((row) => AssignedDeliveryItem.fromApi(Map<String, dynamic>.from(row)))
+          .map((row) =>
+              AssignedDeliveryItem.fromApi(Map<String, dynamic>.from(row)))
           .toList(),
       assignedAt: parseDate(json['assigned_at']),
       handedOffAt: parseDate(json['handed_off_at']),
@@ -429,18 +511,30 @@ class AssignedDelivery {
       transferredAt: parseDate(json['transferred_at']),
       hasPickupPhoto: json['has_pickup_photo'] == true,
       hasDeliveryPhoto: json['has_delivery_photo'] == true,
-      confirmationToken: str(json['confirmation_token']).isEmpty ? null : str(json['confirmation_token']),
+      confirmationToken: str(json['confirmation_token']).isEmpty
+          ? null
+          : str(json['confirmation_token']),
       hasConfirmationQr: json['has_confirmation_qr'] == true,
       status: _parseAssignedDeliveryStatus(json['status']),
-      handoffRequestId: str(json['handoff_request_id']).isEmpty ? null : str(json['handoff_request_id']),
+      handoffRequestId: str(json['handoff_request_id']).isEmpty
+          ? null
+          : str(json['handoff_request_id']),
       handoffExpiresAt: parseDate(json['handoff_expires_at']),
-      handoffOutcome: str(json['handoff_outcome']).isEmpty ? null : str(json['handoff_outcome']),
-      deliveryAttempt: DeliveryAttemptInfo.fromApi(Map<String, dynamic>.from(json['delivery_attempt'] as Map? ?? {})),
+      handoffOutcome: str(json['handoff_outcome']).isEmpty
+          ? null
+          : str(json['handoff_outcome']),
+      deliveryAttempt: DeliveryAttemptInfo.fromApi(
+          Map<String, dynamic>.from(json['delivery_attempt'] as Map? ?? {})),
       canMarkFailed: json['can_mark_failed'] == true,
       isTransfer: json['is_transfer'] == true,
       isReturn: json['is_return'] == true,
-      returnReason: str(json['return_reason']).isEmpty ? null : str(json['return_reason']),
-      returnPickupAddress: str(json['return_pickup_address']).isEmpty ? null : str(json['return_pickup_address']),
+      isDeliveryLeg: isDeliveryLeg,
+      returnReason: str(json['return_reason']).isEmpty
+          ? null
+          : str(json['return_reason']),
+      returnPickupAddress: str(json['return_pickup_address']).isEmpty
+          ? null
+          : str(json['return_pickup_address']),
     );
   }
 
@@ -452,6 +546,7 @@ class AssignedDelivery {
   /// (so unchanged rows keep their object identity and don't rebuild).
   String get fingerprint => [
         status.index,
+        isDeliveryLeg,
         handoffRequestId,
         handoffExpiresAt,
         handoffOutcome,
@@ -482,6 +577,7 @@ class AssignedDelivery {
     packageSize = other.packageSize;
     parcelUnits = other.parcelUnits;
     status = other.status;
+    isDeliveryLeg = other.isDeliveryLeg;
     handoffRequestId = other.handoffRequestId;
     handoffExpiresAt = other.handoffExpiresAt;
     handoffOutcome = other.handoffOutcome;
@@ -645,7 +741,8 @@ class DriverAccount {
   factory DriverAccount.fromApi(Map<String, dynamic> json) {
     final profile = Map<String, dynamic>.from(json['profile'] as Map? ?? {});
     final addressJson = json['address'];
-    final address = addressJson is Map ? Map<String, dynamic>.from(addressJson) : null;
+    final address =
+        addressJson is Map ? Map<String, dynamic>.from(addressJson) : null;
     final vehicle = Map<String, dynamic>.from(json['vehicle'] as Map? ?? {});
 
     String str(dynamic v) => (v as String?)?.trim() ?? '';
@@ -660,7 +757,9 @@ class DriverAccount {
     final firstName = str(profile['first_name']);
     final lastName = str(profile['last_name']);
     final fullNameFromApi = str(profile['full_name']);
-    final fullName = fullNameFromApi.isNotEmpty ? fullNameFromApi : '$firstName $lastName'.trim();
+    final fullName = fullNameFromApi.isNotEmpty
+        ? fullNameFromApi
+        : '$firstName $lastName'.trim();
     final id = str(profile['id']);
 
     return DriverAccount(
@@ -669,9 +768,15 @@ class DriverAccount {
       name: fullName.isNotEmpty ? fullName : 'Driver',
       email: str(profile['email']),
       phone: str(profile['contact_no']),
-      vehicleType: str(vehicle['vehicle']).isEmpty ? 'Not on file' : str(vehicle['vehicle']),
-      plateNumber: str(vehicle['plate_number']).isEmpty ? 'Not on file' : str(vehicle['plate_number']),
-      driverId: id.length >= 8 ? 'DRV-${id.substring(0, 8).toUpperCase()}' : (id.isEmpty ? 'N/A' : id.toUpperCase()),
+      vehicleType: str(vehicle['vehicle']).isEmpty
+          ? 'Not on file'
+          : str(vehicle['vehicle']),
+      plateNumber: str(vehicle['plate_number']).isEmpty
+          ? 'Not on file'
+          : str(vehicle['plate_number']),
+      driverId: id.length >= 8
+          ? 'DRV-${id.substring(0, 8).toUpperCase()}'
+          : (id.isEmpty ? 'N/A' : id.toUpperCase()),
       rating: 0,
       memberSince: parseDate(profile['created_at']),
       avatarInitial: firstName.isNotEmpty
@@ -681,9 +786,11 @@ class DriverAccount {
       lastName: lastName,
       middleInitial: str(profile['middle_initial']),
       sex: str(profile['sex']),
-      birthday: profile['birthday'] != null && str(profile['birthday']).isNotEmpty
-          ? DateTime.tryParse(str(profile['birthday'])) ?? DateTime.utc(2000, 1, 1)
-          : DateTime.utc(2000, 1, 1),
+      birthday:
+          profile['birthday'] != null && str(profile['birthday']).isNotEmpty
+              ? DateTime.tryParse(str(profile['birthday'])) ??
+                  DateTime.utc(2000, 1, 1)
+              : DateTime.utc(2000, 1, 1),
       regionName: str(address?['region_name']),
       provinceCode: str(address?['province_code']),
       provinceName: str(address?['province_name']),
@@ -694,12 +801,19 @@ class DriverAccount {
       houseNo: str(address?['house_no']),
       licenseNumber: str(vehicle['license_number']),
       licenseExpiresOn: str(vehicle['license_expires_on']),
-      vehicleVerificationStatus: str(vehicle['vehicle_verification_status']).isEmpty
-          ? 'pending'
-          : str(vehicle['vehicle_verification_status']),
-      logisticsCompanyName: str(vehicle['logistics_company_name']).isEmpty ? null : str(vehicle['logistics_company_name']),
-      deliveryStatus: str(vehicle['delivery_status']) == 'available' ? 'available' : 'unavailable',
-      accountStatus: str(profile['account_status']).isEmpty ? 'active' : str(profile['account_status']),
+      vehicleVerificationStatus:
+          str(vehicle['vehicle_verification_status']).isEmpty
+              ? 'pending'
+              : str(vehicle['vehicle_verification_status']),
+      logisticsCompanyName: str(vehicle['logistics_company_name']).isEmpty
+          ? null
+          : str(vehicle['logistics_company_name']),
+      deliveryStatus: str(vehicle['delivery_status']) == 'available'
+          ? 'available'
+          : 'unavailable',
+      accountStatus: str(profile['account_status']).isEmpty
+          ? 'active'
+          : str(profile['account_status']),
       updatedAt: parseDate(profile['updated_at']),
       avatarUrl: str(profile['avatar_url']),
     );
@@ -759,7 +873,8 @@ class DriverAccount {
   int get age {
     final now = DateTime.now();
     int years = now.year - birthday.year;
-    if (now.month < birthday.month || (now.month == birthday.month && now.day < birthday.day)) {
+    if (now.month < birthday.month ||
+        (now.month == birthday.month && now.day < birthday.day)) {
       years -= 1;
     }
     return years;
@@ -783,7 +898,11 @@ class WithdrawalRecord {
   final double amount;
   final DateTime requestedAt;
   final String destination;
-  const WithdrawalRecord({required this.id, required this.amount, required this.requestedAt, required this.destination});
+  const WithdrawalRecord(
+      {required this.id,
+      required this.amount,
+      required this.requestedAt,
+      required this.destination});
 }
 
 // ------------------------------------------------------------
@@ -957,6 +1076,14 @@ const List<DayEarnings> weeklyEarningsChart = [
 ];
 
 List<WithdrawalRecord> mockWithdrawals() => [
-      WithdrawalRecord(id: 'w-1', amount: 2500, requestedAt: DateTime.now().subtract(const Duration(days: 3)), destination: 'GCash •••• 4821'),
-      WithdrawalRecord(id: 'w-2', amount: 1800, requestedAt: DateTime.now().subtract(const Duration(days: 9)), destination: 'BPI •••• 0032'),
+      WithdrawalRecord(
+          id: 'w-1',
+          amount: 2500,
+          requestedAt: DateTime.now().subtract(const Duration(days: 3)),
+          destination: 'GCash •••• 4821'),
+      WithdrawalRecord(
+          id: 'w-2',
+          amount: 1800,
+          requestedAt: DateTime.now().subtract(const Duration(days: 9)),
+          destination: 'BPI •••• 0032'),
     ];

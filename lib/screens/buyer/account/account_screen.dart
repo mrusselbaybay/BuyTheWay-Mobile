@@ -329,7 +329,7 @@ class _AccountHero extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: 0.06),

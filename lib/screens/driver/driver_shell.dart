@@ -71,7 +71,6 @@ class _DriverShellState extends State<DriverShell> {
   // stay in sync between the Account screen and the Settings screen.
   bool _notificationsEnabled = true;
   bool _soundEnabled = true;
-  String _language = 'English';
 
   // ---- Real account loading state ----
   String? _accessToken;
@@ -904,8 +903,6 @@ class _DriverShellState extends State<DriverShell> {
             if (token != null) SharedPreferences.getInstance().then((prefs) => prefs.setBool('driver_sound_enabled_${token.hashCode}', v));
             if (token != null) unawaited(_saveNotificationPreference(token, soundEnabled: v, previous: previous, isSound: true));
         },
-        language: _language,
-        onLanguageChanged: (v) => setState(() => _language = v),
         onRefresh: _refreshAll,
       ),
     ];

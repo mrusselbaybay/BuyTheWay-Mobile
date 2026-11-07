@@ -49,11 +49,12 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
   }
 
   Future<void> _load() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     try {
       final response =
           await _api.getLogisticsAccount(accessToken: widget.accessToken);
@@ -64,17 +65,19 @@ class _LogisticsSettingsScreenState extends State<LogisticsSettingsScreen> {
         _loading = false;
       });
     } on ApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
           _error = e.message;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
           _error = 'Could not load your settings. Pull down to retry.';
         });
+      }
     }
   }
 
@@ -311,12 +314,12 @@ class _SettingsHeader extends StatelessWidget {
   const _SettingsHeader();
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Settings', style: LogisticsTheme.pageTitle),
-          const SizedBox(height: 7),
-          const Text('Manage your team identity, hub and portal preferences.',
+          Text('Settings', style: LogisticsTheme.pageTitle),
+          SizedBox(height: 7),
+          Text('Manage your team identity, hub and portal preferences.',
               style: TextStyle(
                   color: DriverColors.textSecondary,
                   fontSize: 12.5,
@@ -545,8 +548,9 @@ class _SettingsEditorState extends State<_SettingsEditor> {
           ? null
           : num.tryParse(payload['monthly_salary'].toString());
     }
-    if (payload['birthday']?.toString().isEmpty == true)
+    if (payload['birthday']?.toString().isEmpty == true) {
       payload['birthday'] = null;
+    }
     return payload;
   }
 
@@ -556,8 +560,9 @@ class _SettingsEditorState extends State<_SettingsEditor> {
       return ProfileFieldValidators.personName(value,
           label: name == 'first_name' ? 'First name' : 'Last name');
     }
-    if (name == 'middle_initial')
+    if (name == 'middle_initial') {
       return ProfileFieldValidators.middleInitial(value);
+    }
     if (name == 'contact_no' || name == 'company_contact_no') {
       return ProfileFieldValidators.philippinesMobile(value);
     }
@@ -569,7 +574,9 @@ class _SettingsEditorState extends State<_SettingsEditor> {
           'barangay',
           'street'
         ].contains(name) &&
-        value.isEmpty) return 'This field is required.';
+        value.isEmpty) {
+      return 'This field is required.';
+    }
     if (name == 'sex' && !const ['Male', 'Female'].contains(value)) {
       return 'Select Male or Female.';
     }
@@ -578,21 +585,26 @@ class _SettingsEditorState extends State<_SettingsEditor> {
       final date = DateTime.tryParse(value);
       if (date == null ||
           value.length < 10 ||
-          SettingsFormat.isoDate(date) != value.substring(0, 10))
+          SettingsFormat.isoDate(date) != value.substring(0, 10)) {
         return 'Choose a valid birthday.';
+      }
       return ProfileFieldValidators.adultBirthday(date);
     }
     if (name == 'company_email' &&
         !RegExp(r'^[^\s@]+@[^\s@]+\.com$', caseSensitive: false)
-            .hasMatch(value)) return 'Enter a valid .com email address.';
+            .hasMatch(value)) {
+      return 'Enter a valid .com email address.';
+    }
     if (name == 'postal_code' &&
         value.isNotEmpty &&
-        !RegExp(r'^\d{4}$').hasMatch(value))
+        !RegExp(r'^\d{4}$').hasMatch(value)) {
       return 'Enter a 4-digit postal code.';
+    }
     if (name == 'monthly_salary' &&
         value.isNotEmpty &&
-        (num.tryParse(value) == null || num.parse(value) < 0))
+        (num.tryParse(value) == null || num.parse(value) < 0)) {
       return 'Enter an amount of 0 or more.';
+    }
     return null;
   }
 
@@ -610,17 +622,19 @@ class _SettingsEditorState extends State<_SettingsEditor> {
       Navigator.pop(context,
           value is Map ? Map<String, dynamic>.from(value) : widget.data);
     } on ApiException catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _saving = false;
           _error = e.message;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _saving = false;
           _error = 'Could not save changes. Please try again.';
         });
+      }
     }
   }
 
@@ -717,8 +731,9 @@ class _SettingsEditorState extends State<_SettingsEditor> {
       lastDate: cutoff,
       helpText: 'Select birthday',
     );
-    if (picked != null)
+    if (picked != null) {
       _controllers['birthday']!.text = SettingsFormat.isoDate(picked);
+    }
   }
 
   Widget _editorField(String name) {
@@ -923,11 +938,11 @@ class _SecurityScreen extends StatelessWidget {
           surfaceTintColor: Colors.transparent),
       body: ListView(
           padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
-          children: [
+          children: const [
             Text('Manage your password and sign-in methods.',
                 style: DriverText.body),
-            const SizedBox(height: 22),
-            const SignInMethodsSection()
+            SizedBox(height: 22),
+            SignInMethodsSection()
           ]));
 }
 
@@ -967,17 +982,19 @@ class _NotificationsScreenState extends State<_NotificationsScreen> {
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.message;
           _loading = false;
         });
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = 'Could not load notification preferences.';
           _loading = false;
         });
+      }
     }
   }
 

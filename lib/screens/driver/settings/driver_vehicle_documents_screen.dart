@@ -79,8 +79,9 @@ class _DriverVehicleDocumentsScreenState
       lastDate: DateTime(today.year + 30),
       helpText: 'Select the license expiry date',
     );
-    if (picked != null && mounted)
+    if (picked != null && mounted) {
       setState(() => _licenseExpiryDate = DateUtils.dateOnly(picked));
+    }
   }
 
   Future<void> _saveVehicle() async {
@@ -161,10 +162,11 @@ class _DriverVehicleDocumentsScreenState
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
                 'We couldn’t save your vehicle details. Check your connection and try again.')));
+      }
     } finally {
       if (mounted) setState(() => _savingVehicle = false);
     }
@@ -182,9 +184,10 @@ class _DriverVehicleDocumentsScreenState
       setState(() => _documents =
           Map<String, dynamic>.from(result['documents'] as Map? ?? {}));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() =>
             _documentError = 'Could not load your registration documents.');
+      }
     } finally {
       if (mounted) setState(() => _loadingDocuments = false);
     }
@@ -196,9 +199,10 @@ class _DriverVehicleDocumentsScreenState
     if (url == null || url.isEmpty) return;
     final opened =
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (!opened && mounted)
+    if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open this document.')));
+    }
   }
 
   Future<void> _cancelDocumentReplacement(String type, String label) async {
@@ -232,10 +236,11 @@ class _DriverVehicleDocumentsScreenState
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
                 'We couldn’t cancel this replacement. Check your connection and try again.')));
+      }
     } finally {
       if (mounted) setState(() => _cancellingDocuments.remove(type));
     }
@@ -252,25 +257,28 @@ class _DriverVehicleDocumentsScreenState
     final file = result.files.first;
     final bytes = file.bytes;
     if (bytes == null) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Could not read the selected file.')));
+      }
       return;
     }
     if (bytes.lengthInBytes > 5 * 1024 * 1024) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Choose a file that is 5 MB or smaller.')));
+      }
       return;
     }
     if (type == 'drivers_license' &&
         (_licenseExpiryDate == null ||
             DateUtils.dateOnly(_licenseExpiryDate!)
                 .isBefore(DateUtils.dateOnly(DateTime.now())))) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
                 'Set a license expiry date that is today or later before replacing the license.')));
+      }
       return;
     }
     try {
@@ -288,9 +296,10 @@ class _DriverVehicleDocumentsScreenState
       } catch (_) {
         // The document update succeeded; the list can refresh on pull-to-refresh.
       }
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('$label replaced and submitted for review.')));
+      }
     } on ApiException catch (error) {
       if (!mounted) return;
       final message = switch (error.statusCode ?? -1) {
@@ -315,10 +324,11 @@ class _DriverVehicleDocumentsScreenState
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
                 'Could not replace this document. Check your connection and try again.')));
+      }
     }
   }
 
@@ -377,7 +387,7 @@ class _DriverVehicleDocumentsScreenState
               SettingsGroupCard(children: rows),
               if (a.role == 'courier') ...[
                 const SizedBox(height: 16),
-                Text('Vehicle details', style: DriverText.sectionTitle),
+                const Text('Vehicle details', style: DriverText.sectionTitle),
                 const SizedBox(height: 10),
                 SettingsGroupCard(
                   padding: const EdgeInsets.all(14),
@@ -423,7 +433,7 @@ class _DriverVehicleDocumentsScreenState
               const SizedBox(height: 14),
               if (a.role == 'courier') ...[
                 const SizedBox(height: 20),
-                Text('Registration documents', style: DriverText.sectionTitle),
+                const Text('Registration documents', style: DriverText.sectionTitle),
                 const SizedBox(height: 10),
                 if (_loadingDocuments)
                   const Center(

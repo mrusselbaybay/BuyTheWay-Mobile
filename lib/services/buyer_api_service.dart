@@ -79,8 +79,9 @@ class BuyerApiService {
       final first = errors.values.first;
       if (first is List && first.isNotEmpty) message = '${first.first}';
     }
-    if (response.statusCode == 401)
+    if (response.statusCode == 401) {
       message = 'Your session has expired. Please sign in again.';
+    }
     throw ApiException(
       message: message.isEmpty
           ? 'Request failed (${response.statusCode}).'
@@ -914,14 +915,16 @@ class BuyerApiService {
         final raw = jsonDecode(response.body);
         if (raw is Map) decoded = Map<String, dynamic>.from(raw);
       } catch (_) {}
-      if (response.statusCode >= 200 && response.statusCode < 300)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return decoded;
+      }
       final errors = decoded['errors'];
       var message = decoded['message'] is String
           ? decoded['message'] as String
           : 'Upload failed (${response.statusCode}).';
-      if (errors is Map && errors.isNotEmpty && errors.values.first is List)
+      if (errors is Map && errors.isNotEmpty && errors.values.first is List) {
         message = '${(errors.values.first as List).first}';
+      }
       throw ApiException(message: message, statusCode: response.statusCode);
     } on TimeoutException {
       throw ApiException(
