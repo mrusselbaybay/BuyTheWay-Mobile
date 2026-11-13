@@ -33,9 +33,10 @@ void main() {
                 find.byWidgetPredicate((widget) => widget is ElevatedButton))
             .onPressed,
         isNull);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.text('Choose a reason'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Others').last);
+    await tester.scrollUntilVisible(find.text('Others'), 200,
+        scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Others').last);
     await tester.pumpAndSettle();
     expect(find.text('Describe what happened'), findsOneWidget);
@@ -66,7 +67,7 @@ void main() {
       (tester) async {
     (String, String?)? result;
     await openSheet(tester, (value) => result = value);
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.text('Choose a reason'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Recipient not available').last);
     await tester.pumpAndSettle();

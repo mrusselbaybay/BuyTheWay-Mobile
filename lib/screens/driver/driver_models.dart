@@ -299,6 +299,7 @@ class AssignedDelivery {
   final bool pickupAddressIsPartial;
   final String dropoffLabel;
   final String? deliveryArea;
+  bool outOfArea;
   final int parcels;
 
   /// The order's line items — what's actually inside the parcel. Empty for
@@ -396,6 +397,7 @@ class AssignedDelivery {
     this.pickupAddressIsPartial = false,
     required this.dropoffLabel,
     this.deliveryArea,
+    this.outOfArea = false,
     required this.parcels,
     this.items = const [],
     this.assignedAt,
@@ -499,6 +501,7 @@ class AssignedDelivery {
       deliveryArea: str(json['delivery_area']).isEmpty
           ? null
           : str(json['delivery_area']),
+      outOfArea: flag(json['out_of_area']),
       parcels: (json['parcels'] as num?)?.toInt() ?? 0,
       items: (json['items'] as List? ?? const [])
           .whereType<Map>()
@@ -547,6 +550,7 @@ class AssignedDelivery {
   String get fingerprint => [
         status.index,
         isDeliveryLeg,
+        outOfArea,
         handoffRequestId,
         handoffExpiresAt,
         handoffOutcome,
@@ -578,6 +582,7 @@ class AssignedDelivery {
     parcelUnits = other.parcelUnits;
     status = other.status;
     isDeliveryLeg = other.isDeliveryLeg;
+    outOfArea = other.outOfArea;
     handoffRequestId = other.handoffRequestId;
     handoffExpiresAt = other.handoffExpiresAt;
     handoffOutcome = other.handoffOutcome;

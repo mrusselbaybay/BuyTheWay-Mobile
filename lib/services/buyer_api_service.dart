@@ -394,11 +394,15 @@ class BuyerApiService {
 
   // ---------------- Checkout ----------------
 
-  Future<(List<ShippingOption>, int, List<CheckoutPaymentMethod>)>
-      shippingOptions(List<String> productIds, {String? addressId}) async {
+  Future<(List<ShippingOption>, int, List<CheckoutPaymentMethod>, Map<String, List<ShippingOption>>, bool)>
+      shippingOptions(List<String> productIds, {String? addressId, List<CartItem> lines = const []}) async {
     final query = [
       ...productIds
           .map((id) => 'product_ids[]=${Uri.encodeQueryComponent(id)}'),
+      ...lines.asMap().entries.expand((entry) => [
+        'lines[${entry.key}][product_id]=${Uri.encodeQueryComponent(entry.value.productId)}',
+        'lines[${entry.key}][quantity]=${entry.value.quantity}',
+      ]),
       if (addressId != null)
         'address_id=${Uri.encodeQueryComponent(addressId)}',
     ].join('&');
@@ -412,10 +416,20 @@ class BuyerApiService {
     final paymentMethods = _list(data['paymentMethods'])
         .map(CheckoutPaymentMethod.fromJson)
         .toList();
+    final sellerOptions = <String, List<ShippingOption>>{};
+    if (data['sellerOptions'] is Map) {
+      for (final entry in (data['sellerOptions'] as Map).entries) {
+        sellerOptions['${entry.key}'] = _list(entry.value)
+            .map(ShippingOption.fromJson)
+            .toList();
+      }
+    }
     return (
       _list(data['options']).map(ShippingOption.fromJson).toList(),
       count < 1 ? 1 : count,
-      paymentMethods
+      paymentMethods,
+      sellerOptions,
+      data['outOfArea'] == true,
     );
   }
 

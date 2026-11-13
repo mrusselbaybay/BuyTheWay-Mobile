@@ -66,27 +66,27 @@
     "semantic_hash": ""
   },
   "lib/main.dart": {
-    "mtime": 1792499914.7498777,
-    "seen": 1792512378.9174397,
-    "ast_hash": "b1cd1b287913736733d72b6fd605958b",
+    "mtime": 1793690088.1482277,
+    "seen": 1794094296.0962741,
+    "ast_hash": "17f35ad00348a033788c645a934769e3",
     "semantic_hash": ""
   },
   "lib/screens/auth/auth_screen.dart": {
-    "mtime": 1792861875.833261,
-    "seen": 1792904940.1534338,
-    "ast_hash": "7aa023c436374c7691c5cf5709f0ec91",
+    "mtime": 1793718875.7245865,
+    "seen": 1794094296.0962772,
+    "ast_hash": "a6dfb99990b90ee27a680c3613bce7c8",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/account_screen.dart": {
-    "mtime": 1792119535.1869369,
-    "seen": 1792119874.7075522,
-    "ast_hash": "28ded91fc3cdec718fa21dd02f005fee",
+    "mtime": 1794090553.044024,
+    "seen": 1794094296.0962803,
+    "ast_hash": "f3cfe1629527d809a2c07432a857587e",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/address_form_screen.dart": {
-    "mtime": 1791955407.4053817,
-    "seen": 1791988087.8555293,
-    "ast_hash": "315c9116615c0b5f495407fdfe5a1f64",
+    "mtime": 1793716597.699642,
+    "seen": 1794094296.0962832,
+    "ast_hash": "5234f26758a7c6d38256a93b20233871",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/addresses_screen.dart": {
@@ -108,15 +108,15 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/profile_screen.dart": {
-    "mtime": 1791955903.260805,
-    "seen": 1791988087.855545,
-    "ast_hash": "e0d1bad753920601b091ea90d7756d15",
+    "mtime": 1793716629.6398172,
+    "seen": 1794094296.0963254,
+    "ast_hash": "ec6b4734fcec120e10b91b507d660d59",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/settings_screens.dart": {
-    "mtime": 1792512347.7861362,
-    "seen": 1792512378.917469,
-    "ast_hash": "f30840317314a1520972c2b3c5c8ccd5",
+    "mtime": 1793717334.3109465,
+    "seen": 1794094296.0963316,
+    "ast_hash": "5325bf97e9ae8905ed803275cd24a2d3",
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/vouchers_screen.dart": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/account/wishlist_screen.dart": {
-    "mtime": 1791988172.1701221,
-    "seen": 1791988199.0661244,
-    "ast_hash": "aa8141c1eddf0b0fc402ba8455d6d8d0",
+    "mtime": 1793713763.2010758,
+    "seen": 1794094296.0963364,
+    "ast_hash": "a8ef22a130dc0c31bef4d755d1456624",
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_models.dart": {
@@ -138,15 +138,15 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_shell.dart": {
-    "mtime": 1792499958.319288,
-    "seen": 1792512378.9174776,
-    "ast_hash": "a8de788ac4849e5c8516fd052dd2b4e2",
+    "mtime": 1793719882.223264,
+    "seen": 1794094296.0963416,
+    "ast_hash": "786f606188f81e01d8b7893200b15613",
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_store.dart": {
-    "mtime": 1792499958.3180683,
-    "seen": 1792512378.9174798,
-    "ast_hash": "71e8eb0f561577b6373cf4e86c9a5a72",
+    "mtime": 1793624372.0410173,
+    "seen": 1794094296.0963435,
+    "ast_hash": "d3c9e66189a952bd7b6320f5bc3d1c82",
     "semantic_hash": ""
   },
   "lib/screens/buyer/buyer_theme.dart": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/cart/cart_screen.dart": {
-    "mtime": 1792428695.5032368,
-    "seen": 1792428861.4649189,
-    "ast_hash": "266f2fb08e08a75f293f1878a6c90d73",
+    "mtime": 1793719880.6080127,
+    "seen": 1794094296.0963511,
+    "ast_hash": "0286e18d5aadeff49304b4c80956146d",
     "semantic_hash": ""
   },
   "lib/screens/buyer/catalog/categories_screen.dart": {
@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/checkout_screen.dart": {
-    "mtime": 1792428760.4927673,
-    "seen": 1792428861.464944,
-    "ast_hash": "ccd20281927739159ecd95fec0f2cde2",
+    "mtime": 1792939301.9184928,
+    "seen": 1794094296.0963786,
+    "ast_hash": "755ad3d21c177e57efb47e9813750964",
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/order_placed_screen.dart": {
@@ -222,15 +222,15 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/orders_screen.dart": {
-    "mtime": 1792428707.791574,
-    "seen": 1792428861.4649582,
-    "ast_hash": "155008ee1708c7e714c9b82e1cf46def",
+    "mtime": 1793719883.758782,
+    "seen": 1794094296.0963945,
+    "ast_hash": "cb2f8fb9ce8fc85e9e82e4f7af2552c6",
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/return_request_screen.dart": {
-    "mtime": 1792152831.9720109,
-    "seen": 1792428861.4649646,
-    "ast_hash": "9846bcfb51b4faaa598ff1d340d7a441",
+    "mtime": 1792939301.9250245,
+    "seen": 1794094296.096403,
+    "ast_hash": "2aadecf19cdea88b6193077d778890fa",
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/review_sheet.dart": {
@@ -264,9 +264,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/buyer_nav_bar.dart": {
-    "mtime": 1791992579.5437872,
-    "seen": 1792119874.7076719,
-    "ast_hash": "ad1def72d433f174a79395109a048a80",
+    "mtime": 1793719361.9883482,
+    "seen": 1794094296.0964231,
+    "ast_hash": "d33fdcd261e8a81fb0b5f7eb34d4b29f",
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/buyer_widgets.dart": {
@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/auth/driver_login_screen.dart": {
-    "mtime": 1792673974.0565312,
-    "seen": 1792904940.15372,
-    "ast_hash": "613cc5b5a792d0d75b22ce1b4964a14f",
+    "mtime": 1793624361.2108216,
+    "seen": 1794094296.0964425,
+    "ast_hash": "b75e273c5bd9e0293897c5b7b9b90dbe",
     "semantic_hash": ""
   },
   "lib/screens/driver/auth/driver_otp_screen.dart": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/chat/driver_chat_controller.dart": {
-    "mtime": 1792504696.1014822,
-    "seen": 1792512378.9175787,
-    "ast_hash": "83785a5b23c530da0ec35ad368e251d5",
+    "mtime": 1792939301.927273,
+    "seen": 1794094296.096459,
+    "ast_hash": "3769707ab92dc421ac790265f1423efb",
     "semantic_hash": ""
   },
   "lib/screens/driver/chat/driver_chat_conversation_screen.dart": {
@@ -336,9 +336,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/chat/driver_chat_list_screen.dart": {
-    "mtime": 1792429595.570329,
-    "seen": 1792429760.1460197,
-    "ast_hash": "2f23875a3e918f02409b28dfe0cf0085",
+    "mtime": 1793703525.4474938,
+    "seen": 1794094296.0964649,
+    "ast_hash": "c5303ba3ffab1b50718fefff8d92b947",
     "semantic_hash": ""
   },
   "lib/screens/driver/chat/driver_delivery_message_screen.dart": {
@@ -348,15 +348,15 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/assigned_delivery_detail_screen.dart": {
-    "mtime": 1792752853.4519832,
-    "seen": 1792904940.1537771,
-    "ast_hash": "7997af8fbc4320b7e608401512df76d6",
+    "mtime": 1794116595.9315476,
+    "seen": 1794116674.4689708,
+    "ast_hash": "d103375a1642f06d0dada9d5ffe638a8",
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/driver_deliveries_screen.dart": {
-    "mtime": 1792754190.6292725,
-    "seen": 1792904940.1537812,
-    "ast_hash": "1fa84fed6f18e74c41641bfa7e687c4f",
+    "mtime": 1794116631.3851202,
+    "seen": 1794116674.4689744,
+    "ast_hash": "144b1e1b2eaf33bf4ad248985e302751",
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/failed_attempt_sheet.dart": {
@@ -366,27 +366,27 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/deliveries/qr_scan_screen.dart": {
-    "mtime": 1789997978.6158352,
-    "seen": 1791944481.7263813,
-    "ast_hash": "7305122454b36f0dc95d6c2b37306bae",
+    "mtime": 1794052257.1707735,
+    "seen": 1794094296.0964773,
+    "ast_hash": "0e19742f8a7c348a8f9515565ac7aaa0",
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_models.dart": {
-    "mtime": 1792752898.4001956,
-    "seen": 1792904940.153798,
-    "ast_hash": "948f37c3f2bd87899a167a1dd9758fb4",
+    "mtime": 1794116445.9100516,
+    "seen": 1794116674.4689822,
+    "ast_hash": "4ebd3941d52888c750db77879baf0662",
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_shell.dart": {
-    "mtime": 1792907136.8577933,
-    "seen": 1792907221.5946295,
-    "ast_hash": "2b2764afe05b21c67a280a18f02d181d",
+    "mtime": 1794018970.5502203,
+    "seen": 1794094296.0964818,
+    "ast_hash": "0e35b86adef54faa649ab5d538ffbb25",
     "semantic_hash": ""
   },
   "lib/screens/driver/driver_theme.dart": {
-    "mtime": 1788411317.9992304,
-    "seen": 1791944481.7263868,
-    "ast_hash": "e53dc902ed9697e2f5af6e50eed79d00",
+    "mtime": 1793625404.8165812,
+    "seen": 1794094296.0964844,
+    "ast_hash": "fa3b2e710aa2552f586ecf2243d7a82e",
     "semantic_hash": ""
   },
   "lib/screens/driver/earnings/driver_earnings_screen.dart": {
@@ -402,9 +402,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/history/driver_history_screen.dart": {
-    "mtime": 1788782885.929948,
-    "seen": 1791944481.726392,
-    "ast_hash": "e47ade64166455677de7d43e859bccd5",
+    "mtime": 1793703310.172643,
+    "seen": 1794094296.0964942,
+    "ast_hash": "309831fe76ddb93845695beb960a459e",
     "semantic_hash": ""
   },
   "lib/screens/driver/home/deliver_order_screen.dart": {
@@ -414,9 +414,9 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/home/delivery_request_details_screen.dart": {
-    "mtime": 1792752932.5132346,
-    "seen": 1792904940.1538389,
-    "ast_hash": "df3f4ff7116428c90f6ecbfb5e33a2e2",
+    "mtime": 1792939301.9422727,
+    "seen": 1794094296.0965018,
+    "ast_hash": "e7057d2c8d13808495beb1d8738a8ea5",
     "semantic_hash": ""
   },
   "lib/screens/driver/home/driver_home_screen.dart": {
@@ -432,39 +432,39 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_change_password_sheet.dart": {
-    "mtime": 1788783067.819227,
-    "seen": 1791944481.7264006,
-    "ast_hash": "532c1468ac9b8b75c345e2e32febfc12",
+    "mtime": 1792939301.9422727,
+    "seen": 1794094296.0965168,
+    "ast_hash": "b471c23029db22f03ed7a875c3ec4921",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_deactivate_account_dialog.dart": {
-    "mtime": 1788530791.882097,
-    "seen": 1791944481.726402,
-    "ast_hash": "f41d0db572368da08c55545199a73d9d",
+    "mtime": 1794090553.0588212,
+    "seen": 1794094296.0965202,
+    "ast_hash": "e274258d7c08e9c5a515494df93155e6",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_profile_info_screen.dart": {
-    "mtime": 1788782973.322504,
-    "seen": 1791944481.7264035,
-    "ast_hash": "abf8047efb03b4b3e8edf90d38b9b7c4",
+    "mtime": 1793716534.7922323,
+    "seen": 1794094296.0965228,
+    "ast_hash": "8d51cd15bc66dddf8c65aeff5c6e8716",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_settings_screen.dart": {
-    "mtime": 1792512323.8277917,
-    "seen": 1792512378.9176354,
-    "ast_hash": "3a8fdb57acfe8370f750dbc0d775743f",
+    "mtime": 1794018969.0467882,
+    "seen": 1794094296.0965257,
+    "ast_hash": "d6cd084fad83ca2652c1aa5496a96dd2",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/driver_vehicle_documents_screen.dart": {
-    "mtime": 1788782605.3924239,
-    "seen": 1791944481.7264068,
-    "ast_hash": "47d1f559417d0ff7d7a5bcbc7fa2f868",
+    "mtime": 1794090553.0600345,
+    "seen": 1794094296.0965278,
+    "ast_hash": "89c44b75adf58a9ccb3e8c357ca16f44",
     "semantic_hash": ""
   },
   "lib/screens/driver/settings/widgets/settings_widgets.dart": {
-    "mtime": 1788782458.4907348,
-    "seen": 1791944481.7264087,
-    "ast_hash": "a0b50db6569ef5a8fcd5c9094aedecf1",
+    "mtime": 1792939301.959274,
+    "seen": 1794094296.0965302,
+    "ast_hash": "92ba2ab706d744ff8eb353bda0723e77",
     "semantic_hash": ""
   },
   "lib/screens/driver/widgets/driver_nav_bar.dart": {
@@ -486,81 +486,81 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/work/driver_work_screen.dart": {
-    "mtime": 1788782885.9349442,
-    "seen": 1791944481.7264159,
-    "ast_hash": "20e42af66daa2efa934f5d24b6ef3c13",
+    "mtime": 1794090553.065032,
+    "seen": 1794094296.0965412,
+    "ast_hash": "72ce5c248132f8d985c523537cd46e4a",
     "semantic_hash": ""
   },
   "lib/screens/logistics/dashboard/logistics_dashboard_screen.dart": {
-    "mtime": 1792563543.9398904,
-    "seen": 1792563728.7409933,
-    "ast_hash": "d1324e483f2ca77b96eb7d61dbb94570",
+    "mtime": 1794090553.066476,
+    "seen": 1794094296.096544,
+    "ast_hash": "01663beee679cfffd1c16185814056f8",
     "semantic_hash": ""
   },
   "lib/screens/logistics/inventory/inventory_detail_screen.dart": {
-    "mtime": 1792563630.629812,
-    "seen": 1792563728.7409992,
-    "ast_hash": "1b0ae709df8013bd408e0ba6a919b782",
+    "mtime": 1793711713.240995,
+    "seen": 1794094296.0965466,
+    "ast_hash": "e5554e3a30da44a5787dcb92b8d720a0",
     "semantic_hash": ""
   },
   "lib/screens/logistics/inventory/logistics_inventory_screen.dart": {
-    "mtime": 1792563544.1459284,
-    "seen": 1792563728.7410035,
-    "ast_hash": "d817071a720b8596421ff8367fb7460f",
+    "mtime": 1794090553.067526,
+    "seen": 1794094296.096549,
+    "ast_hash": "69d6099305a3f6eef048e8260ca2c23a",
     "semantic_hash": ""
   },
   "lib/screens/logistics/logistics_models.dart": {
-    "mtime": 1792433281.3309557,
-    "seen": 1792433446.8530624,
-    "ast_hash": "1bddee38db5977ef67293d1fb78b0b8a",
+    "mtime": 1793711984.3876736,
+    "seen": 1794094296.0965517,
+    "ast_hash": "204f11bc3aaee0acc990cf3fd0d2c5af",
     "semantic_hash": ""
   },
   "lib/screens/logistics/logistics_shell.dart": {
-    "mtime": 1792499963.0246809,
-    "seen": 1792512378.9176588,
-    "ast_hash": "721b21fb44029b34cc1a2438a737f24b",
+    "mtime": 1793718354.7759292,
+    "seen": 1794094296.0965545,
+    "ast_hash": "4fe7c8fb1a56bdbaf51570a144201c07",
     "semantic_hash": ""
   },
   "lib/screens/logistics/settings/logistics_settings_screen.dart": {
-    "mtime": 1792563630.3490746,
-    "seen": 1792563728.7410316,
-    "ast_hash": "cf7c4d042b353fb7efce2f7f10b6bb33",
+    "mtime": 1794090553.0695357,
+    "seen": 1794094296.096563,
+    "ast_hash": "247c3e7454f3627b222bdfec8ffe74aa",
     "semantic_hash": ""
   },
   "lib/screens/logistics/widgets/logistics_nav_bar.dart": {
-    "mtime": 1792563544.2002604,
-    "seen": 1792563728.7410357,
-    "ast_hash": "8c9eedc800349c8074afc524ce23b14d",
+    "mtime": 1793713693.4391005,
+    "seen": 1794094296.096566,
+    "ast_hash": "176a38492f97f81eef547b43958cf83e",
     "semantic_hash": ""
   },
   "lib/screens/pickup_courier/courier_dashboard.dart": {
-    "mtime": 1791013754.453712,
-    "seen": 1791944481.7264318,
-    "ast_hash": "a9cba99cfc8ca2b6571fd0fbebbc1670",
+    "mtime": 1794090553.0729022,
+    "seen": 1794094296.0965683,
+    "ast_hash": "a44de88a506d4ca2e5ee2d9c8d9f570e",
     "semantic_hash": ""
   },
   "lib/screens/splash/brand_splash_screen.dart": {
-    "mtime": 1790918352.5773046,
-    "seen": 1791944481.7264335,
-    "ast_hash": "93284f41e1f59830cff6056a81027d2c",
+    "mtime": 1793624347.414036,
+    "seen": 1794094296.0965903,
+    "ast_hash": "06e2ec4f977bb9dd50f30e21086d4bd7",
     "semantic_hash": ""
   },
   "lib/services/api_service.dart": {
-    "mtime": 1792677985.6160095,
-    "seen": 1792904940.154001,
-    "ast_hash": "cf168730840643f20a557405407063ad",
+    "mtime": 1793717333.7593083,
+    "seen": 1794094296.0965931,
+    "ast_hash": "7f1ade5d7474133e91495d279dd4a5c4",
     "semantic_hash": ""
   },
   "lib/services/buyer_api_service.dart": {
-    "mtime": 1792431646.4836922,
-    "seen": 1792433446.8530967,
-    "ast_hash": "951da51a938d0eec89e359e866cedc14",
+    "mtime": 1794090553.0778902,
+    "seen": 1794094296.0965955,
+    "ast_hash": "75d4662923bb69d6ba11da192036e6e3",
     "semantic_hash": ""
   },
   "lib/widgets/brand_logo.dart": {
-    "mtime": 1790918351.2354753,
-    "seen": 1791944481.726439,
-    "ast_hash": "ec93e65febcdf20abd89c4d64d942928",
+    "mtime": 1792939301.9808471,
+    "seen": 1794094296.0966167,
+    "ast_hash": "9dacbb84289b1e166fa734fd2efdd372",
     "semantic_hash": ""
   },
   "lib/widgets/buttons/outline_action_button.dart": {
@@ -570,9 +570,9 @@
     "semantic_hash": ""
   },
   "lib/widgets/common.dart": {
-    "mtime": 1788785943.8763056,
-    "seen": 1791944481.7264423,
-    "ast_hash": "4623c20e0796e2f5926b07df19b98c87",
+    "mtime": 1792939302.0241714,
+    "seen": 1794094296.0966222,
+    "ast_hash": "d8b4f1738b051de2d2b365c8afc2afc2",
     "semantic_hash": ""
   },
   "lib/widgets/image_crop_sheet.dart": {
@@ -594,9 +594,9 @@
     "semantic_hash": ""
   },
   "lib/widgets/side_panel.dart": {
-    "mtime": 1788785943.940173,
-    "seen": 1791944481.726449,
-    "ast_hash": "52e8dcc4163addbe2c8b2f40691de34f",
+    "mtime": 1793704172.1732035,
+    "seen": 1794094296.0966358,
+    "ast_hash": "d882960c3936889aa53d9d17dc9ac263",
     "semantic_hash": ""
   },
   "lib/widgets/solid_ui.dart": {
@@ -672,9 +672,9 @@
     "semantic_hash": ""
   },
   "test/widget_test.dart": {
-    "mtime": 1786945427.6152136,
-    "seen": 1791944481.7264695,
-    "ast_hash": "f1d12b102f31c83f4c2f4998721925f0",
+    "mtime": 1793597140.517878,
+    "seen": 1794094296.096694,
+    "ast_hash": "5d53e7a616f390cc8b7c9a8c01480393",
     "semantic_hash": ""
   },
   "web/manifest.json": {
@@ -798,9 +798,9 @@
     "semantic_hash": ""
   },
   "pubspec.yaml": {
-    "mtime": 1792499793.5888898,
-    "seen": 1792512378.917809,
-    "ast_hash": "82d52f086cbf4da3919e8f77994c7033",
+    "mtime": 1793118307.392499,
+    "seen": 1794094296.0971029,
+    "ast_hash": "187aa1e28bc52d0f043cc5b1d98d31a2",
     "semantic_hash": ""
   },
   "web/index.html": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/catalog/store_screen.dart": {
-    "mtime": 1791994010.9206004,
-    "seen": 1792119874.7076206,
-    "ast_hash": "56a4e796368e4a671f088385cd4a34de",
+    "mtime": 1792939301.9194932,
+    "seen": 1794094296.0963671,
+    "ast_hash": "742042258d5425a41872708fb212af0a",
     "semantic_hash": ""
   },
   "lib/screens/buyer/checkout/voucher_quote.dart": {
@@ -1152,9 +1152,9 @@
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/parcel_tracking.dart": {
-    "mtime": 1791990512.3907647,
-    "seen": 1792119874.707649,
-    "ast_hash": "64243f25c8fabe283c4fdb1cd4e696a6",
+    "mtime": 1793627276.329515,
+    "seen": 1794094296.0963979,
+    "ast_hash": "dc09770149517bfe4da78c4a7cf91e7a",
     "semantic_hash": ""
   },
   "lib/screens/buyer/orders/report_delivered_sheet.dart": {
@@ -1170,9 +1170,9 @@
     "semantic_hash": ""
   },
   "lib/screens/remittances/remittance_detail_screen.dart": {
-    "mtime": 1792429705.7966883,
-    "seen": 1792429760.1461089,
-    "ast_hash": "be9e13eafff7e8817099207b7be7ff3e",
+    "mtime": 1794090553.0748913,
+    "seen": 1794094296.0965772,
+    "ast_hash": "ebbd091fa4c3eccaabc58553f226b990",
     "semantic_hash": ""
   },
   "lib/screens/remittances/remittance_format.dart": {
@@ -1188,9 +1188,9 @@
     "semantic_hash": ""
   },
   "lib/screens/remittances/remittances_screen.dart": {
-    "mtime": 1792429705.7950835,
-    "seen": 1792429760.1461155,
-    "ast_hash": "f08e7b15ba25814dfec1872a45c57d98",
+    "mtime": 1794090553.0748913,
+    "seen": 1794094296.0965855,
+    "ast_hash": "9c12ce643f6c1621cc0dadb61d0cfb0a",
     "semantic_hash": ""
   },
   "lib/screens/remittances/seller_remittances_screen.dart": {
@@ -1206,9 +1206,9 @@
     "semantic_hash": ""
   },
   "test/remittances_test.dart": {
-    "mtime": 1792119991.7457695,
-    "seen": 1792120077.521873,
-    "ast_hash": "3356ab649abb397cade4d6bbd612ee9e",
+    "mtime": 1793597255.9735932,
+    "seen": 1794094296.0966892,
+    "ast_hash": "da96ed798de8ce92a92e6fba7c17d51e",
     "semantic_hash": ""
   },
   "lib/screens/buyer/widgets/buyer_payment_qr_card.dart": {
@@ -1218,15 +1218,15 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/home/courier_home_screen.dart": {
-    "mtime": 1792434729.0127227,
-    "seen": 1792434872.0467432,
-    "ast_hash": "2436da8fc703618d1251a27dd7b64eea",
+    "mtime": 1794090553.0532835,
+    "seen": 1794094296.0964963,
+    "ast_hash": "19dbac753e43e07aa34f8ea0f8c2eff2",
     "semantic_hash": ""
   },
   "lib/screens/remittances/payment_qr_screen.dart": {
-    "mtime": 1792219867.798051,
-    "seen": 1792428861.4651077,
-    "ast_hash": "6b01aff814711222ee43df0eb9be4bf3",
+    "mtime": 1792939301.9808471,
+    "seen": 1794094296.0965707,
+    "ast_hash": "2bf01f207ac1d1c3084ce714827a1d72",
     "semantic_hash": ""
   },
   "lib/services/poller.dart": {
@@ -1242,9 +1242,9 @@
     "semantic_hash": ""
   },
   "lib/screens/logistics/notifications/logistics_notifications_screen.dart": {
-    "mtime": 1792434656.6889968,
-    "seen": 1792434872.046801,
-    "ast_hash": "259950b6a5ebfdf3545c91dea86be6a2",
+    "mtime": 1794090553.067526,
+    "seen": 1794094296.0965605,
+    "ast_hash": "7f6d3ac44033632f1f310d3c0595af04",
     "semantic_hash": ""
   },
   "lib/screens/driver/notifications/driver_notification_bell.dart": {
@@ -1254,15 +1254,15 @@
     "semantic_hash": ""
   },
   "lib/screens/driver/notifications/driver_notifications_screen.dart": {
-    "mtime": 1792906710.2368333,
-    "seen": 1792906873.2691264,
-    "ast_hash": "9f88940fb0aee13f2b18970ae5518ad3",
+    "mtime": 1793689922.7336693,
+    "seen": 1794094296.0965126,
+    "ast_hash": "13fc236c8cfc9a7e09547f45a4826931",
     "semantic_hash": ""
   },
   "lib/screens/driver/notifications/notification_inbox.dart": {
-    "mtime": 1792434610.9046276,
-    "seen": 1792434872.046762,
-    "ast_hash": "b26d2953af24ecb298b1c9c46346de30",
+    "mtime": 1794090553.0588212,
+    "seen": 1794094296.0965145,
+    "ast_hash": "56626b9890c9a9758433b8cbe7540d44",
     "semantic_hash": ""
   },
   "android/app/google-services.json": {
@@ -1290,9 +1290,9 @@
     "semantic_hash": ""
   },
   "lib/services/push_service.dart": {
-    "mtime": 1792906677.0561326,
-    "seen": 1792906873.2693133,
-    "ast_hash": "c069b2554c600108cf826805534ba754",
+    "mtime": 1792939301.9808471,
+    "seen": 1794094296.0966053,
+    "ast_hash": "3474dc6d856ba19b6ab2b92e0e4e54db",
     "semantic_hash": ""
   },
   "lib/widgets/sign_in_methods_section.dart": {
@@ -1329,6 +1329,1260 @@
     "mtime": 1792906910.7229056,
     "seen": 1792906957.0449324,
     "ast_hash": "0eaa7f187fe162af6dac8f1aee27af8a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/ui-catalog.json": {
+    "mtime": 1793116227.7980063,
+    "seen": 1794094296.096151,
+    "ast_hash": "c326fbb5e677bc1ad06a3dc2121d6506",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/package.json": {
+    "mtime": 1793116227.8443766,
+    "seen": 1794094296.0961645,
+    "ast_hash": "34c94ddafafccff71779d645c852f512",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/scripts/install-local.ps1": {
+    "mtime": 1793116227.859372,
+    "seen": 1794094296.096173,
+    "ast_hash": "5034cf1e8e9b823a9ae962b78ad6c38b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/scripts/render-previews.mjs": {
+    "mtime": 1793116227.8603714,
+    "seen": 1794094296.0961783,
+    "ast_hash": "86ee2173904d46a81ef6f8666016e4e4",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/scripts/verify-assets.mjs": {
+    "mtime": 1793116227.8643718,
+    "seen": 1794094296.0961843,
+    "ast_hash": "b87a83bd3179a779243bd1607a055b7f",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/ui-catalog.json": {
+    "mtime": 1793116227.7980063,
+    "seen": 1794094296.096189,
+    "ast_hash": "c326fbb5e677bc1ad06a3dc2121d6506",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/package.json": {
+    "mtime": 1793116227.8443766,
+    "seen": 1794094296.0961926,
+    "ast_hash": "34c94ddafafccff71779d645c852f512",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/scripts/install-local.ps1": {
+    "mtime": 1793116227.859372,
+    "seen": 1794094296.0961947,
+    "ast_hash": "5034cf1e8e9b823a9ae962b78ad6c38b",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/scripts/render-previews.mjs": {
+    "mtime": 1793116227.8603714,
+    "seen": 1794094296.0961971,
+    "ast_hash": "86ee2173904d46a81ef6f8666016e4e4",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/scripts/verify-assets.mjs": {
+    "mtime": 1793116227.8643718,
+    "seen": 1794094296.0961998,
+    "ast_hash": "b87a83bd3179a779243bd1607a055b7f",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/ui-catalog.json": {
+    "mtime": 1793116227.7980063,
+    "seen": 1794094296.0962017,
+    "ast_hash": "c326fbb5e677bc1ad06a3dc2121d6506",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/package.json": {
+    "mtime": 1793116227.8443766,
+    "seen": 1794094296.0962038,
+    "ast_hash": "34c94ddafafccff71779d645c852f512",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/scripts/install-local.ps1": {
+    "mtime": 1793116227.859372,
+    "seen": 1794094296.0962067,
+    "ast_hash": "5034cf1e8e9b823a9ae962b78ad6c38b",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/scripts/render-previews.mjs": {
+    "mtime": 1793116227.8603714,
+    "seen": 1794094296.0962083,
+    "ast_hash": "86ee2173904d46a81ef6f8666016e4e4",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/scripts/verify-assets.mjs": {
+    "mtime": 1793116227.8643718,
+    "seen": 1794094296.0962105,
+    "ast_hash": "b87a83bd3179a779243bd1607a055b7f",
+    "semantic_hash": ""
+  },
+  "lib/screens/logistics/logistics_theme.dart": {
+    "mtime": 1793152672.1428661,
+    "seen": 1794094296.0965574,
+    "ast_hash": "df9aa3cb21f35862e8e9a44786cfc002",
+    "semantic_hash": ""
+  },
+  "lib/services/user_error_handler.dart": {
+    "mtime": 1793689888.4872806,
+    "seen": 1794094296.096611,
+    "ast_hash": "b36f739427017f87d63d343d41624ce5",
+    "semantic_hash": ""
+  },
+  "lib/utils/profile_field_validators.dart": {
+    "mtime": 1793716522.5234277,
+    "seen": 1794094296.0966134,
+    "ast_hash": "9b2b4e005b584983ff3cf9458423b955",
+    "semantic_hash": ""
+  },
+  "lib/widgets/session_recovery_state.dart": {
+    "mtime": 1793718386.2304814,
+    "seen": 1794094296.0966337,
+    "ast_hash": "fac29d528a47f7d28555c9d27072475b",
+    "semantic_hash": ""
+  },
+  "skills-lock.json": {
+    "mtime": 1793116291.9183738,
+    "seen": 1794094296.0966735,
+    "ast_hash": "b1b2a1c12ffb2d42bea30761b17e85e1",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/AGENTS.md": {
+    "mtime": 1793116227.7234488,
+    "seen": 1794094296.0967395,
+    "ast_hash": "b3489ff385378dc265e66d98fb103d42",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/README.md": {
+    "mtime": 1793116227.7254481,
+    "seen": 1794094296.0967414,
+    "ast_hash": "44a7e1c73afb53b31079be8697306c8a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/SKILL.md": {
+    "mtime": 1793116227.7272851,
+    "seen": 1794094296.0967438,
+    "ast_hash": "12dd822eb1c4d6194973d11feec8e0b8",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/agents/openai.yaml": {
+    "mtime": 1793116227.729303,
+    "seen": 1794094296.096746,
+    "ast_hash": "349cc601e17a667430f984d82f586d60",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/01-finance-command/index.html": {
+    "mtime": 1793116227.803022,
+    "seen": 1794094296.096748,
+    "ast_hash": "1eb1dca07e0d000e6e5239b1cd78f6ad",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/02-wellness-rhythm/index.html": {
+    "mtime": 1793116227.8069947,
+    "seen": 1794094296.09675,
+    "ast_hash": "7763ae4e41d640cf7c44d45ee74469b4",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/03-travel-scout/index.html": {
+    "mtime": 1793116227.8095746,
+    "seen": 1794094296.0967522,
+    "ast_hash": "75d1687638f0849fa282660663211d6a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/04-food-market/index.html": {
+    "mtime": 1793116227.8192332,
+    "seen": 1794094296.0967538,
+    "ast_hash": "73623bea2358bbf5c0f3a6b15631dce5",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/05-learning-lab/index.html": {
+    "mtime": 1793116227.8211415,
+    "seen": 1794094296.0967565,
+    "ast_hash": "47a7827e232cda2510f38b3b29ef81e9",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/06-music-studio/index.html": {
+    "mtime": 1793116227.8301547,
+    "seen": 1794094296.0967584,
+    "ast_hash": "da27c5b4bd19a0a35da93b02c083da31",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/07-home-energy/index.html": {
+    "mtime": 1793116227.8331544,
+    "seen": 1794094296.0967603,
+    "ast_hash": "169d413410157df1e49d600888072759",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/08-fashion-wardrobe/index.html": {
+    "mtime": 1793116227.83536,
+    "seen": 1794094296.0967624,
+    "ast_hash": "39f28ead02ea4e601e22567a5b6336ab",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/09-medical-companion/index.html": {
+    "mtime": 1793116227.838377,
+    "seen": 1794094296.0967643,
+    "ast_hash": "d4b1aace0a39e2150b2c5dca3d67bae3",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/cases/10-social-events/index.html": {
+    "mtime": 1793116227.8403766,
+    "seen": 1794094296.0967665,
+    "ast_hash": "972264a481e87039b1946ecec0d18368",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/references/app-ui-playbook.md": {
+    "mtime": 1793116227.8483756,
+    "seen": 1794094296.0967681,
+    "ast_hash": "e4505842defb740359106cc0828f81b1",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/references/case-catalog.md": {
+    "mtime": 1793116227.8493717,
+    "seen": 1794094296.09677,
+    "ast_hash": "d3f00fee1b2da7ef1d922b5592137de3",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/references/research-notes.md": {
+    "mtime": 1793116227.8513703,
+    "seen": 1794094296.0967722,
+    "ast_hash": "1b67d3111ec501561b3e6dcee43d825b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/references/source-preview-contract.md": {
+    "mtime": 1793116227.8523757,
+    "seen": 1794094296.096774,
+    "ast_hash": "4244d45ab605e90f6fa7b1a88604c3cb",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/01-aurora-bank/home.html": {
+    "mtime": 1793116227.8683722,
+    "seen": 1794094296.0967765,
+    "ast_hash": "4b9b42aee16cf4b5c923644521469a5d",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/01-aurora-bank/insights.html": {
+    "mtime": 1793116227.8703744,
+    "seen": 1794094296.0967784,
+    "ast_hash": "d25dbe9b91c50162856f5d4f99c9e8c9",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/01-aurora-bank/transfer.html": {
+    "mtime": 1793116227.8723745,
+    "seen": 1794094296.0967805,
+    "ast_hash": "e1ad11cf0d30fe0cc095a82dde294de8",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/02-pulse-care/meds.html": {
+    "mtime": 1793116227.874372,
+    "seen": 1794094296.0967824,
+    "ast_hash": "d6fec463a9293a456fa431ba8317c3a1",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/02-pulse-care/overview.html": {
+    "mtime": 1793116227.875375,
+    "seen": 1794094296.0967844,
+    "ast_hash": "af954ad461f02a7b45158399bd9072cb",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/02-pulse-care/visit.html": {
+    "mtime": 1793116227.8773742,
+    "seen": 1794094296.0967865,
+    "ast_hash": "3acf484e74f796ef00d7a2de0ded9db7",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/03-nomad-trip/discover.html": {
+    "mtime": 1793116227.880372,
+    "seen": 1794094296.0967903,
+    "ast_hash": "225e602002e30c8e1633c97918ca8417",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/03-nomad-trip/itinerary.html": {
+    "mtime": 1793116227.881374,
+    "seen": 1794094296.0967941,
+    "ast_hash": "bedf835837b6129be33539b95c2b1415",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/03-nomad-trip/pass.html": {
+    "mtime": 1793116227.8833735,
+    "seen": 1794094296.0967984,
+    "ast_hash": "d698e476838b2ae5d24dcb0cb8dd9939",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/04-bento-market/checkout.html": {
+    "mtime": 1793116227.8863719,
+    "seen": 1794094296.0968013,
+    "ast_hash": "95eda650838defef3a99b49c7fff4d01",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/04-bento-market/discover.html": {
+    "mtime": 1793116227.8873734,
+    "seen": 1794094296.0968034,
+    "ast_hash": "e48d8006a695b934518b25c3c5e57e76",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/04-bento-market/menu.html": {
+    "mtime": 1793116227.8893738,
+    "seen": 1794094296.0968053,
+    "ast_hash": "7ef9601e8142d5d8f2776868ffdd929b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/05-frame-studio/analytics.html": {
+    "mtime": 1793116227.891369,
+    "seen": 1794094296.0968077,
+    "ast_hash": "5b3c11647a699f10076d5a54dc172d90",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/05-frame-studio/editor.html": {
+    "mtime": 1793116227.8933759,
+    "seen": 1794094296.0968094,
+    "ast_hash": "f212ef8dc385852304d2ec387f3d754a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/themes/05-frame-studio/projects.html": {
+    "mtime": 1793116227.8953874,
+    "seen": 1794094296.0968118,
+    "ast_hash": "8bbc0c6694e138fbe76f43ba65c14e14",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/INIT.md": {
+    "mtime": 1792942024.577216,
+    "seen": 1794094296.0968137,
+    "ast_hash": "4678e91850d70f17931df44f289783c9",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/SKILL.md": {
+    "mtime": 1792942024.5782123,
+    "seen": 1794094296.0968153,
+    "ast_hash": "2a30714cb8f101a899c7d6b1ce63eecc",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/SUPERDESIGN.md": {
+    "mtime": 1792942024.579428,
+    "seen": 1794094296.0968177,
+    "ast_hash": "001240a25e2fe1e140f3571ff6183a1b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/agents/openai.yaml": {
+    "mtime": 1792942024.5823083,
+    "seen": 1794094296.0968196,
+    "ast_hash": "9ce1490ef538c73e43f191cbe8b5923d",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/ASSET_GENERATION.md": {
+    "mtime": 1792942024.5848918,
+    "seen": 1794094296.0968215,
+    "ast_hash": "61e0a42c18b894171f12b54ec70bb9d0",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/COMPONENTS.md": {
+    "mtime": 1792942024.5861914,
+    "seen": 1794094296.0968237,
+    "ast_hash": "0333be9201194be0d4abf98d1af7362f",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/GRAPHIC.md": {
+    "mtime": 1792942024.5868785,
+    "seen": 1794094296.0968258,
+    "ast_hash": "cf1984effbb64749073a8039acbbba05",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/INIT.md": {
+    "mtime": 1792942024.587884,
+    "seen": 1794094296.0968282,
+    "ast_hash": "335f41c250a89545a2af340a7b0ea721",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/PRESENTATION.md": {
+    "mtime": 1792942024.5893636,
+    "seen": 1794094296.0968301,
+    "ast_hash": "acc3213da1b5dba9a7fc728e6ad2595f",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/RESUME.md": {
+    "mtime": 1792942024.5913594,
+    "seen": 1794094296.0968323,
+    "ast_hash": "adf7b15e8592ea2c110ebd343abd8dc8",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/SUPERDESIGN.md": {
+    "mtime": 1792942024.592362,
+    "seen": 1794094296.096834,
+    "ast_hash": "721d06b0c93a780d1ffb32ecfb70830a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/WEBSITE.md": {
+    "mtime": 1792942024.5944438,
+    "seen": 1794094296.096836,
+    "ast_hash": "f5614b7186e97c4bc94e0674db6a3f9c",
+    "semantic_hash": ""
+  },
+  ".agents/skills/superdesign/references/design-with-your-model.md": {
+    "mtime": 1792942024.5954564,
+    "seen": 1794094296.096838,
+    "ast_hash": "9c6bfe07c78606359b010acb2fd4035b",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/AGENTS.md": {
+    "mtime": 1793116227.7234488,
+    "seen": 1794094296.0968401,
+    "ast_hash": "b3489ff385378dc265e66d98fb103d42",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/README.md": {
+    "mtime": 1793116227.7254481,
+    "seen": 1794094296.096842,
+    "ast_hash": "44a7e1c73afb53b31079be8697306c8a",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/SKILL.md": {
+    "mtime": 1793116227.7272851,
+    "seen": 1794094296.096844,
+    "ast_hash": "12dd822eb1c4d6194973d11feec8e0b8",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/agents/openai.yaml": {
+    "mtime": 1793116227.729303,
+    "seen": 1794094296.096846,
+    "ast_hash": "349cc601e17a667430f984d82f586d60",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/01-finance-command/index.html": {
+    "mtime": 1793116227.803022,
+    "seen": 1794094296.096848,
+    "ast_hash": "1eb1dca07e0d000e6e5239b1cd78f6ad",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/02-wellness-rhythm/index.html": {
+    "mtime": 1793116227.8069947,
+    "seen": 1794094296.09685,
+    "ast_hash": "7763ae4e41d640cf7c44d45ee74469b4",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/03-travel-scout/index.html": {
+    "mtime": 1793116227.8095746,
+    "seen": 1794094296.096852,
+    "ast_hash": "75d1687638f0849fa282660663211d6a",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/04-food-market/index.html": {
+    "mtime": 1793116227.8192332,
+    "seen": 1794094296.0968537,
+    "ast_hash": "73623bea2358bbf5c0f3a6b15631dce5",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/05-learning-lab/index.html": {
+    "mtime": 1793116227.8211415,
+    "seen": 1794094296.0968559,
+    "ast_hash": "47a7827e232cda2510f38b3b29ef81e9",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/06-music-studio/index.html": {
+    "mtime": 1793116227.8301547,
+    "seen": 1794094296.0968578,
+    "ast_hash": "da27c5b4bd19a0a35da93b02c083da31",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/07-home-energy/index.html": {
+    "mtime": 1793116227.8331544,
+    "seen": 1794094296.09686,
+    "ast_hash": "169d413410157df1e49d600888072759",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/08-fashion-wardrobe/index.html": {
+    "mtime": 1793116227.83536,
+    "seen": 1794094296.0968616,
+    "ast_hash": "39f28ead02ea4e601e22567a5b6336ab",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/09-medical-companion/index.html": {
+    "mtime": 1793116227.838377,
+    "seen": 1794094296.0968642,
+    "ast_hash": "d4b1aace0a39e2150b2c5dca3d67bae3",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/cases/10-social-events/index.html": {
+    "mtime": 1793116227.8403766,
+    "seen": 1794094296.0968661,
+    "ast_hash": "972264a481e87039b1946ecec0d18368",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/references/app-ui-playbook.md": {
+    "mtime": 1793116227.8483756,
+    "seen": 1794094296.096868,
+    "ast_hash": "e4505842defb740359106cc0828f81b1",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/references/case-catalog.md": {
+    "mtime": 1793116227.8493717,
+    "seen": 1794094296.0968704,
+    "ast_hash": "d3f00fee1b2da7ef1d922b5592137de3",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/references/research-notes.md": {
+    "mtime": 1793116227.8513703,
+    "seen": 1794094296.0968723,
+    "ast_hash": "1b67d3111ec501561b3e6dcee43d825b",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/references/source-preview-contract.md": {
+    "mtime": 1793116227.8523757,
+    "seen": 1794094296.0968745,
+    "ast_hash": "4244d45ab605e90f6fa7b1a88604c3cb",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/01-aurora-bank/home.html": {
+    "mtime": 1793116227.8683722,
+    "seen": 1794094296.0968769,
+    "ast_hash": "4b9b42aee16cf4b5c923644521469a5d",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/01-aurora-bank/insights.html": {
+    "mtime": 1793116227.8703744,
+    "seen": 1794094296.096879,
+    "ast_hash": "d25dbe9b91c50162856f5d4f99c9e8c9",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/01-aurora-bank/transfer.html": {
+    "mtime": 1793116227.8723745,
+    "seen": 1794094296.096881,
+    "ast_hash": "e1ad11cf0d30fe0cc095a82dde294de8",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/02-pulse-care/meds.html": {
+    "mtime": 1793116227.874372,
+    "seen": 1794094296.0968833,
+    "ast_hash": "d6fec463a9293a456fa431ba8317c3a1",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/02-pulse-care/overview.html": {
+    "mtime": 1793116227.875375,
+    "seen": 1794094296.096885,
+    "ast_hash": "af954ad461f02a7b45158399bd9072cb",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/02-pulse-care/visit.html": {
+    "mtime": 1793116227.8773742,
+    "seen": 1794094296.096887,
+    "ast_hash": "3acf484e74f796ef00d7a2de0ded9db7",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/03-nomad-trip/discover.html": {
+    "mtime": 1793116227.880372,
+    "seen": 1794094296.096889,
+    "ast_hash": "225e602002e30c8e1633c97918ca8417",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/03-nomad-trip/itinerary.html": {
+    "mtime": 1793116227.881374,
+    "seen": 1794094296.0968912,
+    "ast_hash": "bedf835837b6129be33539b95c2b1415",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/03-nomad-trip/pass.html": {
+    "mtime": 1793116227.8833735,
+    "seen": 1794094296.096893,
+    "ast_hash": "d698e476838b2ae5d24dcb0cb8dd9939",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/04-bento-market/checkout.html": {
+    "mtime": 1793116227.8863719,
+    "seen": 1794094296.096895,
+    "ast_hash": "95eda650838defef3a99b49c7fff4d01",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/04-bento-market/discover.html": {
+    "mtime": 1793116227.8873734,
+    "seen": 1794094296.0968971,
+    "ast_hash": "e48d8006a695b934518b25c3c5e57e76",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/04-bento-market/menu.html": {
+    "mtime": 1793116227.8893738,
+    "seen": 1794094296.096899,
+    "ast_hash": "7ef9601e8142d5d8f2776868ffdd929b",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/05-frame-studio/analytics.html": {
+    "mtime": 1793116227.891369,
+    "seen": 1794094296.0969007,
+    "ast_hash": "5b3c11647a699f10076d5a54dc172d90",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/05-frame-studio/editor.html": {
+    "mtime": 1793116227.8933759,
+    "seen": 1794094296.0969026,
+    "ast_hash": "f212ef8dc385852304d2ec387f3d754a",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/themes/05-frame-studio/projects.html": {
+    "mtime": 1793116227.8953874,
+    "seen": 1794094296.0969045,
+    "ast_hash": "8bbc0c6694e138fbe76f43ba65c14e14",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/AGENTS.md": {
+    "mtime": 1793116227.7234488,
+    "seen": 1794094296.0969062,
+    "ast_hash": "b3489ff385378dc265e66d98fb103d42",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/README.md": {
+    "mtime": 1793116227.7254481,
+    "seen": 1794094296.096908,
+    "ast_hash": "44a7e1c73afb53b31079be8697306c8a",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/SKILL.md": {
+    "mtime": 1793116227.7272851,
+    "seen": 1794094296.09691,
+    "ast_hash": "12dd822eb1c4d6194973d11feec8e0b8",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/agents/openai.yaml": {
+    "mtime": 1793116227.729303,
+    "seen": 1794094296.0969121,
+    "ast_hash": "349cc601e17a667430f984d82f586d60",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/01-finance-command/index.html": {
+    "mtime": 1793116227.803022,
+    "seen": 1794094296.0969138,
+    "ast_hash": "1eb1dca07e0d000e6e5239b1cd78f6ad",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/02-wellness-rhythm/index.html": {
+    "mtime": 1793116227.8069947,
+    "seen": 1794094296.096916,
+    "ast_hash": "7763ae4e41d640cf7c44d45ee74469b4",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/03-travel-scout/index.html": {
+    "mtime": 1793116227.8095746,
+    "seen": 1794094296.096918,
+    "ast_hash": "75d1687638f0849fa282660663211d6a",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/04-food-market/index.html": {
+    "mtime": 1793116227.8192332,
+    "seen": 1794094296.09692,
+    "ast_hash": "73623bea2358bbf5c0f3a6b15631dce5",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/05-learning-lab/index.html": {
+    "mtime": 1793116227.8211415,
+    "seen": 1794094296.0969222,
+    "ast_hash": "47a7827e232cda2510f38b3b29ef81e9",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/06-music-studio/index.html": {
+    "mtime": 1793116227.8301547,
+    "seen": 1794094296.0969243,
+    "ast_hash": "da27c5b4bd19a0a35da93b02c083da31",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/07-home-energy/index.html": {
+    "mtime": 1793116227.8331544,
+    "seen": 1794094296.0969267,
+    "ast_hash": "169d413410157df1e49d600888072759",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/08-fashion-wardrobe/index.html": {
+    "mtime": 1793116227.83536,
+    "seen": 1794094296.0969288,
+    "ast_hash": "39f28ead02ea4e601e22567a5b6336ab",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/09-medical-companion/index.html": {
+    "mtime": 1793116227.838377,
+    "seen": 1794094296.0969305,
+    "ast_hash": "d4b1aace0a39e2150b2c5dca3d67bae3",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/cases/10-social-events/index.html": {
+    "mtime": 1793116227.8403766,
+    "seen": 1794094296.096933,
+    "ast_hash": "972264a481e87039b1946ecec0d18368",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/references/app-ui-playbook.md": {
+    "mtime": 1793116227.8483756,
+    "seen": 1794094296.0969346,
+    "ast_hash": "e4505842defb740359106cc0828f81b1",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/references/case-catalog.md": {
+    "mtime": 1793116227.8493717,
+    "seen": 1794094296.0969367,
+    "ast_hash": "d3f00fee1b2da7ef1d922b5592137de3",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/references/research-notes.md": {
+    "mtime": 1793116227.8513703,
+    "seen": 1794094296.096939,
+    "ast_hash": "1b67d3111ec501561b3e6dcee43d825b",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/references/source-preview-contract.md": {
+    "mtime": 1793116227.8523757,
+    "seen": 1794094296.0969408,
+    "ast_hash": "4244d45ab605e90f6fa7b1a88604c3cb",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/01-aurora-bank/home.html": {
+    "mtime": 1793116227.8683722,
+    "seen": 1794094296.0969431,
+    "ast_hash": "4b9b42aee16cf4b5c923644521469a5d",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/01-aurora-bank/insights.html": {
+    "mtime": 1793116227.8703744,
+    "seen": 1794094296.096945,
+    "ast_hash": "d25dbe9b91c50162856f5d4f99c9e8c9",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/01-aurora-bank/transfer.html": {
+    "mtime": 1793116227.8723745,
+    "seen": 1794094296.0969472,
+    "ast_hash": "e1ad11cf0d30fe0cc095a82dde294de8",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/02-pulse-care/meds.html": {
+    "mtime": 1793116227.874372,
+    "seen": 1794094296.0969996,
+    "ast_hash": "d6fec463a9293a456fa431ba8317c3a1",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/02-pulse-care/overview.html": {
+    "mtime": 1793116227.875375,
+    "seen": 1794094296.0970035,
+    "ast_hash": "af954ad461f02a7b45158399bd9072cb",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/02-pulse-care/visit.html": {
+    "mtime": 1793116227.8773742,
+    "seen": 1794094296.097007,
+    "ast_hash": "3acf484e74f796ef00d7a2de0ded9db7",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/03-nomad-trip/discover.html": {
+    "mtime": 1793116227.880372,
+    "seen": 1794094296.0970101,
+    "ast_hash": "225e602002e30c8e1633c97918ca8417",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/03-nomad-trip/itinerary.html": {
+    "mtime": 1793116227.881374,
+    "seen": 1794094296.0970137,
+    "ast_hash": "bedf835837b6129be33539b95c2b1415",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/03-nomad-trip/pass.html": {
+    "mtime": 1793116227.8833735,
+    "seen": 1794094296.097017,
+    "ast_hash": "d698e476838b2ae5d24dcb0cb8dd9939",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/04-bento-market/checkout.html": {
+    "mtime": 1793116227.8863719,
+    "seen": 1794094296.097022,
+    "ast_hash": "95eda650838defef3a99b49c7fff4d01",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/04-bento-market/discover.html": {
+    "mtime": 1793116227.8873734,
+    "seen": 1794094296.0970254,
+    "ast_hash": "e48d8006a695b934518b25c3c5e57e76",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/04-bento-market/menu.html": {
+    "mtime": 1793116227.8893738,
+    "seen": 1794094296.0970285,
+    "ast_hash": "7ef9601e8142d5d8f2776868ffdd929b",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/05-frame-studio/analytics.html": {
+    "mtime": 1793116227.891369,
+    "seen": 1794094296.097031,
+    "ast_hash": "5b3c11647a699f10076d5a54dc172d90",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/05-frame-studio/editor.html": {
+    "mtime": 1793116227.8933759,
+    "seen": 1794094296.0970345,
+    "ast_hash": "f212ef8dc385852304d2ec387f3d754a",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/themes/05-frame-studio/projects.html": {
+    "mtime": 1793116227.8953874,
+    "seen": 1794094296.0970376,
+    "ast_hash": "8bbc0c6694e138fbe76f43ba65c14e14",
+    "semantic_hash": ""
+  },
+  "IMPLEMENTATION_PLAN_LOGISTICS_DASHBOARD.md": {
+    "mtime": 1792942924.2923932,
+    "seen": 1794094296.0970473,
+    "ast_hash": "8fe6c9dd9a5cba00fac7c602a9d8e54c",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/01-finance-command.png": {
+    "mtime": 1793116227.7333014,
+    "seen": 1794094296.097117,
+    "ast_hash": "be5ffe65305e2440f9ae372603ead891",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/02-wellness-rhythm.png": {
+    "mtime": 1793116227.736302,
+    "seen": 1794094296.097119,
+    "ast_hash": "a2232f57d1e091c02bb43c2715b085b8",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/03-travel-scout.png": {
+    "mtime": 1793116227.7383153,
+    "seen": 1794094296.097121,
+    "ast_hash": "2960fa7e51729ef74164e9f5194941bc",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/04-food-market.png": {
+    "mtime": 1793116227.7413151,
+    "seen": 1794094296.0971234,
+    "ast_hash": "57eeeeaffd58a28bb1e97f9164d1cae2",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/05-learning-lab.png": {
+    "mtime": 1793116227.743315,
+    "seen": 1794094296.097125,
+    "ast_hash": "56c14bbdbffa64c540dfd356fc4b4263",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/06-music-studio.png": {
+    "mtime": 1793116227.7453153,
+    "seen": 1794094296.097127,
+    "ast_hash": "69981f0d793196e49a6786dbd4270fb5",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/07-home-energy.png": {
+    "mtime": 1793116227.7473147,
+    "seen": 1794094296.097129,
+    "ast_hash": "2654aa47cdd5de8252f05b138b41fd66",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/08-fashion-wardrobe.png": {
+    "mtime": 1793116227.7503152,
+    "seen": 1794094296.0971313,
+    "ast_hash": "d1f90c78fefe9664784c0b3ccdca8a51",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/09-medical-companion.png": {
+    "mtime": 1793116227.7518291,
+    "seen": 1794094296.0971339,
+    "ast_hash": "004d2615332dcfffd2fe249c651f15c2",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/previews/10-social-events.png": {
+    "mtime": 1793116227.7538466,
+    "seen": 1794094296.0971375,
+    "ast_hash": "eccfc5323441c49a04d83b634dce8280",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-home.png": {
+    "mtime": 1793116227.7566383,
+    "seen": 1794094296.0971415,
+    "ast_hash": "b46d04dd09b268ecb1123ca71f82af91",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-insights.png": {
+    "mtime": 1793116227.7586412,
+    "seen": 1794094296.0971463,
+    "ast_hash": "d7ff8130dac44f007a792d4495a27341",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-transfer.png": {
+    "mtime": 1793116227.7618167,
+    "seen": 1794094296.0971494,
+    "ast_hash": "f90b37321db22647a928c8dc0647758f",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/02-pulse-care-meds.png": {
+    "mtime": 1793116227.7638328,
+    "seen": 1794094296.0971541,
+    "ast_hash": "a13fc888271b18d698cf42df44fdf870",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/02-pulse-care-overview.png": {
+    "mtime": 1793116227.7668333,
+    "seen": 1794094296.097157,
+    "ast_hash": "2a3acf42aed46e9c5d5c987dde6b3ccc",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/02-pulse-care-visit.png": {
+    "mtime": 1793116227.7698479,
+    "seen": 1794094296.0971613,
+    "ast_hash": "c1d93a8eced9644b7400434775b7c1ba",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-discover.png": {
+    "mtime": 1793116227.7718463,
+    "seen": 1794094296.0971653,
+    "ast_hash": "25673d83c1e6edacf28c2b587aebbdb5",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-itinerary.png": {
+    "mtime": 1793116227.7778454,
+    "seen": 1794094296.097167,
+    "ast_hash": "c5955026eeca93a7151fa18a4181354d",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-pass.png": {
+    "mtime": 1793116227.7808454,
+    "seen": 1794094296.0971718,
+    "ast_hash": "389caffc0fea120e92cc3582bcc11578",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/04-bento-market-checkout.png": {
+    "mtime": 1793116227.7818437,
+    "seen": 1794094296.0971735,
+    "ast_hash": "7318a459c1131706965f6b9835b0036f",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/04-bento-market-discover.png": {
+    "mtime": 1793116227.7843673,
+    "seen": 1794094296.0971756,
+    "ast_hash": "be0bbce4c1d9ac79086924a44c842218",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/04-bento-market-menu.png": {
+    "mtime": 1793116227.7883668,
+    "seen": 1794094296.0971775,
+    "ast_hash": "f9fe3fd14cd6c878f391700b7f5a8619",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/05-frame-studio-analytics.png": {
+    "mtime": 1793116227.7910008,
+    "seen": 1794094296.09718,
+    "ast_hash": "b73a8f9af7bd76951982c5927fe32e29",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/05-frame-studio-editor.png": {
+    "mtime": 1793116227.7930129,
+    "seen": 1794094296.097182,
+    "ast_hash": "ac8e91bef5412022414539e92105b6e8",
+    "semantic_hash": ""
+  },
+  ".agents/skills/appui-design-skill/assets/theme-previews/05-frame-studio-projects.png": {
+    "mtime": 1793116227.7949955,
+    "seen": 1794094296.097184,
+    "ast_hash": "491bc5dd1ae0c8352ebe84555fa57634",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/01-finance-command.png": {
+    "mtime": 1793116227.7333014,
+    "seen": 1794094296.0971863,
+    "ast_hash": "be5ffe65305e2440f9ae372603ead891",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/02-wellness-rhythm.png": {
+    "mtime": 1793116227.736302,
+    "seen": 1794094296.097188,
+    "ast_hash": "a2232f57d1e091c02bb43c2715b085b8",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/03-travel-scout.png": {
+    "mtime": 1793116227.7383153,
+    "seen": 1794094296.0971906,
+    "ast_hash": "2960fa7e51729ef74164e9f5194941bc",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/04-food-market.png": {
+    "mtime": 1793116227.7413151,
+    "seen": 1794094296.0971925,
+    "ast_hash": "57eeeeaffd58a28bb1e97f9164d1cae2",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/05-learning-lab.png": {
+    "mtime": 1793116227.743315,
+    "seen": 1794094296.0971947,
+    "ast_hash": "56c14bbdbffa64c540dfd356fc4b4263",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/06-music-studio.png": {
+    "mtime": 1793116227.7453153,
+    "seen": 1794094296.0971968,
+    "ast_hash": "69981f0d793196e49a6786dbd4270fb5",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/07-home-energy.png": {
+    "mtime": 1793116227.7473147,
+    "seen": 1794094296.0971992,
+    "ast_hash": "2654aa47cdd5de8252f05b138b41fd66",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/08-fashion-wardrobe.png": {
+    "mtime": 1793116227.7503152,
+    "seen": 1794094296.0972009,
+    "ast_hash": "d1f90c78fefe9664784c0b3ccdca8a51",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/09-medical-companion.png": {
+    "mtime": 1793116227.7518291,
+    "seen": 1794094296.0972028,
+    "ast_hash": "004d2615332dcfffd2fe249c651f15c2",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/previews/10-social-events.png": {
+    "mtime": 1793116227.7538466,
+    "seen": 1794094296.097205,
+    "ast_hash": "eccfc5323441c49a04d83b634dce8280",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-home.png": {
+    "mtime": 1793116227.7566383,
+    "seen": 1794094296.097207,
+    "ast_hash": "b46d04dd09b268ecb1123ca71f82af91",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-insights.png": {
+    "mtime": 1793116227.7586412,
+    "seen": 1794094296.0972087,
+    "ast_hash": "d7ff8130dac44f007a792d4495a27341",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-transfer.png": {
+    "mtime": 1793116227.7618167,
+    "seen": 1794094296.0972106,
+    "ast_hash": "f90b37321db22647a928c8dc0647758f",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/02-pulse-care-meds.png": {
+    "mtime": 1793116227.7638328,
+    "seen": 1794094296.097213,
+    "ast_hash": "a13fc888271b18d698cf42df44fdf870",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/02-pulse-care-overview.png": {
+    "mtime": 1793116227.7668333,
+    "seen": 1794094296.097215,
+    "ast_hash": "2a3acf42aed46e9c5d5c987dde6b3ccc",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/02-pulse-care-visit.png": {
+    "mtime": 1793116227.7698479,
+    "seen": 1794094296.0972173,
+    "ast_hash": "c1d93a8eced9644b7400434775b7c1ba",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-discover.png": {
+    "mtime": 1793116227.7718463,
+    "seen": 1794094296.09722,
+    "ast_hash": "25673d83c1e6edacf28c2b587aebbdb5",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-itinerary.png": {
+    "mtime": 1793116227.7778454,
+    "seen": 1794094296.0972219,
+    "ast_hash": "c5955026eeca93a7151fa18a4181354d",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-pass.png": {
+    "mtime": 1793116227.7808454,
+    "seen": 1794094296.0972242,
+    "ast_hash": "389caffc0fea120e92cc3582bcc11578",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/04-bento-market-checkout.png": {
+    "mtime": 1793116227.7818437,
+    "seen": 1794094296.097226,
+    "ast_hash": "7318a459c1131706965f6b9835b0036f",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/04-bento-market-discover.png": {
+    "mtime": 1793116227.7843673,
+    "seen": 1794094296.0972285,
+    "ast_hash": "be0bbce4c1d9ac79086924a44c842218",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/04-bento-market-menu.png": {
+    "mtime": 1793116227.7883668,
+    "seen": 1794094296.0972307,
+    "ast_hash": "f9fe3fd14cd6c878f391700b7f5a8619",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/05-frame-studio-analytics.png": {
+    "mtime": 1793116227.7910008,
+    "seen": 1794094296.0972326,
+    "ast_hash": "b73a8f9af7bd76951982c5927fe32e29",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/05-frame-studio-editor.png": {
+    "mtime": 1793116227.7930129,
+    "seen": 1794094296.097235,
+    "ast_hash": "ac8e91bef5412022414539e92105b6e8",
+    "semantic_hash": ""
+  },
+  ".aider-desk/skills/appui-design-skill/assets/theme-previews/05-frame-studio-projects.png": {
+    "mtime": 1793116227.7949955,
+    "seen": 1794094296.097237,
+    "ast_hash": "491bc5dd1ae0c8352ebe84555fa57634",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/01-finance-command.png": {
+    "mtime": 1793116227.7333014,
+    "seen": 1794094296.0972393,
+    "ast_hash": "be5ffe65305e2440f9ae372603ead891",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/02-wellness-rhythm.png": {
+    "mtime": 1793116227.736302,
+    "seen": 1794094296.0972416,
+    "ast_hash": "a2232f57d1e091c02bb43c2715b085b8",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/03-travel-scout.png": {
+    "mtime": 1793116227.7383153,
+    "seen": 1794094296.0972433,
+    "ast_hash": "2960fa7e51729ef74164e9f5194941bc",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/04-food-market.png": {
+    "mtime": 1793116227.7413151,
+    "seen": 1794094296.0972455,
+    "ast_hash": "57eeeeaffd58a28bb1e97f9164d1cae2",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/05-learning-lab.png": {
+    "mtime": 1793116227.743315,
+    "seen": 1794094296.0972478,
+    "ast_hash": "56c14bbdbffa64c540dfd356fc4b4263",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/06-music-studio.png": {
+    "mtime": 1793116227.7453153,
+    "seen": 1794094296.0972495,
+    "ast_hash": "69981f0d793196e49a6786dbd4270fb5",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/07-home-energy.png": {
+    "mtime": 1793116227.7473147,
+    "seen": 1794094296.097252,
+    "ast_hash": "2654aa47cdd5de8252f05b138b41fd66",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/08-fashion-wardrobe.png": {
+    "mtime": 1793116227.7503152,
+    "seen": 1794094296.0972538,
+    "ast_hash": "d1f90c78fefe9664784c0b3ccdca8a51",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/09-medical-companion.png": {
+    "mtime": 1793116227.7518291,
+    "seen": 1794094296.097256,
+    "ast_hash": "004d2615332dcfffd2fe249c651f15c2",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/previews/10-social-events.png": {
+    "mtime": 1793116227.7538466,
+    "seen": 1794094296.097258,
+    "ast_hash": "eccfc5323441c49a04d83b634dce8280",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-home.png": {
+    "mtime": 1793116227.7566383,
+    "seen": 1794094296.0972605,
+    "ast_hash": "b46d04dd09b268ecb1123ca71f82af91",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-insights.png": {
+    "mtime": 1793116227.7586412,
+    "seen": 1794094296.097263,
+    "ast_hash": "d7ff8130dac44f007a792d4495a27341",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/01-aurora-bank-transfer.png": {
+    "mtime": 1793116227.7618167,
+    "seen": 1794094296.0972645,
+    "ast_hash": "f90b37321db22647a928c8dc0647758f",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/02-pulse-care-meds.png": {
+    "mtime": 1793116227.7638328,
+    "seen": 1794094296.097267,
+    "ast_hash": "a13fc888271b18d698cf42df44fdf870",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/02-pulse-care-overview.png": {
+    "mtime": 1793116227.7668333,
+    "seen": 1794094296.097269,
+    "ast_hash": "2a3acf42aed46e9c5d5c987dde6b3ccc",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/02-pulse-care-visit.png": {
+    "mtime": 1793116227.7698479,
+    "seen": 1794094296.0972712,
+    "ast_hash": "c1d93a8eced9644b7400434775b7c1ba",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-discover.png": {
+    "mtime": 1793116227.7718463,
+    "seen": 1794094296.0972736,
+    "ast_hash": "25673d83c1e6edacf28c2b587aebbdb5",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-itinerary.png": {
+    "mtime": 1793116227.7778454,
+    "seen": 1794094296.0972757,
+    "ast_hash": "c5955026eeca93a7151fa18a4181354d",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/03-nomad-trip-pass.png": {
+    "mtime": 1793116227.7808454,
+    "seen": 1794094296.0972776,
+    "ast_hash": "389caffc0fea120e92cc3582bcc11578",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/04-bento-market-checkout.png": {
+    "mtime": 1793116227.7818437,
+    "seen": 1794094296.0972798,
+    "ast_hash": "7318a459c1131706965f6b9835b0036f",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/04-bento-market-discover.png": {
+    "mtime": 1793116227.7843673,
+    "seen": 1794094296.0972817,
+    "ast_hash": "be0bbce4c1d9ac79086924a44c842218",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/04-bento-market-menu.png": {
+    "mtime": 1793116227.7883668,
+    "seen": 1794094296.097284,
+    "ast_hash": "f9fe3fd14cd6c878f391700b7f5a8619",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/05-frame-studio-analytics.png": {
+    "mtime": 1793116227.7910008,
+    "seen": 1794094296.0972865,
+    "ast_hash": "b73a8f9af7bd76951982c5927fe32e29",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/05-frame-studio-editor.png": {
+    "mtime": 1793116227.7930129,
+    "seen": 1794094296.0972886,
+    "ast_hash": "ac8e91bef5412022414539e92105b6e8",
+    "semantic_hash": ""
+  },
+  ".claude/skills/appui-design-skill/assets/theme-previews/05-frame-studio-projects.png": {
+    "mtime": 1793116227.7949955,
+    "seen": 1794094296.0972905,
+    "ast_hash": "491bc5dd1ae0c8352ebe84555fa57634",
+    "semantic_hash": ""
+  },
+  "assets/images/logo-buytheway.png": {
+    "mtime": 1791818688.6223814,
+    "seen": 1794094296.0973094,
+    "ast_hash": "683fa401120ff8f78804b864d1d6bf71",
     "semantic_hash": ""
   }
 }

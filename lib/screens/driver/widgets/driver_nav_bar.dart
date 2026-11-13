@@ -48,19 +48,41 @@ class DriverNavBar extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(34),
           border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8))
+          ],
         ),
         child: Row(children: [
-          _DriverNavItem(icon: Icons.assignment_turned_in_outlined, label: 'Deliveries', selected: currentIndex == 1, onTap: () => _handleTap(1)),
           _DriverNavItem(
-            icon: isCourier ? Icons.currency_exchange_rounded : Icons.account_balance_wallet_outlined,
-            label: isCourier ? 'Remittances' : 'Earnings',
+              icon: Icons.assignment_turned_in_outlined,
+              label: 'Deliveries',
+              selected: currentIndex == 1,
+              onTap: () => _handleTap(1)),
+          _DriverNavItem(
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Earnings',
             selected: currentIndex == 2,
             onTap: () => _handleTap(2),
           ),
-          _DriverNavItem(icon: Icons.home_outlined, label: 'Home', selected: currentIndex == 0, onTap: () => _handleTap(0)),
-          _DriverNavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Chat', selected: currentIndex == 3, badgeCount: unreadChats, onTap: () => _handleTap(3)),
-          _DriverNavItem(icon: Icons.settings_outlined, label: 'Settings', selected: currentIndex == 4, onTap: () => _handleTap(4)),
+          _DriverNavItem(
+              icon: Icons.home_outlined,
+              label: 'Home',
+              selected: currentIndex == 0,
+              onTap: () => _handleTap(0)),
+          _DriverNavItem(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Chat',
+              selected: currentIndex == 3,
+              badgeCount: unreadChats,
+              onTap: () => _handleTap(3)),
+          _DriverNavItem(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              selected: currentIndex == 4,
+              onTap: () => _handleTap(4)),
         ]),
       ),
     );
@@ -68,7 +90,12 @@ class DriverNavBar extends StatelessWidget {
 }
 
 class _DriverNavItem extends StatelessWidget {
-  const _DriverNavItem({required this.icon, required this.label, required this.selected, required this.onTap, this.badgeCount = 0});
+  const _DriverNavItem(
+      {required this.icon,
+      required this.label,
+      required this.selected,
+      required this.onTap,
+      this.badgeCount = 0});
 
   final IconData icon;
   final String label;
@@ -90,24 +117,42 @@ class _DriverNavItem extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
             child: Center(
-              child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(icon, size: 26, color: selected ? DriverNavBar._teal : const Color(0xFF94A3B8)),
-                ),
-                if (badgeCount > 0)
-                  Positioned(
-                    right: 2,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      constraints: const BoxConstraints(minWidth: 16),
-                      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white, width: 1.5)),
-                      child: Text(badgeCount > 9 ? '9+' : '$badgeCount', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, height: 1.3)),
+              child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(icon,
+                          size: 26,
+                          color: selected
+                              ? DriverNavBar._teal
+                              : const Color(0xFF94A3B8)),
                     ),
-                  ),
-              ]),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: 2,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(20),
+                              border:
+                                  Border.all(color: Colors.white, width: 1.5)),
+                          child: Text(badgeCount > 9 ? '9+' : '$badgeCount',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.3)),
+                        ),
+                      ),
+                  ]),
             ),
           ),
         ),

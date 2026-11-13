@@ -99,8 +99,18 @@ class RemittanceApiService {
   Future<List<Map<String, dynamic>>> recentEarnings() async {
     final data = (await _send('GET', '/courier/earnings'))['data'];
     final rows = data is Map ? data['data'] : null;
-    return rows is List ? rows.whereType<Map>().map((r) => Map<String, dynamic>.from(r)).toList() : const [];
+    return rows is List
+        ? rows
+            .whereType<Map>()
+            .map((r) => Map<String, dynamic>.from(r))
+            .toList()
+        : const [];
   }
+
+  /// One page of the courier's newest-first earnings ledger.
+  Future<RemittancePageData> earningsPage({int page = 1}) async =>
+      RemittancePageData.fromJson(
+          await _send('GET', '/courier/earnings', query: {'page': '$page'}));
 
   Future<RemittancePageData> records(String tab,
       {int page = 1, String search = '', String status = ''}) async {

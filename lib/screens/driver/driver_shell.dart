@@ -15,6 +15,7 @@ import 'deliveries/assigned_delivery_detail_screen.dart';
 import 'driver_models.dart';
 import 'driver_theme.dart';
 import 'earnings/driver_earnings_screen.dart';
+import 'earnings/courier_earnings_screen.dart';
 import 'history/driver_history_screen.dart';
 import 'home/deliver_order_screen.dart';
 import 'home/delivery_request_details_screen.dart';
@@ -22,8 +23,6 @@ import 'home/courier_home_screen.dart';
 import 'home/driver_home_screen.dart';
 import 'home/pickup_order_screen.dart';
 import 'notifications/driver_notifications_screen.dart';
-import '../../services/remittance_api_service.dart';
-import '../remittances/remittances_screen.dart';
 import 'settings/driver_settings_screen.dart';
 import 'widgets/driver_nav_bar.dart';
 import 'widgets/driver_shared_widgets.dart';
@@ -363,18 +362,25 @@ class _DriverShellState extends State<DriverShell> {
 
     try {
       final accountPrefsKey = token.hashCode.toString();
-      _notificationsEnabled = prefs.getBool('driver_notifications_enabled_$accountPrefsKey') ?? true;
-      _soundEnabled = prefs.getBool('driver_sound_enabled_$accountPrefsKey') ?? true;
+      _notificationsEnabled =
+          prefs.getBool('driver_notifications_enabled_$accountPrefsKey') ??
+              true;
+      _soundEnabled =
+          prefs.getBool('driver_sound_enabled_$accountPrefsKey') ?? true;
       final response = await _api.getDriverProfile(accessToken: token);
       if (!mounted) return;
       final account = DriverAccount.fromApi(response);
       try {
-        final preferenceResponse = await _api.getDriverNotificationPreferences(accessToken: token);
-        final preferenceData = Map<String, dynamic>.from(preferenceResponse['data'] as Map? ?? {});
+        final preferenceResponse =
+            await _api.getDriverNotificationPreferences(accessToken: token);
+        final preferenceData =
+            Map<String, dynamic>.from(preferenceResponse['data'] as Map? ?? {});
         _notificationsEnabled = preferenceData['push_enabled'] != false;
         _soundEnabled = preferenceData['sound_enabled'] != false;
-        await prefs.setBool('driver_notifications_enabled_$accountPrefsKey', _notificationsEnabled);
-        await prefs.setBool('driver_sound_enabled_$accountPrefsKey', _soundEnabled);
+        await prefs.setBool('driver_notifications_enabled_$accountPrefsKey',
+            _notificationsEnabled);
+        await prefs.setBool(
+            'driver_sound_enabled_$accountPrefsKey', _soundEnabled);
       } catch (_) {
         // Older deployments can still use the local preference cache.
       }
@@ -444,9 +450,14 @@ class _DriverShellState extends State<DriverShell> {
         }
       });
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(isSound ? 'driver_sound_enabled_${token.hashCode}' : 'driver_notifications_enabled_${token.hashCode}', previous);
+      await prefs.setBool(
+          isSound
+              ? 'driver_sound_enabled_${token.hashCode}'
+              : 'driver_notifications_enabled_${token.hashCode}',
+          previous);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save notification setting. Try again.')),
+        const SnackBar(
+            content: Text('Could not save notification setting. Try again.')),
       );
     }
   }
@@ -812,7 +823,8 @@ class _DriverShellState extends State<DriverShell> {
     final accessToken = _accessToken;
     if (account == null || accessToken == null) {
       return SessionRecoveryState(
-        message: _accountLoadError ?? 'Something went wrong loading your account.',
+        message:
+            _accountLoadError ?? 'Something went wrong loading your account.',
         onRetry: _loadAccount,
         onSignIn: _signOutToLogin,
         detailNote: 'Your account data stays safe while you reconnect.',
@@ -866,11 +878,7 @@ class _DriverShellState extends State<DriverShell> {
         controller: _chatController!,
       ),
       account.role == 'courier'
-          ? RemittancesScreen(
-              accessToken: accessToken,
-              role: RemittanceRole.courier,
-              active: _tabIndex == 2,
-            )
+          ? CourierEarningsScreen(accessToken: accessToken)
           : DriverEarningsScreen(
               todayEarnings: _todayEarnings,
               availableBalance: _availableBalance,
@@ -889,19 +897,27 @@ class _DriverShellState extends State<DriverShell> {
         onDeliveryOnlineChanged: _setOnline,
         notificationsEnabled: _notificationsEnabled,
         onNotificationsChanged: (v) {
-            final previous = _notificationsEnabled;
+          final previous = _notificationsEnabled;
           setState(() => _notificationsEnabled = v);
-            final token = _accessToken;
-            if (token != null) SharedPreferences.getInstance().then((prefs) => prefs.setBool('driver_notifications_enabled_${token.hashCode}', v));
-            if (token != null) unawaited(_saveNotificationPreference(token, pushEnabled: v, previous: previous, isSound: false));
+          final token = _accessToken;
+          if (token != null)
+            SharedPreferences.getInstance().then((prefs) => prefs.setBool(
+                'driver_notifications_enabled_${token.hashCode}', v));
+          if (token != null)
+            unawaited(_saveNotificationPreference(token,
+                pushEnabled: v, previous: previous, isSound: false));
         },
         soundEnabled: _soundEnabled,
         onSoundChanged: (v) {
-            final previous = _soundEnabled;
+          final previous = _soundEnabled;
           setState(() => _soundEnabled = v);
-            final token = _accessToken;
-            if (token != null) SharedPreferences.getInstance().then((prefs) => prefs.setBool('driver_sound_enabled_${token.hashCode}', v));
-            if (token != null) unawaited(_saveNotificationPreference(token, soundEnabled: v, previous: previous, isSound: true));
+          final token = _accessToken;
+          if (token != null)
+            SharedPreferences.getInstance().then((prefs) =>
+                prefs.setBool('driver_sound_enabled_${token.hashCode}', v));
+          if (token != null)
+            unawaited(_saveNotificationPreference(token,
+                soundEnabled: v, previous: previous, isSound: true));
         },
         onRefresh: _refreshAll,
       ),

@@ -1024,6 +1024,14 @@ class _MissionCardState extends State<_MissionCard> {
                                       color: tagColor,
                                       icon: tagIcon),
                                 ]),
+                                if (d.outOfArea) ...[
+                                  const SizedBox(height: 8),
+                                  const DriverStatusBadge(
+                                    label: 'Out of area',
+                                    color: DriverColors.warning,
+                                    icon: Icons.route_outlined,
+                                  ),
+                                ],
                                 if (d.deliveryAttempt.reason != null &&
                                     (d.status ==
                                             AssignedDeliveryStatus

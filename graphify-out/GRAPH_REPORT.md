@@ -1,17 +1,17 @@
-# Graph Report - BuyTheWay - Mobile  (2026-11-08)
+# Graph Report - BuyTheWay - Mobile  (2026-11-13)
 
 ## Corpus Check
-- 223 files · ~473,854 words
+- 224 files · ~476,515 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 66 file(s) not represented in the graph (top: (none) 13, .xcconfig 8, .xml 7)
 
 ## Summary
-- 6273 nodes · 8440 edges · 217 communities (174 shown, 43 thin omitted)
+- 6327 nodes · 8506 edges · 219 communities (172 shown, 47 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 17 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5687c538`
+- Built from commit: `5a56d4de`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -37,7 +37,7 @@
 - buyer_theme.dart
 - driver_shell.dart
 - orders_screen.dart
-- StatelessWidget
+- courier_earnings_screen.dart
 - driver_deliveries_screen.dart
 - order_detail_screen.dart
 - product_detail_screen.dart
@@ -51,7 +51,7 @@
 - driver_register_screen.dart
 - chat_list_screen.dart
 - image_crop_sheet.dart
-- State
+- SliverPersistentHeaderDelegate
 - brand_logo.dart
 - driver_home_screen.dart
 - driver_chat_conversation_screen.dart
@@ -78,7 +78,7 @@
 - wishlist_screen.dart
 - review_sheet.dart
 - driver_otp_screen.dart
-- order_actions.dart
+- StatefulWidget
 - poller.dart
 - search_screen.dart
 - bool get
@@ -88,33 +88,33 @@
 - addresses_screen.dart
 - driver_archived_conversations_screen.dart
 - win32_window.cpp
-- pickup_order_screen.dart
+- ../driver_theme.dart
 - buyer_shell.dart
 - delivery_request_details_screen.dart
-- ../buyer_theme.dart
+- StatelessWidget
 - document_viewer_screen.dart
-- variant_sheet.dart
+- Map
 - logistics_settings_screen.dart
 - courier_navbar.dart
-- ../driver_theme.dart
+- ../services/api_service.dart
 - payments_util.dart
-- driver_splash_screen.dart
+- ../buyer_theme.dart
 - package:flutter/material.dart
 - notification_inbox.dart
 - chat_assistant.dart
-- string
-- DriverChatController
+- utils.cpp
+- VoidCallback?
 - Development Instructions
 - report_delivered_sheet.dart
 - payment_qr_screen.dart
-- Map
+- ../driver/driver_theme.dart
 - MessageHandler
 - manifest.json
-- ../buyer_store.dart
+- ValueChanged
 - main.dart
 - store_screen.dart
 - driver_forgot_password_screen.dart
-- outline_action_button.dart
+- _AllTab
 - .aider-desk/skills/appui-design-skill/scripts/render-previews.mjs
 - windows/flutter/generated_plugin_registrant.cc
 - my_reviews_screen.dart
@@ -141,14 +141,14 @@
 - search_filter_sheet.dart
 - ApplicationStatus
 - ../widgets/buyer_widgets.dart
-- address_sheet.dart
+- ../buyer_store.dart
 - order_placed_screen.dart
-- SliverPersistentHeaderDelegate
+- _HomeScreenState
 - package:flutter/services.dart
 - sign_in_methods_sheets.dart
-- Color?
-- StatefulWidget
-- _LogisticsInventoryScreenState
+- _DeactivateDialog
+- State
+- CourierDashboard
 - logistics_nav_bar.dart
 - @abclogistics
 - @email
@@ -159,22 +159,22 @@
 - List
 - notifications_screen.dart
 - sign_in_methods_section.dart
-- static const
+- failed_attempt_sheet.dart
 - brand_splash_screen.dart
 - push_service.dart
 - chat_notification.dart
 - superdesign/SKILL.md
-- ValueChanged
+- buyer_nav_bar.dart
 - IconData?
-- _AllTab
+- PickupsScreen
+- SalaryScreen
+- profile_field_validators.dart
 - _VoucherHistoryScreen
-- _ReportSheet
-- StoreScreen
 - ProductDetailScreen
 - Appui-Design-Skill
-- driver_delivery_message_screen.dart
+- _TaskCardSkeletonState
 - remittance_format.dart
-- ../services/api_service.dart
+- dart:async
 - Appui-Design-Skill
 - driver_notifications_screen.dart
 - driver_nav_bar.dart
@@ -182,16 +182,16 @@
 - logistics_theme.dart
 - Analysis Steps
 - Graphic Generation Workflow (posters, covers, social & marketing assets)
-- dart:async
+- user_error_handler.dart
 - TextInputFormatter
-- session_recovery_state.dart
+- static const
 - PETITE-VUE TEMPLATE SPEC
 - AssignedDeliveryDetailScreen
-- PickupPriority
+- DriverDeliveriesScreen
 - _PasswordConfirmSheet
 - Resume an Existing Design
 - _SetPasswordSheet
-- _NetworkImageLoader
+- _MissionCard
 - .aider-desk/skills/appui-design-skill/package.json
 - CourierHomeScreen
 - .claude/skills/appui-design-skill/package.json
@@ -199,8 +199,8 @@
 - App UI Playbook
 - Image & Video Asset Generation
 - Buytheway Logistics Dashboard — Implementation Plan
-- profile_field_validators.dart
-- return_tracking_sheet_test.dart
+- driver_splash_screen.dart
+- string
 - Presentation workflow
 - App UI Design Skill
 - App UI Design Skill
@@ -208,23 +208,25 @@
 - Source Preview Contract
 - Research Notes
 - Source Preview Contract
-- VoidCallback?
+- CustomPainter
 - WEBSITE.md
 - Case Catalog
 - Case Catalog
 - Superdesign CLI (MUST use before any command)
 - superdesign/INIT.md
 - superdesign/SUPERDESIGN.md
-- AddressFormScreen
-- _PlacePicker
-- _DeactivateDialog
+- LabeledField
+- PressableScale
+- ReportSheet
 - CheckoutScreen
+- StoreScreen
+- _LogisticsInventoryScreenState
+- NotificationInbox
 - _ParcelList
-- CourierDashboard
-- PickupsScreen
-- SalaryScreen
-- _TaskCardSkeletonState
-- Poller
+- _ImageCropDialog
+- Size
+- PickupPriority
+- _AuroraBackgroundState
 
 ## God Nodes (most connected - your core abstractions)
 1. `Win32Window` - 24 edges
@@ -253,7 +255,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (217 total, 43 thin omitted)
+## Communities (219 total, 47 thin omitted)
 
 ### Community 0 - "auth_screen.dart"
 Cohesion: 0.01
@@ -269,10 +271,10 @@ Nodes (230): active, anonymous, archived, at, attachments, author, autoApplied, 
 
 ### Community 3 - "driver_models.dart"
 Cohesion: 0.01
-Nodes (135): headingToPickup,
+Nodes (136): headingToPickup,
   atPickup,
   headingToDropoff,
-  atDropoff,, accountStatus, actualMinutes, amount, applyFrom, assignedAt, AssignedDeliveryItem, AssignedDeliveryStatus (+127 more)
+  atDropoff,, accountStatus, actualMinutes, amount, applyFrom, assignedAt, AssignedDeliveryItem, AssignedDeliveryStatus (+128 more)
 
 ### Community 4 - "courier_dashboard.dart"
 Cohesion: 0.02
@@ -280,11 +282,11 @@ Nodes (98): acceptanceRate, actionLabel, address, amount, _bar, _breakdownByPeri
 
 ### Community 5 - "buyer_widgets.dart"
 Cohesion: 0.02
-Nodes (104): BoxFit, Completer, dart:collection, ImageProvider, ImageStream?, ImageStreamListener?, acquire, action (+96 more)
+Nodes (89): BoxFit, Completer, dart:collection, ImageProvider, ImageStream?, ImageStreamListener?, acquire, action (+81 more)
 
 ### Community 6 - "settings_widgets.dart"
 Cohesion: 0.03
-Nodes (71): ageFor, avatarUrl, background, build, busy, capitalize, children, controller (+63 more)
+Nodes (79): ageFor, avatarUrl, background, build, busy, capitalize, children, controller (+71 more)
 
 ### Community 7 - "buyer_store.dart"
 Cohesion: 0.02
@@ -292,11 +294,11 @@ Nodes (121): Address? get, BuyerProfile, addressError, addresses, _addressesLoad
 
 ### Community 8 - "driver_shared_widgets.dart"
 Cohesion: 0.03
-Nodes (68): ../chat/chat_models.dart, accent, actionLabel, attachment, avatarUrl, _bubbles, build, cancelLabel (+60 more)
+Nodes (78): ../chat/chat_models.dart, accent, actionLabel, attachment, avatarUrl, _bubbles, build, cancelLabel (+70 more)
 
 ### Community 9 - "common.dart"
 Cohesion: 0.03
-Nodes (79): EdgeInsetsGeometry, AppColors, AuroraBackground, _AuroraBackgroundState, _blob, blur, borderOpacity, borderRadius (+71 more)
+Nodes (73): EdgeInsetsGeometry, AppColors, _blob, blur, borderOpacity, borderRadius, build, _c (+65 more)
 
 ### Community 10 - "api_service.dart"
 Cohesion: 0.02
@@ -320,7 +322,7 @@ Nodes (60): accessToken, account, _addressCard, _addressLoadError, _addressSecti
 
 ### Community 15 - "checkout_screen.dart"
 Cohesion: 0.03
-Nodes (76): ../account/addresses_screen.dart, CheckoutPaymentMethod, address, _AddressPanel, build, _card, _clearShopVouchers, codMethod (+68 more)
+Nodes (79): ../account/addresses_screen.dart, CheckoutPaymentMethod, address, _AddressPanel, build, _card, _clearShopVouchers, codMethod (+71 more)
 
 ### Community 16 - "chat_models.dart"
 Cohesion: 0.03
@@ -336,19 +338,19 @@ Nodes (57): background, base, BButtons, BColors, body, border, BRadius, brand (+
 
 ### Community 19 - "driver_shell.dart"
 Cohesion: 0.03
-Nodes (77): chat/driver_chat_list_screen.dart, deliveries/driver_deliveries_screen.dart, earnings/driver_earnings_screen.dart, history/driver_history_screen.dart, home/courier_home_screen.dart, home/deliver_order_screen.dart, home/delivery_request_details_screen.dart, home/driver_home_screen.dart (+69 more)
+Nodes (78): chat/driver_chat_list_screen.dart, deliveries/driver_deliveries_screen.dart, earnings/courier_earnings_screen.dart, earnings/driver_earnings_screen.dart, history/driver_history_screen.dart, home/courier_home_screen.dart, home/deliver_order_screen.dart, home/delivery_request_details_screen.dart (+70 more)
 
 ### Community 20 - "orders_screen.dart"
 Cohesion: 0.03
 Nodes (69): _applyPending, build, _busy, _CartButton, controller, createState, didChangeDependencies, dispose (+61 more)
 
-### Community 21 - "StatelessWidget"
-Cohesion: 0.05
-Nodes (37): SettingsAvatar, SettingsChoiceField, SettingsDateField, SettingsDropdownField, SettingsErrorBanner, SettingsFieldError, SettingsFieldLabel, SettingsGroupCard (+29 more)
+### Community 21 - "courier_earnings_screen.dart"
+Cohesion: 0.06
+Nodes (33): accessToken, _api, _awaiting, _awaitingCard, _Bucket, build, cents, _chart (+25 more)
 
 ### Community 22 - "driver_deliveries_screen.dart"
 Cohesion: 0.04
-Nodes (52): assigned_delivery_detail_screen.dart, accessToken, _actionsWidth, active, atRisk, _atRiskAfter, _AttentionRibbon, _call (+44 more)
+Nodes (48): assigned_delivery_detail_screen.dart, accessToken, _actionsWidth, active, atRisk, _atRiskAfter, _AttentionRibbon, _call (+40 more)
 
 ### Community 23 - "order_detail_screen.dart"
 Cohesion: 0.03
@@ -367,8 +369,8 @@ Cohesion: 0.03
 Nodes (59): address, body, buyer, companyName, confirmationToken, contactNo, copyWith, courier (+51 more)
 
 ### Community 27 - "home_screen.dart"
-Cohesion: 0.05
-Nodes (36): ../account/wishlist_screen.dart, categories_screen.dart, actionLabel, _ActiveOrderCard, alpha, badge, build, _CategoryRail (+28 more)
+Cohesion: 0.06
+Nodes (35): ../account/wishlist_screen.dart, categories_screen.dart, actionLabel, _ActiveOrderCard, alpha, badge, build, _CategoryRail (+27 more)
 
 ### Community 28 - "driver_history_screen.dart"
 Cohesion: 0.04
@@ -380,7 +382,7 @@ Nodes (58): actionLabel, audience, blocked, blockedLabel, build, busy, busyId, _
 
 ### Community 30 - "address_form_screen.dart"
 Cohesion: 0.04
-Nodes (48): address_pin_picker.dart, _api, barangay, build, city, _clearPin, code, createState (+40 more)
+Nodes (52): address_pin_picker.dart, AddressFormScreen, _AddressFormScreenState, _api, barangay, build, city, _clearPin (+44 more)
 
 ### Community 31 - "GeneratedPluginRegistrant.swift"
 Cohesion: 0.05
@@ -396,11 +398,11 @@ Nodes (37): chat_thread_screen.dart, _actions, archived, build, ChatAvatar, Chat
 
 ### Community 34 - "image_crop_sheet.dart"
 Cohesion: 0.05
-Nodes (38): Image?, _askImageSource, _baseScale, build, bytes, _clamp, context, createState (+30 more)
+Nodes (36): Image?, _askImageSource, _baseScale, build, bytes, _clamp, context, createState (+28 more)
 
-### Community 35 - "State"
-Cohesion: 0.21
-Nodes (13): AutomaticKeepAliveClientMixin, HomeScreen, _NotificationsScreenState, _ProfileScreenState, CategoriesScreen, _CategoriesScreenState, _HomeScreenState, _NotificationsScreenState (+5 more)
+### Community 35 - "SliverPersistentHeaderDelegate"
+Cohesion: 0.50
+Nodes (4): _PinnedHeader, _PinnedHeader, _TabsDelegate, SliverPersistentHeaderDelegate
 
 ### Community 36 - "brand_logo.dart"
 Cohesion: 0.06
@@ -436,7 +438,7 @@ Nodes (30): background, body, border, caption, courierTheme, DriverButtonStyle, 
 
 ### Community 44 - "driver_settings_screen.dart"
 Cohesion: 0.07
-Nodes (28): driver_deactivate_account_dialog.dart, driver_profile_info_screen.dart, driver_vehicle_documents_screen.dart, DriverAccount, accessToken, account, _api, build (+20 more)
+Nodes (27): driver_deactivate_account_dialog.dart, driver_profile_info_screen.dart, driver_vehicle_documents_screen.dart, accessToken, account, _api, build, _comingSoon (+19 more)
 
 ### Community 45 - "qr_scan_screen.dart"
 Cohesion: 0.07
@@ -506,9 +508,9 @@ Nodes (20): anonymous, build, comment, createState, dispose, false, initialRatin
 Cohesion: 0.10
 Nodes (21): build, _code, _controllers, createState, _demoCode, dispose, DriverOtpScreen, _DriverOtpScreenState (+13 more)
 
-### Community 62 - "order_actions.dart"
-Cohesion: 0.10
-Nodes (20): Order, added, build, busy, _cancel, _cancelReasons, _CancelSheet, _CancelSheetState (+12 more)
+### Community 62 - "StatefulWidget"
+Cohesion: 0.08
+Nodes (26): ProfileScreen, Order, HomeScreen, added, build, busy, _cancel, _cancelReasons (+18 more)
 
 ### Community 63 - "poller.dart"
 Cohesion: 0.08
@@ -532,23 +534,23 @@ Nodes (53): accent, account, _AttentionCard, build, caption, color, companyName,
 
 ### Community 68 - "deliver_order_screen.dart"
 Cohesion: 0.11
-Nodes (19): _arrived, _attachPhoto, build, _contactStub, createState, DeliverOrderScreen, _DeliverOrderScreenState, delivery (+11 more)
+Nodes (19): ActiveDelivery, _arrived, _attachPhoto, build, _contactStub, createState, DeliverOrderScreen, _DeliverOrderScreenState (+11 more)
 
 ### Community 69 - "addresses_screen.dart"
 Cohesion: 0.08
-Nodes (25): address_form_screen.dart, _Action, address, _AddressCard, AddressesScreen, _AddressesScreenState, build, color (+17 more)
+Nodes (24): address_form_screen.dart, _Action, address, _AddressCard, AddressesScreen, _AddressesScreenState, build, color (+16 more)
 
 ### Community 70 - "driver_archived_conversations_screen.dart"
-Cohesion: 0.11
-Nodes (18): driver_chat_conversation_screen.dart, driver_chat_list_screen.dart, build, controller, _conversations, createState, _debounce, dispose (+10 more)
+Cohesion: 0.06
+Nodes (37): ChangeNotifier, chat_models.dart, ChatConversation?, driver_chat_controller.dart, driver_chat_conversation_screen.dart, driver_chat_list_screen.dart, BuyerStore, ParcelJourneyController (+29 more)
 
 ### Community 71 - "win32_window.cpp"
-Cohesion: 0.13
-Nodes (17): dwmapi, wchar_t, Scale(), Size, height, width, Create, Destroy (+9 more)
+Cohesion: 0.16
+Nodes (15): dwmapi, wchar_t, Scale(), Create, Destroy, SetQuitOnClose, Show, UpdateTheme (+7 more)
 
-### Community 72 - "pickup_order_screen.dart"
+### Community 72 - "../driver_theme.dart"
 Cohesion: 0.12
-Nodes (17): ActiveDelivery, _arrived, _attachPhoto, build, _contactStub, createState, delivery, _handleArrived (+9 more)
+Nodes (17): ../driver_theme.dart, _arrived, _attachPhoto, build, _contactStub, createState, delivery, _handleArrived (+9 more)
 
 ### Community 73 - "buyer_shell.dart"
 Cohesion: 0.10
@@ -556,19 +558,19 @@ Nodes (21): account/account_screen.dart, ../account/notifications_screen.dart, c
 
 ### Community 74 - "delivery_request_details_screen.dart"
 Cohesion: 0.12
-Nodes (17): ../driver_models.dart, DeliveryRequest, _accept, _addressRow, build, capacity, createState, _decline (+9 more)
+Nodes (17): DeliveryRequest, _accept, _addressRow, build, capacity, createState, _decline, DeliveryRequestDetailsScreen (+9 more)
 
-### Community 75 - "../buyer_theme.dart"
-Cohesion: 0.17
-Nodes (11): ../buyer_theme.dart, OrderItem, build, item, _openPhoto, _reasonLabel, _reasons, returnBadge (+3 more)
+### Community 75 - "StatelessWidget"
+Cohesion: 0.06
+Nodes (36): BCheck, CategoryThumb, DiscountBadge, DiscountRibbon, EmptyState, ErrorState, _ImageFallback, NetImage (+28 more)
 
 ### Community 76 - "document_viewer_screen.dart"
 Cohesion: 0.13
 Nodes (15): driver_work_screen.dart, build, _controller, createState, DocumentViewerScreen, _DocumentViewerScreenState, _failed, initState (+7 more)
 
-### Community 77 - "variant_sheet.dart"
-Cohesion: 0.12
-Nodes (17): Product, ProductVariant, build, createState, initState, mode, product, quantity (+9 more)
+### Community 77 - "Map"
+Cohesion: 0.11
+Nodes (18): Product, ProductVariant, build, createState, initState, mode, product, quantity (+10 more)
 
 ### Community 78 - "logistics_settings_screen.dart"
 Cohesion: 0.03
@@ -578,37 +580,37 @@ Nodes (62): accessToken, account, _AccountPanel, _address, _api, build, _busy, c
 Cohesion: 0.11
 Nodes (18): AnimationController, badgeCount, build, CourierNavBar, _CourierNavBarState, createState, currentIndex, dispose (+10 more)
 
-### Community 80 - "../driver_theme.dart"
+### Community 80 - "../services/api_service.dart"
 Cohesion: 0.12
-Nodes (15): ../driver_theme.dart, codeDigits, codeInputs, confirmPassword, context, error, newPassword, obscure1 (+7 more)
+Nodes (15): codeDigits, codeInputs, confirmPassword, context, error, newPassword, obscure1, sending (+7 more)
 
 ### Community 81 - "payments_util.dart"
 Cohesion: 0.13
 Nodes (14): alt, d, detectCardBrand, digits, digitsOnly, expiryPassed, luhnValid, m (+6 more)
 
-### Community 82 - "driver_splash_screen.dart"
-Cohesion: 0.11
-Nodes (18): Animation, ../driver_shell.dart, VouchersScreen, _VouchersScreenState, _api, build, _controller, createState (+10 more)
+### Community 82 - "../buyer_theme.dart"
+Cohesion: 0.08
+Nodes (24): ../buyer_models.dart, ../buyer_theme.dart, Color?, Coupon, OrderItem, build, item, _openPhoto (+16 more)
 
 ### Community 83 - "package:flutter/material.dart"
-Cohesion: 0.08
-Nodes (20): ElevatedButton, build, _buildFeatureItem, SidePanel, MaterialApp, package:buytheway/main.dart, package:buytheway/screens/buyer/catalog/home_screen.dart, package:buytheway/screens/driver/chat/chat_models.dart (+12 more)
+Cohesion: 0.06
+Nodes (27): ElevatedButton, build, _buildFeatureItem, SidePanel, MaterialApp, package:buytheway/main.dart, package:buytheway/screens/buyer/buyer_models.dart, package:buytheway/screens/buyer/catalog/home_screen.dart (+19 more)
 
 ### Community 84 - "notification_inbox.dart"
 Cohesion: 0.04
-Nodes (56): bottomNavigationBar, build, _buildFeed, createState, didChangeDependencies, diff, dispose, emptySubtitle (+48 more)
+Nodes (54): bottomNavigationBar, build, _buildFeed, createState, didChangeDependencies, diff, dispose, emptySubtitle (+46 more)
 
 ### Community 85 - "chat_assistant.dart"
 Cohesion: 0.04
 Nodes (48): active, AssistantActions, _body, build, ChatPick, conversationId, createState, dispose (+40 more)
 
-### Community 86 - "string"
-Cohesion: 0.12
-Nodes (19): dart_project, flutter_view_controller, flutter_windows, functional, _In_, _In_opt_, io, iostream (+11 more)
+### Community 86 - "utils.cpp"
+Cohesion: 0.19
+Nodes (12): flutter_windows, _In_, _In_opt_, io, iostream, stdio, wWinMain(), string (+4 more)
 
-### Community 87 - "DriverChatController"
-Cohesion: 0.40
-Nodes (5): ChangeNotifier, BuyerStore, ParcelJourneyController, ProductPager, DriverChatController
+### Community 87 - "VoidCallback?"
+Cohesion: 0.15
+Nodes (11): common.dart, build, DriverNotificationBell, onTap, unread, build, isFullWidth, label (+3 more)
 
 ### Community 88 - "Development Instructions"
 Cohesion: 0.17
@@ -619,12 +621,12 @@ Cohesion: 0.05
 Nodes (37): _add, _addPackage, build, busy, contents, createState, _damaged, details (+29 more)
 
 ### Community 90 - "payment_qr_screen.dart"
-Cohesion: 0.11
-Nodes (19): accessToken, _api, build, _busy, _change, createState, dispose, _error (+11 more)
+Cohesion: 0.09
+Nodes (23): accessToken, _api, build, _busy, _change, createState, dispose, _error (+15 more)
 
-### Community 91 - "Map"
-Cohesion: 0.13
-Nodes (14): ../driver/driver_theme.dart, IconData get, build, _detail, _link, onSelect, RemittanceRecordCard, row (+6 more)
+### Community 91 - "../driver/driver_theme.dart"
+Cohesion: 0.14
+Nodes (13): ../driver/driver_theme.dart, IconData get, build, _detail, _link, onSelect, RemittanceRecordCard, row (+5 more)
 
 ### Community 92 - "MessageHandler"
 Cohesion: 0.18
@@ -634,9 +636,9 @@ Nodes (10): generated_plugin_registrant, optional, DartProject, HWND, LPARAM, LR
 Cohesion: 0.18
 Nodes (10): background_color, description, display, icons, name, orientation, prefer_related_applications, short_name (+2 more)
 
-### Community 94 - "../buyer_store.dart"
+### Community 94 - "ValueChanged"
 Cohesion: 0.12
-Nodes (17): ../buyer_store.dart, buyer_widgets.dart, build, _busy, BuyerPaymentQrCard, _BuyerPaymentQrCardState, _change, createState (+9 more)
+Nodes (17): buyer_widgets.dart, build, _busy, BuyerPaymentQrCard, _BuyerPaymentQrCardState, _change, createState, _error (+9 more)
 
 ### Community 95 - "main.dart"
 Cohesion: 0.13
@@ -649,10 +651,6 @@ Nodes (71): _aboutRow, _ActionTile, anonymous, _block, build, busy, _claim, clai
 ### Community 97 - "driver_forgot_password_screen.dart"
 Cohesion: 0.15
 Nodes (13): build, createState, dispose, DriverForgotPasswordScreen, _DriverForgotPasswordScreenState, _emailController, _error, _formState (+5 more)
-
-### Community 98 - "outline_action_button.dart"
-Cohesion: 0.29
-Nodes (6): common.dart, build, isFullWidth, label, onPressed, OutlineActionButton
 
 ### Community 99 - ".aider-desk/skills/appui-design-skill/scripts/render-previews.mjs"
 Cohesion: 0.05
@@ -672,11 +670,11 @@ Nodes (50): _buyer, BuyerReportDetailScreen, _BuyerReportDetailScreenState, Buye
 
 ### Community 103 - "logistics_notifications_screen.dart"
 Cohesion: 0.12
-Nodes (15): ../../driver/notifications/notification_inbox.dart, ../inventory/inventory_detail_screen.dart, accessToken, _api, bottomNavigationBar, build, LogisticsNotificationsScreen, onOpenInventory (+7 more)
+Nodes (16): ../../driver/notifications/notification_inbox.dart, ../inventory/inventory_detail_screen.dart, accessToken, _api, bottomNavigationBar, build, LogisticsNotificationsScreen, onOpenInventory (+8 more)
 
 ### Community 106 - "remittances_test.dart"
-Cohesion: 0.11
-Nodes (18): dart:convert, Exception, ApiException, GoogleAuthException, RemittanceApiService, package:buytheway/screens/remittances/remittance_format.dart, package:buytheway/screens/remittances/remittances_screen.dart, package:buytheway/services/api_service.dart (+10 more)
+Cohesion: 0.12
+Nodes (16): dart:convert, Exception, ApiException, GoogleAuthException, package:buytheway/screens/remittances/remittance_format.dart, package:buytheway/screens/remittances/remittances_screen.dart, package:buytheway/services/api_service.dart, package:buytheway/services/remittance_api_service.dart (+8 more)
 
 ### Community 109 - "remittances_screen.dart"
 Cohesion: 0.03
@@ -688,7 +686,7 @@ Nodes (43): ParcelJourney, accessToken, build, controller, createState, _ctrl, d
 
 ### Community 111 - "driver_vehicle_documents_screen.dart"
 Cohesion: 0.07
-Nodes (28): class, accessToken, account, _api, build, _cancelDocumentReplacement, _cancellingDocuments, _chooseLicenseExpiry (+20 more)
+Nodes (29): class, DriverAccount, accessToken, account, _api, build, _cancelDocumentReplacement, _cancellingDocuments (+21 more)
 
 ### Community 112 - "address_pin_picker.dart"
 Cohesion: 0.06
@@ -699,16 +697,16 @@ Cohesion: 0.06
 Nodes (33): int?, action, _amount, api, build, _busy, _bytes, _changed (+25 more)
 
 ### Community 114 - "MessageHandler"
-Cohesion: 0.33
-Nodes (11): HWND, LPARAM, LRESULT, UINT, WPARAM, EnableFullDpiSupportIfAvailable(), GetHandle, GetThisFromHandle (+3 more)
+Cohesion: 0.36
+Nodes (10): HWND, LPARAM, LRESULT, UINT, WPARAM, EnableFullDpiSupportIfAvailable(), GetHandle, GetThisFromHandle (+2 more)
 
 ### Community 115 - "remittance_api_service.dart"
 Cohesion: 0.07
-Nodes (29): Client, accessToken, _base, _client, close, _decode, dispute, fromJson (+21 more)
+Nodes (29): Client, accessToken, _base, _client, close, _decode, dispute, earningsPage (+21 more)
 
 ### Community 116 - "remittance_detail_screen.dart"
 Cohesion: 0.07
-Nodes (27): api, build, createState, didChangeDependencies, dispose, _error, _eventColor, _eventDate (+19 more)
+Nodes (29): api, build, createState, didChangeDependencies, dispose, _error, _eventColor, _eventDate (+21 more)
 
 ### Community 117 - "voucher_quote.dart"
 Cohesion: 0.06
@@ -735,20 +733,16 @@ Cohesion: 0.05
 Nodes (42): Future, GoogleSignIn, _apply, _availability, build, _categories, _category, createState (+34 more)
 
 ### Community 124 - "../widgets/buyer_widgets.dart"
-Cohesion: 0.07
-Nodes (30): home_screen.dart, build, createState, dispose, _pagerFor, _pagers, _selected, wantKeepAlive (+22 more)
+Cohesion: 0.06
+Nodes (34): AutomaticKeepAliveClientMixin, home_screen.dart, build, CategoriesScreen, _CategoriesScreenState, createState, dispose, _pagerFor (+26 more)
 
-### Community 125 - "address_sheet.dart"
-Cohesion: 0.12
-Nodes (17): ../account/address_form_screen.dart, ../account/settings_kit.dart, Address, _AddressSheet, _AddressSheetState, build, busyId, chosen (+9 more)
+### Community 125 - "../buyer_store.dart"
+Cohesion: 0.11
+Nodes (18): ../account/address_form_screen.dart, ../account/settings_kit.dart, ../buyer_store.dart, Address, _AddressSheet, _AddressSheetState, build, busyId (+10 more)
 
 ### Community 126 - "order_placed_screen.dart"
 Cohesion: 0.13
 Nodes (15): ../buyer_shell.dart, ../cart/cart_screen.dart, build, createState, dispose, _header, OrderPlacedScreen, _OrderPlacedScreenState (+7 more)
-
-### Community 127 - "SliverPersistentHeaderDelegate"
-Cohesion: 0.50
-Nodes (4): _PinnedHeader, _PinnedHeader, _TabsDelegate, SliverPersistentHeaderDelegate
 
 ### Community 128 - "package:flutter/services.dart"
 Cohesion: 0.14
@@ -758,13 +752,9 @@ Nodes (13): build, _CheckBadge, duration, message, paint, progress, shouldRepain
 Cohesion: 0.04
 Nodes (45): actionLabel, api, autofillHint, autofocus, build, _busy, child, _code (+37 more)
 
-### Community 130 - "Color?"
+### Community 131 - "State"
 Cohesion: 0.09
-Nodes (21): Color?, CustomPainter, _TicketPainter, Coupon, build, claimed, claiming, color (+13 more)
-
-### Community 131 - "StatefulWidget"
-Cohesion: 0.09
-Nodes (23): ProfileScreen, _ApplyPage, __ApplyPageState, DriverWorkScreen, _DriverWorkScreenState, EmploymentBanner, _EmploymentBannerState, ResignationRequestSheet (+15 more)
+Nodes (25): _NotificationsScreenState, _ProfileScreenState, _ApplyPage, __ApplyPageState, DriverWorkScreen, _DriverWorkScreenState, EmploymentBanner, _EmploymentBannerState (+17 more)
 
 ### Community 133 - "logistics_nav_bar.dart"
 Cohesion: 0.11
@@ -776,7 +766,7 @@ Nodes (3): CustomClipper, _TicketClipper, Path
 
 ### Community 144 - "List"
 Cohesion: 0.14
-Nodes (14): ../buyer_models.dart, build, createState, _delete, error, initState, _load, methods (+6 more)
+Nodes (14): build, createState, _delete, error, initState, _load, methods, PaymentMethodsScreen (+6 more)
 
 ### Community 145 - "notifications_screen.dart"
 Cohesion: 0.06
@@ -786,13 +776,13 @@ Nodes (30): build, createState, dispose, error, hasMore, _iconFor, initState, it
 Cohesion: 0.05
 Nodes (40): actionLabel, _api, _apply, _bar, build, _connectGoogle, createState, destructive (+32 more)
 
-### Community 147 - "static const"
-Cohesion: 0.18
-Nodes (11): FormState, build, createState, _description, dispose, FailedAttemptSheet, _FailedAttemptSheetState, _formKey (+3 more)
+### Community 147 - "failed_attempt_sheet.dart"
+Cohesion: 0.08
+Nodes (25): dart:math, FormState, active, build, _canvas, _chooseReason, createState, _description (+17 more)
 
 ### Community 148 - "brand_splash_screen.dart"
-Cohesion: 0.12
-Nodes (17): ../auth/auth_screen.dart, ../buyer/buyer_shell.dart, dart:math, ../driver/driver_shell.dart, _api, BrandSplashScreen, _BrandSplashScreenState, build (+9 more)
+Cohesion: 0.11
+Nodes (19): ../buyer/buyer_shell.dart, ../driver/driver_shell.dart, VouchersScreen, _VouchersScreenState, _api, BrandSplashScreen, _BrandSplashScreenState, build (+11 more)
 
 ### Community 149 - "push_service.dart"
 Cohesion: 0.05
@@ -806,30 +796,30 @@ Nodes (26): @visibleForTesting, dart:typed_data, dart:ui, settleSentMessage, ava
 Cohesion: 0.14
 Nodes (12): Design with your model, After generating: offer to go further, Browser Choice, Core scenarios (what this skill handles), How it works, Images and local assets, Init Files (cold/stale context path), Init: Repo Analysis (real-codebase path) (+4 more)
 
-### Community 152 - "ValueChanged"
-Cohesion: 0.12
-Nodes (15): activeIcon, badgeCount, _barHeight, build, BuyerNavBar, currentIndex, _handleTap, icon (+7 more)
+### Community 152 - "buyer_nav_bar.dart"
+Cohesion: 0.13
+Nodes (14): activeIcon, badgeCount, _barHeight, build, BuyerNavBar, currentIndex, _handleTap, icon (+6 more)
 
 ### Community 153 - "IconData?"
 Cohesion: 0.12
 Nodes (16): IconData?, build, confirmPhrase, _DeactivationConsequence, _deactivationInputDecoration, error, _FieldLabel, icon (+8 more)
 
+### Community 156 - "profile_field_validators.dart"
+Cohesion: 0.25
+Nodes (7): adultBirthday, middleInitial, _mobile, _personName, philippinesMobile, ProfileFieldValidators, static final RegExp
+
 ### Community 159 - "Appui-Design-Skill"
 Cohesion: 0.12
 Nodes (15): Appui-Design-Skill, Aurora Bank, Bento Market, Frame Studio, License, Local Install, Nomad Trip, Pulse Care (+7 more)
-
-### Community 160 - "driver_delivery_message_screen.dart"
-Cohesion: 0.14
-Nodes (14): chat_models.dart, ChatConversation?, driver_chat_controller.dart, build, contact, controller, _conversation, createState (+6 more)
 
 ### Community 161 - "remittance_format.dart"
 Cohesion: 0.11
 Nodes (17): isNotEmpty
       ?, amount, business, cents, digits, formatEditUpdate, parse, parseRemittancePesos (+9 more)
 
-### Community 162 - "../services/api_service.dart"
-Cohesion: 0.15
-Nodes (13): build, buyerToken, createState, _error, initState, _loading, _open, SellerRemittancesScreen (+5 more)
+### Community 162 - "dart:async"
+Cohesion: 0.17
+Nodes (12): dart:async, build, buyerToken, createState, _error, initState, _loading, _open (+4 more)
 
 ### Community 163 - "Appui-Design-Skill"
 Cohesion: 0.12
@@ -837,7 +827,7 @@ Nodes (15): Appui-Design-Skill, Aurora Bank, Bento Market, Frame Studio, License
 
 ### Community 164 - "driver_notifications_screen.dart"
 Cohesion: 0.12
-Nodes (16): ../chat/driver_chat_controller.dart, ../deliveries/assigned_delivery_detail_screen.dart, accessToken, _api, build, controller, DriverNotificationsScreen, onBusy (+8 more)
+Nodes (16): ../chat/driver_chat_controller.dart, ../deliveries/assigned_delivery_detail_screen.dart, ../driver_models.dart, accessToken, _api, build, controller, DriverNotificationsScreen (+8 more)
 
 ### Community 165 - "driver_nav_bar.dart"
 Cohesion: 0.12
@@ -855,17 +845,17 @@ Nodes (13): 1. Detect Framework & Component Library, 2. Write `components.md`, 3
 Cohesion: 0.15
 Nodes (13): Canvas presets, Deliver, Graphic Generation Workflow (posters, covers, social & marketing assets), Layout menu (pick exactly one), Overview, Platform-specific marketing assets, Series (multiple graphics), Step 1 — Confirm the brief (one round, not three) (+5 more)
 
-### Community 170 - "dart:async"
-Cohesion: 0.15
-Nodes (12): api_service.dart, dart:async, GlobalKey, appNavigatorKey, context, from, installUserErrorHandlers, messenger (+4 more)
+### Community 170 - "user_error_handler.dart"
+Cohesion: 0.17
+Nodes (11): api_service.dart, GlobalKey, appNavigatorKey, context, from, installUserErrorHandlers, messenger, _showUnexpectedError (+3 more)
 
 ### Community 171 - "TextInputFormatter"
 Cohesion: 0.40
 Nodes (5): _PlateNumberFormatter, _UppercaseLetterFormatter, _LocalMobileFormatter, TransactionNumberFormatter, TextInputFormatter
 
-### Community 172 - "session_recovery_state.dart"
-Cohesion: 0.15
-Nodes (12): brand_logo.dart, build, _canvas, _darkTeal, detailNote, _ink, message, _muted (+4 more)
+### Community 172 - "static const"
+Cohesion: 0.14
+Nodes (13): brand_logo.dart, build, _canvas, _darkTeal, detailNote, _ink, message, _muted (+5 more)
 
 ### Community 173 - "PETITE-VUE TEMPLATE SPEC"
 Cohesion: 0.18
@@ -899,13 +889,13 @@ Nodes (8): Choose the generation path, Decide whether to generate, Image: prefer
 Cohesion: 0.25
 Nodes (7): Buytheway Logistics Dashboard — Implementation Plan, Data and behavior constraints, Files likely involved, Follow-up verification, Implemented, Reference adaptations, Target and existing behavior
 
-### Community 187 - "profile_field_validators.dart"
-Cohesion: 0.25
-Nodes (7): adultBirthday, middleInitial, _mobile, _personName, philippinesMobile, ProfileFieldValidators, static final RegExp
+### Community 187 - "driver_splash_screen.dart"
+Cohesion: 0.13
+Nodes (15): Animation, ../auth/auth_screen.dart, ../driver_shell.dart, _api, build, _controller, createState, dispose (+7 more)
 
-### Community 188 - "return_tracking_sheet_test.dart"
-Cohesion: 0.25
-Nodes (7): package:buytheway/screens/buyer/buyer_models.dart, package:buytheway/screens/buyer/orders/return_tracking_sheet.dart, _item, main, note, _pump, pumpWidget
+### Community 188 - "string"
+Cohesion: 0.27
+Nodes (7): dart_project, flutter_view_controller, functional, memory, string, vector, windows
 
 ### Community 189 - "Presentation workflow"
 Cohesion: 0.29
@@ -935,9 +925,9 @@ Nodes (5): Design Inspiration Search, Platform Guidance, Practical Takeaways, Re
 Cohesion: 0.33
 Nodes (5): Contract, Naming, README Rule, Source Preview Contract, Verification
 
-### Community 196 - "VoidCallback?"
-Cohesion: 0.33
-Nodes (5): build, DriverNotificationBell, onTap, unread, VoidCallback?
+### Community 196 - "CustomPainter"
+Cohesion: 0.22
+Nodes (9): CustomPainter, _TicketPainter, DealDashPainter, _CheckPainter, _RouteGridPainter, _RoutePathPainter, _VolumeLinePainter, _BagLogoPainter (+1 more)
 
 ### Community 197 - "WEBSITE.md"
 Cohesion: 0.50
@@ -955,20 +945,24 @@ Nodes (3): Case Catalog, Multi-Screen Themes, Pattern Coverage
 Cohesion: 0.67
 Nodes (3): Command examples, Superdesign CLI (MUST use before any command), When a command fails
 
+### Community 212 - "Size"
+Cohesion: 0.50
+Nodes (3): Size, height, width
+
 ## Knowledge Gaps
-- **4876 isolated node(s):** `name`, `version`, `private`, `description`, `type` (+4871 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5127 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **43 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **4924 isolated node(s):** `name`, `version`, `private`, `description`, `type` (+4919 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 5176 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **47 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Win32Window` connect `Win32Window` to `win32_window.cpp`, `MessageHandler`, `string`, `Point`, `MessageHandler`?**
-  _High betweenness centrality (0.010) - this node is a cross-community bridge._
-- **Why does `ApiService` connect `driver_splash_screen.dart` to `auth_screen.dart`, `driver_work_screen.dart`, `sign_in_methods_sheets.dart`, `api_service.dart`, `driver_settings_screen.dart`, `driver_chat_controller.dart`, `driver_profile_info_screen.dart`, `driver_vehicle_documents_screen.dart`, `inventory_detail_screen.dart`, `assigned_delivery_detail_screen.dart`, `sign_in_methods_section.dart`, `driver_shell.dart`, `logistics_shell.dart`, `brand_splash_screen.dart`, `driver_history_screen.dart`?**
+- **Why does `ApiService` connect `brand_splash_screen.dart` to `auth_screen.dart`, `driver_work_screen.dart`, `sign_in_methods_sheets.dart`, `api_service.dart`, `driver_settings_screen.dart`, `driver_chat_controller.dart`, `driver_profile_info_screen.dart`, `driver_vehicle_documents_screen.dart`, `inventory_detail_screen.dart`, `assigned_delivery_detail_screen.dart`, `sign_in_methods_section.dart`, `driver_shell.dart`, `logistics_shell.dart`, `driver_splash_screen.dart`, `driver_history_screen.dart`?**
   _High betweenness centrality (0.007) - this node is a cross-community bridge._
+- **Why does `Win32Window` connect `Win32Window` to `win32_window.cpp`, `MessageHandler`, `MessageHandler`, `Size`, `Point`, `string`?**
+  _High betweenness centrality (0.006) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _4876 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _4924 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `auth_screen.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.008130081300813009 - nodes in this community are weakly interconnected._
 - **Should `driver_work_screen.dart` be split into smaller, more focused modules?**
@@ -976,4 +970,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `buyer_models.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.008658008658008658 - nodes in this community are weakly interconnected._
 - **Should `driver_models.dart` be split into smaller, more focused modules?**
-  _Cohesion score 0.014705882352941176 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.014598540145985401 - nodes in this community are weakly interconnected._

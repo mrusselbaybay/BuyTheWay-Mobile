@@ -1438,6 +1438,8 @@ class _AssignedDeliveryDetailScreenState
                   d.isTransfer ? 'Hub transfer' : 'Delivery run'),
               if (d.isReturn)
                 _overviewTag(Icons.assignment_return_outlined, 'Return parcel'),
+              if (d.outOfArea)
+                _overviewTag(Icons.route_outlined, 'Out of area'),
               if (d.paymentMethod == 'cod' && d.codAmountCents > 0)
                 _overviewTag(Icons.payments_outlined,
                     'COD ₱${(d.codAmountCents / 100).toStringAsFixed(2)}'),
@@ -1640,29 +1642,75 @@ class _AssignedDeliveryDetailScreenState
           children: [
             if (d.deliveryAttempt.reason != null) ...[
               _sectionCard(
-                icon: Icons.warning_amber_rounded,
-                title: 'Failed attempt ${d.deliveryAttempt.count}',
+                icon: Icons.assignment_late_outlined,
+                title: 'Delivery attempt ${d.deliveryAttempt.count}',
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(d.deliveryAttempt.reason!, style: DriverText.body),
-                      if (d.deliveryAttempt.description != null)
-                        Text(d.deliveryAttempt.description!,
-                            style: DriverText.body),
-                      Text(_formatDate(d.deliveryAttempt.failedAt),
-                          style: DriverText.caption),
-                      if (d.status ==
-                          AssignedDeliveryStatus.needsDispatcherReview)
-                        Text(
-                            d.deliveryAttempt.returnFlaggedAt != null
-                                ? 'Flagged for the separate return process. Courier re-attempts are blocked.'
-                                : 'Waiting for dispatcher review. You cannot start another attempt yet.',
-                            style: DriverText.caption)
-                      else if (d.status == AssignedDeliveryStatus.failedAttempt)
-                        Text(
-                            'Re-attempt available from ${_formatDate(d.deliveryAttempt.retryAt)}.',
-                            style: DriverText.caption),
-                    ]),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: DriverColors.warningSurface,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        d.deliveryAttempt.returnFlaggedAt != null
+                            ? 'Return to seller requested'
+                            : d.status ==
+                                    AssignedDeliveryStatus.needsDispatcherReview
+                                ? 'Dispatcher review needed'
+                                : 'Attempt recorded',
+                        style: const TextStyle(
+                          color: DriverColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(d.deliveryAttempt.reason!,
+                        style: DriverText.sectionTitle),
+                    if (d.deliveryAttempt.description != null &&
+                        d.deliveryAttempt.description!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(d.deliveryAttempt.description!,
+                          style: DriverText.body),
+                    ],
+                    const SizedBox(height: 7),
+                    Text(_formatDate(d.deliveryAttempt.failedAt),
+                        style: DriverText.caption),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: DriverColors.background,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.route_outlined,
+                              size: 18, color: DriverColors.primaryDark),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              d.deliveryAttempt.returnFlaggedAt != null
+                                  ? 'This parcel is in the return process. Do not start another delivery attempt.'
+                                  : d.status ==
+                                          AssignedDeliveryStatus
+                                              .needsDispatcherReview
+                                      ? 'Wait for dispatch to review this attempt before trying again.'
+                                      : 'Next attempt available from ${_formatDate(d.deliveryAttempt.retryAt)}.',
+                              style: DriverText.body,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -1685,7 +1733,9 @@ class _AssignedDeliveryDetailScreenState
                 icon: Icons.hourglass_top_rounded,
                 title: 'Waiting for your approval',
                 child: Text(
-                    'Review this parcel and accept or reject before ${_formatDate(d.handoffExpiresAt)}.',
+                    d.outOfArea
+                        ? 'This stop is out of area. Review the route and accept or reject before ${_formatDate(d.handoffExpiresAt)}.'
+                        : 'Review this parcel and accept or reject before ${_formatDate(d.handoffExpiresAt)}.',
                     style: DriverText.body),
               ),
             ],
@@ -2493,9 +2543,8 @@ class _AssignedDeliveryDetailScreenState
                         : (isTransfer
                             ? 'Confirm transfer'
                             : 'Mark as delivered'))),
-                style: DriverButtonStyle.primary(isPickup
-                    ? DriverColors.primary
-                    : DriverColors.success),
+                style: DriverButtonStyle.primary(
+                    isPickup ? DriverColors.primary : DriverColors.success),
               ),
             ),
           ],

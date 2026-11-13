@@ -34,6 +34,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Address? address;
 
   List<ShippingOption> shippingOptions = [];
+  Map<String, List<ShippingOption>> sellerShippingOptions = {};
+  bool outOfArea = false;
   CheckoutPaymentMethod? codMethod;
   int sellerCount = 1;
   String shippingMethod = 'standard';
@@ -209,11 +211,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
     try {
       final ids = items.map((i) => i.productId).toSet().toList();
-      final (options, count, paymentMethods) = await store.api.shippingOptions(ids, addressId: addressId);
+      final (options, count, paymentMethods, perSeller, outside) = await store.api.shippingOptions(ids, addressId: addressId, lines: items);
       if (!mounted) return;
       final before = shippingMethod;
       setState(() {
         shippingOptions = options.where((o) => o.id != 'same_day').toList();
+        sellerShippingOptions = perSeller;
+        outOfArea = outside;
         sellerCount = count;
         codMethod = paymentMethods.where((method) => method.id == paymentMethod).firstOrNull;
         if (!options.any((o) => o.id == shippingMethod && o.available)) shippingMethod = 'standard';
@@ -297,7 +301,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   ShippingOption? get selectedShipping => shippingOptions.where((o) => o.id == shippingMethod).firstOrNull;
 
-  double get shippingFee => (selectedShipping?.fee ?? 0) * sellerCount;
+  double shippingFeeFor(String method) => sellerShippingOptions.isEmpty
+      ? (shippingOptions.where((o) => o.id == method).firstOrNull?.fee ?? 0) * sellerCount
+      : sellerShippingOptions.values.fold(0.0, (sum, options) =>
+          sum + (options.where((o) => o.id == method).firstOrNull?.fee ?? 0));
+
+  double get shippingFee => shippingFeeFor(shippingMethod);
 
   double _savingsOf(VoucherOffer offer, VoucherPick? pick) => (offer.find('discount', pick?.discount)?.amount ?? 0) + (offer.find('shipping', pick?.shipping)?.amount ?? 0);
 
@@ -812,10 +821,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 dense: true,
                 title: Row(children: [
                   Expanded(child: Text(o.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: o.available ? BColors.ink : BColors.faint))),
-                  Text(peso(o.fee * sellerCount), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: o.available ? BColors.ink : BColors.faint)),
+                  Text(peso(shippingFeeFor(o.id)), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: o.available ? BColors.ink : BColors.faint)),
                 ]),
                 subtitle: Text(o.available ? (o.description ?? '') : (o.unavailableReason ?? 'Not available for this order'), style: BText.tiny),
               )).toList()),
+          ),
+        if (outOfArea && shippingError == null)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('Out of area: delivery may take longer and depends on courier availability. The shipping fee shown is fixed for this order.', style: BText.tiny),
           ),
       ]),
     );
